@@ -1,0 +1,602 @@
+/* ===== Message List ===== */
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  scroll-behavior: smooth;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  gap: 8px;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.emptyText {
+  font-size: 16px;
+  color: #666;
+}
+
+.emptyHint {
+  font-size: 13px;
+  color: #bbb;
+}
+
+/* ===== User Message ===== */
+.userRow {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.userBubble {
+  max-width: 80%;
+  padding: 10px 14px;
+  background: #1677ff;
+  color: #fff;
+  border-radius: 12px 12px 4px 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.avatar {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+/* ===== Bot Message ===== */
+.botRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.botAvatar {
+  font-size: 24px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.botContent {
+  flex: 1;
+  max-width: calc(100% - 40px);
+}
+
+.botBubble {
+  padding: 12px 16px;
+  background: #f6f8fa;
+  border-radius: 12px 12px 12px 4px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+  word-break: break-word;
+}
+
+/* Streaming text area */
+.streamingContent {
+  white-space: pre-wrap;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  color: #555;
+  line-height: 1.5;
+}
+
+/* Error state */
+.errorBubble {
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  color: #ff4d4f;
+}
+
+/* Run ID tag */
+.runIdTag {
+  font-size: 11px;
+  color: #999;
+  margin-bottom: 6px;
+  padding: 2px 0;
+}
+
+.runIdTag code {
+  background: #f5f5f5;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #666;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+/* ===== Node Blocks Area ===== */
+.nodeBlocksArea {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* ===== Node Block Card ===== */
+.nodeBlock {
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.nodeBlockActive {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 1px rgba(22, 119, 255, 0.15);
+}
+
+.nodeBlockDone {
+  border-color: #b7eb8f;
+}
+
+.nodeHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.nodeHeader:hover {
+  background: #fafafa;
+}
+
+.nodeStatus {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.nodeLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+}
+
+.nodePulse {
+  font-size: 12px;
+  color: #1677ff;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.nodeDuration {
+  font-size: 12px;
+  color: #999;
+  font-variant-numeric: tabular-nums;
+}
+
+.nodeToggle {
+  font-size: 12px;
+  color: #bbb;
+  flex-shrink: 0;
+}
+
+/* ===== Node Body ===== */
+.nodeBody {
+  border-top: 1px solid #f0f0f0;
+  padding: 12px 14px;
+  background: #fafbfc;
+}
+
+.nodeSection {
+  margin-bottom: 12px;
+}
+
+.nodeSection:last-child {
+  margin-bottom: 0;
+}
+
+.nodeSectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 6px;
+  text-transform: none;
+}
+
+/* AI thinking tokens (monospace block) */
+.nodeThinking {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+/* Handoff summary */
+.nodeHandoff {
+  font-size: 13px;
+  color: #555;
+  background: #f0f5ff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border-left: 3px solid #1677ff;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* Structured handoff KV list */
+.handoffKvList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.handoffKvItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.handoffKey {
+  font-weight: 600;
+  color: #1677ff;
+  background: #e6f4ff;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+}
+
+.handoffValue {
+  color: #333;
+  word-break: break-word;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+}
+
+.handoffValuePre {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin: 2px 0;
+  white-space: pre-wrap;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  transition: max-height 0.2s;
+}
+
+.handoffValueCollapsed {
+  max-height: 60px;
+  overflow: hidden;
+  position: relative;
+}
+
+.handoffValueCollapsed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(transparent, #1e1e1e);
+}
+
+.handoffExpand {
+  font-size: 11px;
+  color: #1677ff;
+  cursor: pointer;
+  user-select: none;
+  margin-left: 4px;
+}
+
+.handoffExpand:hover {
+  text-decoration: underline;
+}
+
+/* ===== Tool Calls Within Node ===== */
+.toolCalls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toolCall {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #f0f5ff;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.toolCallClickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.toolCallClickable:hover {
+  background: #dce8ff;
+}
+
+.toolDetailToggle {
+  font-size: 11px;
+  color: #999;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.toolDetailBody {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 8px 12px;
+  margin-top: 4px;
+  border-radius: 4px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.toolDetailBody code {
+  color: inherit;
+  background: none;
+  padding: 0;
+}
+
+.toolCallRunning {
+  color: #1677ff;
+}
+
+.toolCallSuccess {
+  color: #52c41a;
+}
+
+.toolCallError {
+  color: #ff4d4f;
+}
+
+.toolCallName {
+  font-weight: 500;
+  color: #333;
+  background: #e8e8e8;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+.toolCallPreview {
+  color: #999;
+  margin-left: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 400px;
+}
+
+/* ===== Node Status Colors ===== */
+.nodeRunning {
+  color: #1677ff;
+}
+
+.nodeComplete {
+  color: #52c41a;
+}
+
+/* ===== Markdown Report ===== */
+.markdownReport {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #333;
+}
+
+.markdownReport h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 24px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #1677ff;
+  color: #1a1a1a;
+}
+
+.markdownReport h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 18px 0 10px;
+  color: #333;
+}
+
+.markdownReport h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 14px 0 8px;
+  color: #444;
+}
+
+.markdownReport p {
+  margin: 8px 0;
+}
+
+.markdownReport strong {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.markdownReport a {
+  color: #1677ff;
+  text-decoration: none;
+}
+
+.markdownReport a:hover {
+  text-decoration: underline;
+}
+
+/* Markdown tables */
+.tableWrapper {
+  overflow-x: auto;
+  margin: 12px 0;
+  border-radius: 6px;
+  border: 1px solid #e8e8e8;
+}
+
+.markdownReport table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.markdownReport th {
+  background: #f5f5f5;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+  padding: 8px 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.markdownReport td {
+  padding: 7px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+
+.markdownReport tr:last-child td {
+  border-bottom: none;
+}
+
+.markdownReport tr:hover td {
+  background: #fafbfc;
+}
+
+/* Inline code */
+.inlineCode {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  color: #d63384;
+}
+
+/* Code blocks */
+.codeBlock {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 12px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.codeBlock code {
+  display: block;
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+.codeLang {
+  font-size: 11px;
+  color: #888;
+  padding: 4px 16px;
+  background: #2d2d2d;
+  border-bottom: 1px solid #3d3d3d;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+/* Lists */
+.markdownReport ul,
+.markdownReport ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.markdownReport li {
+  margin: 4px 0;
+}
+
+.markdownReport li::marker {
+  color: #1677ff;
+}
+
+/* Blockquote */
+.mdBlockquote {
+  border-left: 3px solid #1677ff;
+  padding: 8px 14px;
+  margin: 12px 0;
+  background: #f0f5ff;
+  border-radius: 0 6px 6px 0;
+  color: #555;
+}
+
+.mdBlockquote p {
+  margin: 4px 0;
+}
+
+/* Horizontal rule */
+.markdownReport hr {
+  border: none;
+  border-top: 1px solid #e8e8e8;
+  margin: 20px 0;
+}
+
+/* Images */
+.markdownReport img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+/* Headings that use .mdH2 etc (from react-markdown component mapping) */
+.mdH2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 24px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #1677ff;
+  color: #1a1a1a;
+}
+
+.mdH3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 18px 0 10px;
+  color: #333;
+}
+
+.mdH4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 14px 0 8px;
+  color: #444;
+}

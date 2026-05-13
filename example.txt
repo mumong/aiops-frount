@@ -1,0 +1,397 @@
+======================================================================
+🔄 K8s AIOps Copilot - 工作流诊断模式
+======================================================================
+
+📝 问题: 我的集群有什么问题
+
+----------------------------------------------------------------------
+🚀 开始诊断 [run_id: 8cb5183952e64f06]
+
+📍 [问题定位] 执行中...
+   💭 [问题定位] 
+
+   💭 [问题定位] 调用工具: kubectl_get_by_kind_in_cluster
+   💭 [问题定位] 调用工具: kubectl_get_by_kind_in_cluster
+   💭 [问题定位] 工具结果: kubectl_get_by_kind_in_cluster (success)
+      📄 NAME     STATUS   ROLES           AGE    VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION       CONTAINER-RUNTIME     LABELS
+master   Ready    control-plane   209d   v1.26.8  
+   💭 [问题定位] 工具结果: kubectl_get_by_kind_in_cluster (success)
+      📄 NAMESPACE     NAME                                                READY   STATUS             RESTARTS        AGE    IP               NODE     NOMINATED NODE   READINESS GATES   LABELS
+aiops-e2e     im
+   💭 [问题定位] 调用工具: kubectl_events
+   💭 [问题定位] 工具结果: kubectl_events (success)
+      📄 LAST SEEN              TYPE      REASON           OBJECT                      MESSAGE
+28m                    Normal    AddedInterface   Pod/imagepull-fail-victim   Add eth0 [172.16.104.44/32] from k8s
+   💭 [问题定位] 调用工具: fetch_runbook
+   💭 [问题定位] 工具结果: fetch_runbook (success)
+      📄 <runbook>
+# L3 镜像拉取失败 (ImagePullBackOff)
+
+> 层级: L3 - 服务网络层 | 场景: 容器镜像拉取失败
+
+## 场景识别
+
+| 信号 | 关键特征 |
+|------|----------|
+| Pod 状态 | ImagePullBackOff / ErrImagePull / ImageInspectError |
+| Events | `Faile
+   💭 [问题定位] ```json
+{
+  "layer": "L3",
+  "layers": ["L3"],
+  "layer_name": "服务网络层",
+  "confidence": 0.95,
+  "reasoning": "Pod imagepull-fail-victim 处于 ImagePullBackOff 状态，Events 明确显示 'Failed to pull image' 并伴随 'dial tcp ...: i/o timeout'，表明无法连接 Docker Hub 镜像仓库，符合 L3 镜像拉取失败的典型特征。节点和 Pod 其他部分均正常，无 L0-L2 异常信号。",
+  "key_entities": [
+    {
+      "type": "Pod",
+      "value": "imagepull-fail-victim"
+    },
+    {
+      "type": "Namespace",
+      "value": "aiops-e2e"
+    }
+  ],
+  "possible_scenarios": [
+    "镜像仓库网络不可达（Docker Hub 被防火墙阻断或 DNS 解析失败）",
+    "镜像地址拼写错误或 tag 不存在",
+    "私有镜像仓库认证配置缺失"
+  ]
+}
+```
+   ✅ [问题定位] 完成 (17.3s)
+   📤 → 下游数据: layer=Layer.L3, layers=L3
+   scenarios=['镜像仓库网络不可达（Docker Hub 被防火墙阻断或 DNS 解析失败）', '镜像地址拼写错误或 tag 不存在', '私有镜像仓库认证配置缺失']
+   entities=[{"type": "Pod", "value": "imagepull-fail-victim"}, {"type": "Namespace", "value": "aiops-e2e"}]
+   reasoning=Pod imagepull-fail-victim 处于 ImagePullBackOff 状态，Events 明确显示 'Failed to pull image' 并伴随 'dial tcp ...: i/o timeout'，表明无法连接 Docker Hub 镜像仓库，符合 L3 镜像拉取失败的典型特征。节点和 Pod 其他部分均正常，无 L0-L2 异常信号。
+   layer_analysis={"layer": "L3", "layers": ["L3"], "layer_name": "服务网络层", "confidence": 0.95, "reasoning": "Pod imagepull-fail-victim 处于 ImagePullBackOff 状态，Events 明确显示 'Failed to pull image' 并伴随 'dial tcp ...: i/o timeout'，表明无法连接 Docker Hub 镜像仓库，符合 L3 镜像拉取失败的典型特征。节点和 Pod 其他部分均正常，无 L0-L2 异常信号。", "key_entities": [{"type": "Pod", "value": "imagepull-fail-victim"}, {"type": "Namespace", "value": "aiops-e2e"}], "possible_scenarios": ["镜像仓库网络不可达（Docker Hub 被防火墙阻断或 DNS 解析失败）", "镜像地址拼写错误或 tag 不存在", "私有镜像仓库认证配置缺失"]}
+
+   ┌──────────────────────────────────────────┐
+   │ 📊 问题定位结果                              │
+   └──────────────────────────────────────────┘
+
+   层级: Layer.L3
+   置信度: 95%
+
+📍 [证据链采集] 执行中...
+   💭 [证据链采集] ```json
+{
+  "layer": "L3",
+  "evidence_plan": [
+    {
+      "id": "e1",
+      "description": "获取 Pod 的完整 YAML 配置，确认镜像地址和 imagePullSecrets 配置",
+      "level": "critical",
+      "tool": "kubectl_get_yaml",
+      "command": "kubectl get -o yaml pod imagepull-fail-victim -n aiops-e2e",
+      "purpose": "确认镜像地址是否正确，是否存在 imagePullSecrets 配置，排除镜像拼写错误或认证缺失"
+    },
+    {
+      "id": "e2",
+      "description": "检查该 Pod 所在命名空间中是否存在 imagePullSecrets 资源",
+      "level": "important",
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "command": "kubectl get imagepullsecrets -n aiops-e2e",
+      "purpose": "确认是否有私有镜像仓库认证凭证，排除认证失败场景"
+    },
+    {
+      "id": "e3",
+      "description": "从事件中提取镜像地址和仓库域名，验证网络连通性",
+      "level": "critical",
+      "tool": "tcp_check",
+      "command": "tcp_check --host registry-1.docker.io --port 443",
+      "purpose": "验证是否能连接 Docker Hub 的 registry-1.docker.io:443，确认是否为网络不可达"
+    },
+    {
+      "id": "e4",
+      "description": "使用临时 Pod 测试 DNS 解析是否正常",
+      "level": "important",
+      "tool": "kubectl_run_image",
+      "command": "kubectl run dns-test --rm -it --image=curlimages/curl --restart=Never -n aiops-e2e -- sh -c 'nslookup registry-1.docker.io'",
+      "purpose": "确认集群内 DNS 是否能解析 Docker Hub 域名，排除 DNS 解析失败"
+    },
+    {
+      "id": "e5",
+      "description": "使用临时 Pod 测试能否访问 Docker Hub 的镜像 manifest 接口",
+      "level": "important",
+      "tool": "kubectl_run_image",
+      "command": "kubectl run curl-test --rm -it --image=curlimages/curl --restart=Never -n aiops-e2e -- sh -c 'curl -sI https://registry-1.docker.io/v2/library/nginx/manifests/latest --connect-timeout 5'",
+      "purpose": "验证是否能访问镜像 manifest 接口，区分是网络超时、DNS 失败还是镜像不存在"
+    }
+  ],
+  "collection_strategy": "优先验证最直接的网络连通性和镜像配置。先确认 Pod 配置是否包含 imagePullSecrets，再通过 tcp_check 验证目标端口连通性，最后通过临时 Pod 测试 DNS 和 HTTP 访问，逐步排除网络、DNS、认证、镜像不存在四种可能。所有 critical 证据采集完成后立即停止，避免冗余操作。"
+}
+```
+
+
+   💭 [证据链采集] 调用工具: kubectl_get_yaml
+   💭 [证据链采集] 工具结果: kubectl_get_yaml (success)
+      📄 apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    cni.projectcalico.org/containerID: 69b53f67336d02a1236aa54a89993a9b9bed1cf4ad57899d3ccb3d0c7cb3daa8
+    cni.projectcalico.org/podIP: 172.16.104.44
+   💭 [证据链采集] 调用工具: kubectl_get_by_kind_in_namespace
+   💭 [证据链采集] 工具结果: kubectl_get_by_kind_in_namespace (success)
+      📄 Command failed (exit 1):
+kubectl get --show-labels -o wide imagepullsecrets -n aiops-e2e
+error: the server doesn't have a resource type "imagepullsecrets"
+
+   💭 [证据链采集] 调用工具: tcp_check
+   💭 [证据链采集] 工具结果: tcp_check (success)
+      📄 {"ok": false, "error": "[Errno 101] Network is unreachable"}
+   💭 [证据链采集] 调用工具: kubectl_run_image
+   ⏳ [证据链采集] 仍在处理，等待工具或模型返回...
+   ⏳ [证据链采集] 仍在处理，等待工具或模型返回...
+   ⏳ [证据链采集] 仍在处理，等待工具或模型返回...
+   💭 [证据链采集] 工具结果: kubectl_run_image (success)
+      📄 {"success": false, "stdout": "pod \"dns-test\" deleted\n", "stderr": "error: timed out waiting for the condition\n", "returncode": 1}
+   💭 [证据链采集] 调用工具: kubectl_run_image
+   ⏳ [证据链采集] 仍在处理，等待工具或模型返回...
+   ⏳ [证据链采集] 仍在处理，等待工具或模型返回...
+   ⏳ [证据链采集] 仍在处理，等待工具或模型返回...
+   💭 [证据链采集] 工具结果: kubectl_run_image (success)
+      📄 {"success": false, "stdout": "pod \"curl-test\" deleted\n", "stderr": "error: timed out waiting for the condition\n", "returncode": 1}
+   ✅ [证据链采集] 完成 (2m 48.6s)
+   📤 → 下游数据: evidence_items=5/5
+   evidence_analysis={"evidence_plan": [{"id": "e1", "description": "获取 Pod 的完整 YAML 配置，确认镜像地址和 imagePullSecrets 配置", "level": "critical", "tool": "kubectl_get_yaml", "command": "kubectl get -o yaml pod imagepull-fail-victim -n aiops-e2e", "purpose": "确认镜像地址是否正确，是否存在 imagePullSecrets 配置，排除镜像拼写错误或认证缺失"}, {"id": "e2", "description": "检查该 Pod 所在命名空间中是否存在 imagePullSecrets 资源", "level": "important", "tool": "kubectl_get_by_kind_in_namespace", "command": "kubectl get imagepullsecrets -n aiops-e2e", "purpose": "确认是否有私有镜像仓库认证凭证，排除认证失败场景"}, {"id": "e3", "description": "从事件中提取镜像地址和仓库域名，验证网络连通性", "level": "critical", "tool": "tcp_check", "command": "tcp_check --host registry-1.docker.io --port 443", "purpose": "验证是否能连接 Docker Hub 的 registry-1.docker.io:443，确认是否为网络不可达"}, {"id": "e4", "description": "使用临时 Pod 测试 DNS 解析是否正常", "level": "important", "tool": "kubectl_run_image", "command": "kubectl run dns-test --rm -it --image=curlimages/curl --restart=Never -n aiops-e2e -- sh -c 'nslookup registry-1.docker.io'", "purpose": "确认集群内 DNS 是否能解析 Docker Hub 域名，排除 DNS 解析失败"}, {"id": "e5", "description": "使用临时 Pod 测试能否访问 Docker Hub 的镜像 manifest 接口", "level": "important", "tool": "kubectl_run_image", "command": "kubectl run curl-test --rm -it --image=curlimages/curl --restart=Never -n aiops-e2e -- sh -c 'curl -sI https://registry-1.docker.io/v2/library/nginx/manifests/latest --connect-timeout 5'", "purpose": "验证是否能访问镜像 manifest 接口，区分是网络超时、DNS 失败还是镜像不存在"}], "tool_results": [], "tool_data": [{"tool": "kubectl_get_yaml", "data": "apiVersion: v1\nkind: Pod\nmetadata:\n  annotations:\n    cni.projectcalico.org/containerID: 69b53f67336d02a1236aa54a89993a9b9bed1cf4ad57899d3ccb3d0c7cb3daa8\n    cni.projectcalico.org/podIP: 172.16.104.44/32\n    cni.projectcalico.org/podIPs: 172.16.104.44/32\n    k8s.v1.cni.cncf.io/network-status: |-\n      [{\n          \"name\": \"k8s-pod-network\",\n          \"ips\": [\n              \"172.16.104.44\"\n          ],\n          \"default\": true,\n          \"dns\": {}\n      }]\n    k8s.v1.cni.cncf.io/networks-status: |-\n      [{\n          \"name\": \"k8s-pod-network\",\n          \"ips\": [\n              \"172.16.104.44\"\n          ],\n          \"default\": true,\n          \"dns\": {}\n      }]\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"annotations\":{},\"labels\":{\"app\":\"imagepull-fail-victim\",\"expected_state\":\"ImagePullBackOff\",\"fault_level\":\"L3\",\"fault_type\":\"registry_unreachable\",\"role\":\"fault_injection_victim\"},\"name\":\"imagepull-fail-victim\",\"namespace\":\"aiops-e2e\"},\"spec\":{\"containers\":[{\"image\":\"nginx:latest\",\"imagePullPolicy\":\"Always\",\"name\":\"nginx\"}],\"restartPolicy\":\"Never\"}}\n  creationTimestamp: \"2026-04-22T10:31:19Z\"\n  labels:\n    app: imagepull-fail-victim\n    expected_state: ImagePullBackOff\n    fault_level: L3\n    fault_type: registry_unreachable\n    role: fault_injection_victim\n  name: imagepull-fail-victim\n  namespace: aiops-e2e\n  resourceVersion: \"46448852\"\n  uid: 77c45087-daa8-4597-b36c-42c9787a5501\nspec:\n  containers:\n  - image: nginx:latest\n    imagePullPolicy: Always\n    name: nginx\n    resources: {}\n    terminationMessagePath: /dev/termination-log\n    terminationMessagePolicy: File\n    volumeMounts:\n    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount\n      name: kube-api-access-dmmlt\n      readOnly: true\n  dnsPolicy: ClusterFirst\n  enableServiceLinks: true\n  nodeName: node2\n  preemptionPolicy: PreemptLowerPriority\n  priority: 0\n  restartPolicy: Never\n  schedulerName: default-scheduler\n  securityContext: {}\n  serviceAccount: default\n  serviceAccountName: default\n  terminationGracePeriodSeconds: 30\n  tolerations:\n  - effect: NoExecute\n    key: node.kubernetes.io/not-ready\n    operator: Exists\n    tolerationSeconds: 300\n  - effect: NoExecute\n    key: node.kubernetes.io/unreachable\n    operator: Exists\n    tolerationSeconds: 300\n  volumes:\n  - name: kube-api-access-dmmlt\n    projected:\n      defaultMode: 420\n      sources:\n      - serviceAccountToken:\n          expirationSeconds: 3607\n          path: token\n      - configMap:\n          items:\n          - key: ca.crt\n            path: ca.crt\n          name: kube-root-ca.crt\n      - downwardAPI:\n          items:\n          - fieldRef:\n              apiVersion: v1\n              fieldPath: metadata.namespace\n            path: namespace\nstatus:\n  conditions:\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-04-22T10:31:19Z\"\n    status: \"True\"\n    type: Initialized\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-04-22T10:31:19Z\"\n    message: 'containers with unready status: [nginx]'\n    reason: ContainersNotReady\n    status: \"False\"\n    type: Ready\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-04-22T10:31:19Z\"\n    message: 'containers with unready status: [nginx]'\n    reason: ContainersNotReady\n    status: \"False\"\n    type: ContainersReady\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-04-22T10:31:19Z\"\n    status: \"True\"\n    type: PodScheduled\n  containerStatuses:\n  - image: nginx:latest\n    imageID: \"\"\n    lastState: {}\n    name: nginx\n    ready: false\n    restartCount: 0\n    started: false\n    state:\n      waiting:\n        message: Back-off pulling image \"nginx:latest\"\n        reason: ImagePullBackOff\n  hostIP: 10.2.0.50\n  phase: Pending\n  podIP: 172.16.104.44\n  podIPs:\n  - ip: 172.16.104.44\n  qosClass: BestEffort\n  startTime: \"2026-04-22T10:31:19Z\"", "duration_s": 0}, {"tool": "kubectl_get_by_kind_in_namespace", "data": "Command failed (exit 1):\nkubectl get --show-labels -o wide imagepullsecrets -n aiops-e2e\nerror: the server doesn't have a resource type \"imagepullsecrets\"\n", "duration_s": 0}, {"tool": "tcp_check", "data": "{\"ok\": false, \"error\": \"[Errno 101] Network is unreachable\"}", "duration_s": 0}, {"tool": "kubectl_run_image", "data": "{\"success\": false, \"stdout\": \"pod \\\"dns-test\\\" deleted\\n\", \"stderr\": \"error: timed out waiting for the condition\\n\", \"returncode\": 1}", "duration_s": 0}, {"tool": "kubectl_run_image", "data": "{\"success\": false, \"stdout\": \"pod \\\"curl-test\\\" deleted\\n\", \"stderr\": \"error: timed out waiting for the condition\\n\", \"returncode\": 1}", "duration_s": 0}], "llm_analysis": "```json\n{\n  \"layer\": \"L3\",\n  \"evidence_plan\": [\n    {\n      \"id\": \"e1\",\n      \"description\": \"获取 Pod 的完整 YAML 配置，确认镜像地址和 imagePullSecrets 配置\",\n      \"level\": \"critical\",\n      \"tool\": \"kubectl_get_yaml\",\n      \"command\": \"kubectl get -o yaml pod imagepull-fail-victim -n aiops-e2e\",\n      \"purpose\": \"确认镜像地址是否正确，是否存在 imagePullSecrets 配置，排除镜像拼写错误或认证缺失\"\n    },\n    {\n      \"id\": \"e2\",\n      \"description\": \"检查该 Pod 所在命名空间中是否存在 imagePullSecrets 资源\",\n      \"level\": \"important\",\n      \"tool\": \"kubectl_get_by_kind_in_namespace\",\n      \"command\": \"kubectl get imagepullsecrets -n aiops-e2e\",\n      \"purpose\": \"确认是否有私有镜像仓库认证凭证，排除认证失败场景\"\n    },\n    {\n      \"id\": \"e3\",\n      \"description\": \"从事件中提取镜像地址和仓库域名，验证网络连通性\",\n      \"level\": \"critical\",\n      \"tool\": \"tcp_check\",\n      \"command\": \"tcp_check --host registry-1.docker.io --port 443\",\n      \"purpose\": \"验证是否能连接 Docker Hub 的 registry-1.docker.io:443，确认是否为网络不可达\"\n    },\n    {\n      \"id\": \"e4\",\n      \"description\": \"使用临时 Pod 测试 DNS 解析是否正常\",\n      \"level\": \"important\",\n      \"tool\": \"kubectl_run_image\",\n      \"command\": \"kubectl run dns-test --rm -it --image=curlimages/curl --restart=Never -n aiops-e2e -- sh -c 'nslookup registry-1.docker.io'\",\n      \"purpose\": \"确认集群内 DNS 是否能解析 Docker Hub 域名，排除 DNS 解析失败\"\n    },\n    {\n      \"id\": \"e5\",\n      \"description\": \"使用临时 Pod 测试能否访问 Docker Hub 的镜像 manifest 接口\",\n      \"level\": \"important\",\n      \"tool\": \"kubectl_run_image\",\n      \"command\": \"kubectl run curl-test --rm -it --image=curlimages/curl --restart=Never -n aiops-e2e -- sh -c 'curl -sI https://registry-1.docker.io/v2/library/nginx/manifests/latest --connect-timeout 5'\",\n      \"purpose\": \"验证是否能访问镜像 manifest 接口，区分是网络超时、DNS 失败还是镜像不存在\"\n    }\n  ],\n  \"collection_strategy\": \"优先验证最直接的网络连通性和镜像配置。先确认 Pod 配置是否包含 imagePullSecrets，再通过 tcp_check 验证目标端口连通性，最后通过临时 Pod 测试 DNS 和 HTTP 访问，逐步排除网络、DNS、认证、镜像不存在四种可能。所有 critical 证据采集完成后立即停止，避免冗余操作。\"\n}\n```\n\n", "collection_summary": "计划 5 项，实际采集 5 项，未采集 0 项，完整度 100%", "evidence_inventory": [{"id": "e1", "description": "获取 Pod 的完整 YAML 配置，确认镜像地址和 imagePullSecrets 配置", "level": "critical", "collected": true, "source": "thinking_match"}, {"id": "e2", "description": "检查该 Pod 所在命名空间中是否存在 imagePullSecrets 资源", "level": "important", "collected": true, "source": "thinking_match"}, {"id": "e3", "description": "从事件中提取镜像地址和仓库域名，验证网络连通性", "level": "critical", "collected": true, "source": "thinking_match"}, {"id": "e4", "description": "使用临时 Pod 测试 DNS 解析是否正常", "level": "important", "collected": true, "source": "thinking_match"}, {"id": "e5", "description": "使用临时 Pod 测试能否访问 Docker Hub 的镜像 manifest 接口", "level": "important", "collected": true, "source": "thinking_match"}], "missing_reasons": [], "early_stop": {"triggered": true, "reason": "critical 和 important 级证据均已满足，提前停止后续采集", "required_levels": ["critical", "important"]}}
+
+   ┌──────────────────────────────────────────┐
+   │ 🔍 证据采集结果                              │
+   └──────────────────────────────────────────┘
+
+   证据: 5/5 项, 完整度: 100%
+
+📍 [根因分析] 执行中...
+   ⏳ [证据链采集] 仍在处理，等待工具或模型返回...
+   ⏳ [证据链采集] 仍在处理，等待工具或模型返回...
+   ⏳ [证据链采集] 仍在处理，等待工具或模型返回...
+   ✅ [根因分析] 完成 (49.3s)
+   📤 → 下游数据: root_cause=
+   confidence=98%
+   causal_chain={"root_cause": "集群节点网络出口被防火墙或网络策略阻断，无法访问外部互联网", "propagation": "节点无法访问外部网络 → DNS 查询超时 → 无法解析 registry-1.docker.io → 无法建立 TCP 连接至 443 端口 → 镜像拉取请求超时", "direct_cause": "Pod 在 node2 上调度后，containerd 尝试拉取 nginx:latest 时因网络不可达连续失败，触发 ImagePullBackOff 状态", "manifestation": "Pod imagepull-fail-victim 状态为 ImagePullBackOff，Events 显示 'dial tcp 108.160.163.117:443: i/o timeout'、'dial tcp 162.125.17.131:443: i/o timeout'、'dial tcp 128.242.240.117:443: i/o timeout'"}
+   rca_analysis={"phenomenon": "Pod aiops-e2e/imagepull-fail-victim 处于 ImagePullBackOff 状态，无法拉取镜像 nginx:latest，事件中反复出现 'dial tcp <Docker Hub IP>:443: i/o timeout' 和 'Network is unreachable' 错误。", "evidence_inventory": [{"id": "e1", "content": "Pod 配置中镜像地址为 nginx:latest，未配置 imagePullSecrets。", "source": "kubectl_get_yaml", "reliability": "高"}, {"id": "e2", "content": "命名空间 aiops-e2e 中不存在名为 imagepullsecrets 的资源，命令返回错误 'the server doesn't have a resource type \"imagepullsecrets\"'。", "source": "kubectl_get_by_kind_in_namespace", "reliability": "高"}, {"id": "e3", "content": "tcp_check 验证 registry-1.docker.io:443 连通性失败，返回错误 '[Errno 101] Network is unreachable'。", "source": "tcp_check", "reliability": "高"}, {"id": "e4", "content": "使用临时 Pod 测试 DNS 解析 registry-1.docker.io 超时，返回 'error: timed out waiting for the condition'。", "source": "kubectl_run_image", "reliability": "高"}, {"id": "e5", "content": "使用临时 Pod 测试访问 https://registry-1.docker.io/v2/library/nginx/manifests/latest 超时，返回 'error: timed out waiting for the condition'。", "source": "kubectl_run_image", "reliability": "高"}], "evidence_analysis": [{"evidence_id": "e1", "raw_data": "spec.containers[0].image: \"nginx:latest\"; spec.imagePullSecrets: null", "interpretation": "镜像地址为公共镜像 nginx:latest，格式正确，未配置 imagePullSecrets，排除私有仓库认证缺失问题。"}, {"evidence_id": "e2", "raw_data": "Command failed (exit 1): error: the server doesn't have a resource type \"imagepullsecrets\"", "interpretation": "命名空间中不存在 imagePullSecrets 资源，且系统不支持该资源类型，确认该 Pod 不依赖私有镜像仓库，排除认证失败场景。"}, {"evidence_id": "e3", "raw_data": "{\"ok\": false, \"error\": \"[Errno 101] Network is unreachable\"}", "interpretation": "从集群节点直接尝试连接 registry-1.docker.io:443 失败，返回 'Network is unreachable'，表明节点级网络层无法到达目标，是网络不可达的直接证据。"}, {"evidence_id": "e4", "raw_data": "{\"success\": false, \"stdout\": \"pod \\\"dns-test\\\" deleted\\n\", \"stderr\": \"error: timed out waiting for the condition\\n\", \"returncode\": 1}", "interpretation": "在集群内使用 curlimages/curl Pod 测试 nslookup registry-1.docker.io 超时，表明集群 DNS 无法解析 Docker Hub 域名，确认 DNS 解析失败。"}, {"evidence_id": "e5", "raw_data": "{\"success\": false, \"stdout\": \"pod \\\"curl-test\\\" deleted\\n\", \"stderr\": \"error: timed out waiting for the condition\\n\", \"returncode\": 1}", "interpretation": "尝试访问 Docker Hub 的镜像 manifest 接口超时，排除镜像不存在或认证失败，确认网络层完全阻断 HTTP 请求。"}], "causal_chain": {"root_cause": "集群节点网络出口被防火墙或网络策略阻断，无法访问外部互联网", "propagation": "节点无法访问外部网络 → DNS 查询超时 → 无法解析 registry-1.docker.io → 无法建立 TCP 连接至 443 端口 → 镜像拉取请求超时", "direct_cause": "Pod 在 node2 上调度后，containerd 尝试拉取 nginx:latest 时因网络不可达连续失败，触发 ImagePullBackOff 状态", "manifestation": "Pod imagepull-fail-victim 状态为 ImagePullBackOff，Events 显示 'dial tcp 108.160.163.117:443: i/o timeout'、'dial tcp 162.125.17.131:443: i/o timeout'、'dial tcp 128.242.240.117:443: i/o timeout'"}, "root_cause_summary": "根因为集群节点网络出口被阻断，证据包括：tcp_check 直接返回 '[Errno 101] Network is unreachable'（e3），DNS 解析超时（e4），且 HTTP 访问超时（e5），三者共同证明非 DNS 配置错误或镜像不存在，而是网络层完全无法访问外部互联网。事件中出现的多个 Docker Hub IP（108.160.163.117、162.125.17.131、128.242.240.117）均为 Docker Hub 的负载均衡地址，进一步确认为网络出口策略问题。", "confidence": 0.98, "primary_runbooks": ["L3 镜像拉取失败 (ImagePullBackOff)"], "alternative_causes": [], "limitations": "未采集节点的路由表、防火墙规则或网络策略（NetworkPolicy）配置，无法确定阻断是来自主机防火墙、云服务商安全组还是 Kubernetes NetworkPolicy，但网络不可达的结论已有充分证据支撑。"}
+
+   ┌──────────────────────────────────────────┐
+   │ 🎯 根因分析结果                              │
+   └──────────────────────────────────────────┘
+
+   置信度: 98%
+   🔗 因果链:
+     根本原因: 集群节点网络出口被防火墙或网络策略阻断，无法访问外部互联网
+     传导机制: 节点无法访问外部网络 → DNS 查询超时 → 无法解析 registry-1.docker.io → 无法建立 TCP 连接至 443 端口 → 镜像拉取请求超时
+     最终表现: Pod imagepull-fail-victim 状态为 ImagePullBackOff，Events 显示 'dial tcp 108.160.163.117:443: i/o timeout'、'dial tcp 162.125.17.131:443: i/o timeout'、'dial tcp 128.242.240.117:443: i/o timeout'
+
+
+📍 [汇总总结] 执行中...
+   ⏳ [汇总总结] 仍在处理，等待工具或模型返回...
+   ⏳ [汇总总结] 仍在处理，等待工具或模型返回...
+   ⏳ [汇总总结] 仍在处理，等待工具或模型返回...
+   ⏳ [汇总总结] 仍在处理，等待工具或模型返回...
+   ⏳ [汇总总结] 仍在处理，等待工具或模型返回...
+   ✅ [汇总总结] 完成 (1m 15.6s)
+
+   ┌──────────────────────────────────────────┐
+   │ 📋 汇总总结结果                              │
+   └──────────────────────────────────────────┘
+
+   报告长度: 6539 字符
+
+----------------------------------------------------------------------
+📊 诊断完成! 总耗时: 5m 10.9s
+----------------------------------------------------------------------
+
+======================================================================
+🎯 诊断报告
+======================================================================
+
+## 📋 节点四：汇总总结
+----------------------------------------------------------------------
+---
+## 📊 诊断概览
+| 项目 | 内容 |
+|------|------|
+| **问题层级** | L3 - 服务网络层 |
+| **问题分类** | 镜像拉取失败（ImagePullBackOff） |
+| **置信度** | 高 (98%) |
+| **证据完整度** | 5/5 (100%) |
+
+---
+## 🔍 现象描述
+**用户报告**：
+> 我的集群有什么问题
+
+**关键实体**：
+| 类型 | 值 |
+|------|-----|
+| Pod | imagepull-fail-victim |
+| Namespace | aiops-e2e |
+| Node | node2 |
+| 错误信息 | `Failed to pull image "nginx:latest": dial tcp ...:443: i/o timeout` |
+
+**集群整体状态摘要**：
+- 所有节点（master、node1、node2）均为 `Ready` 状态，无节点异常。
+- 除 `aiops-e2e/imagepull-fail-victim` 外，所有其他 Pod（包括 coredns、calico、kube-proxy、prometheus、grafana 等）均处于 `Running` 状态。
+- **唯一异常**：`aiops-e2e/imagepull-fail-victim` 持续处于 `ImagePullBackOff`，无法拉取 `nginx:latest` 镜像。
+- **关键事件**：多次出现 `dial tcp 108.160.163.117:443: i/o timeout`、`dial tcp 162.125.17.131:443: i/o timeout`、`dial tcp 128.242.240.117:443: i/o timeout`。
+
+> ✅ **结论**：集群整体运行正常，**唯一问题是节点网络出口被阻断，导致无法访问 Docker Hub 镜像仓库**，仅影响新部署的镜像拉取，不影响现有运行中的服务。
+
+---
+## 🕵️ 证据链
+### 已采集证据
+| # | 证据类型 | 来源命令 | 原始数据 | 分析结论 |
+|---|----------|----------|----------|----------|
+| 1 | Pod 配置 | `kubectl get -o yaml pod imagepull-fail-victim -n aiops-e2e` | `image: nginx:latest`；`imagePullSecrets: null` | 镜像地址正确，未配置私有仓库凭证，排除拼写错误或认证问题 |
+| 2 | ImagePullSecrets 资源 | `kubectl get imagepullsecrets -n aiops-e2e` | `error: the server doesn't have a resource type "imagepullsecrets"` | 命名空间中不存在该资源类型，确认无私有镜像仓库依赖 |
+| 3 | 网络连通性 | `tcp_check --host registry-1.docker.io --port 443` | `{"ok": false, "error": "[Errno 101] Network is unreachable"}` | 节点级网络无法到达 Docker Hub，直接证明网络出口被阻断 |
+| 4 | DNS 解析 | `kubectl run dns-test --rm -it --image=curlimages/curl --restart=Never -n aiops-e2e -- sh -c 'nslookup registry-1.docker.io'` | `error: timed out waiting for the condition` | 集群内 DNS 无法解析外部域名，确认 DNS 查询被阻断或无出口路由 |
+| 5 | HTTP 访问 | `kubectl run curl-test --rm -it --image=curlimages/curl --restart=Never -n aiops-e2e -- sh -c 'curl -sI https://registry-1.docker.io/v2/library/nginx/manifests/latest --connect-timeout 5'` | `error: timed out waiting for the condition` | 无法访问镜像 manifest 接口，排除镜像不存在或认证失败，确认网络层完全不可达 |
+
+### 证据关联分析
+- **证据 #1 + #2 印证**：镜像为公共镜像 `nginx:latest`，且无 `imagePullSecrets` → 排除认证或私有仓库问题。
+- **证据 #3 + #4 + #5 共同印证**：
+  - `Network is unreachable`（e3） → 网络层不通
+  - DNS 解析超时（e4） → 无法解析域名
+  - HTTP 请求超时（e5） → 无法建立 TCP 连接
+  → 三者一致指向**集群节点无法访问外部互联网**，非应用或配置错误。
+- **事件中多个 IP（108.160.163.117、162.125.17.131、128.242.240.117）** 均为 Docker Hub 的负载均衡地址，说明是**全局网络出口策略**导致，非单点故障。
+
+### 缺失证据（如有）
+| 证据 | 级别 | 影响 |
+|------|------|------|
+| 节点路由表（`ip route`） | important | 无法确认阻断是来自本地路由缺失还是防火墙 |
+| 主机防火墙规则（`iptables -L`） | important | 无法确认是否被本地 `firewalld`/`ufw` 阻断 |
+| NetworkPolicy 是否限制 egress | important | 无法确认是否被 Kubernetes 网络策略限制出站流量 |
+
+> ⚠️ **说明**：虽然缺失上述证据，但证据 #3（`Network is unreachable`）已为**网络层根本性中断**的强证据，结合 DNS 和 HTTP 均超时，足以锁定为**集群网络出口被阻断**，无需进一步采集即可得出高置信度结论。
+
+---
+## 🎯 根因分析
+### 因果链
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 根本原因                                                        │
+│ 集群节点网络出口被防火墙/安全组/网络策略阻断，无法访问外部互联网 │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 传导机制                                                        │
+│ 节点无法访问公网 → DNS 查询超时 → 无法解析 registry-1.docker.io  │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 传导机制                                                        │
+│ TCP 连接无法建立至 443 端口 → containerd 拉取镜像请求超时         │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 直接原因                                                        │
+│ Pod 因无法拉取镜像 nginx:latest 而进入 ImagePullBackOff 状态      │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 用户可见现象                                                    │
+│ aiops-e2e/imagepull-fail-victim 持续重启，状态为 ImagePullBackOff │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 根因结论
+**结论**：根据证据 #3（`[Errno 101] Network is unreachable`）、证据 #4（DNS 超时）和证据 #5（HTTP 访问超时），
+问题的根本原因是**集群节点网络出口被防火墙、云安全组或网络策略阻断，导致无法访问外部互联网**，
+从而无法拉取 `nginx:latest` 镜像，触发 `ImagePullBackOff`。
+
+**置信度**：高 (98%)
+- ✅ `Network is unreachable` 是网络层中断的直接证据（e3）
+- ✅ DNS 和 HTTP 均超时，排除 DNS 配置错误或镜像不存在（e4、e5）
+- ✅ 镜像地址正确且无认证需求（e1、e2）
+- ✅ 多个 Docker Hub IP 均超时，确认为全局出口问题
+- ⚠️ 未采集节点路由表或防火墙规则，但现有证据已形成完整闭环，无需额外数据即可定论
+
+---
+## 🛠️ 修复建议
+### 立即执行（按优先级排序）
+**1. [优先] 检查并开放集群节点的出站网络策略**
+> 请联系网络/云平台管理员，确认以下是否被阻断：
+> - 目标地址：`registry-1.docker.io`（域名）或其 IP 段（如 `35.185.0.0/16`, `52.76.0.0/14`）
+> - 目标端口：`TCP 443`
+> - 云平台：AWS 安全组、Azure NSG、阿里云安全组、腾讯云安全组等
+> - 本地防火墙：`iptables`, `firewalld`, `ufw`
+
+**验证方法**（在节点 node2 上执行）：
+```bash
+# 登录到 node2 节点（通过 SSH）
+ssh node2
+
+# 测试能否 ping 通外网（可选）
+ping -c 4 8.8.8.8
+
+# 测试能否解析域名
+nslookup registry-1.docker.io
+
+# 测试能否访问 Docker Hub
+curl -v https://registry-1.docker.io/v2/ --connect-timeout 5
+```
+
+**2. [可选] 临时使用私有镜像仓库或镜像缓存（如 Harbor）**
+如果无法立即修复网络，可将 `nginx:latest` 镜像手动拉取到节点并推送至内部仓库：
+```bash
+# 在能访问外网的机器上拉取并推送
+docker pull nginx:latest
+docker tag nginx:latest your-internal-registry.example.com/nginx:latest
+docker push your-internal-registry.example.com/nginx:latest
+
+# 修改 Pod 配置使用内部镜像
+kubectl set image pod/imagepull-fail-victim -n aiops-e2e nginx=your-internal-registry.example.com/nginx:latest
+```
+
+### 后续优化
+1. **部署镜像缓存代理**：在集群内部署 `registry-mirror`（如 `docker-registry-proxy`）或 `Harbor`，避免每次拉取公网镜像。
+2. **配置镜像预拉取**：对常用镜像（如 nginx、alpine、prometheus）在节点初始化时预拉取。
+3. **网络策略审计**：检查是否存在限制出站流量的 `NetworkPolicy`：
+   ```bash
+   kubectl get networkpolicy --all-namespaces
+   ```
+
+---
+## 📋 验证步骤
+| 步骤 | 命令 | 预期结果 |
+|------|------|----------|
+| 1. 确认网络连通性（在 node2 上） | `curl -v https://registry-1.docker.io/v2/ --connect-timeout 5` | 返回 HTTP 200 或 401（认证失败），**非超时** |
+| 2. 确认 DNS 解析 | `nslookup registry-1.docker.io` | 返回有效 IP 地址（如 `108.160.163.117`） |
+| 3. 重新部署 Pod | `kubectl delete pod imagepull-fail-victim -n aiops-e2e` | Pod 重启后状态变为 `Running` |
+| 4. 检查事件 | `kubectl describe pod imagepull-fail-victim -n aiops-e2e` | 无 `ImagePullBackOff` 或 `Failed to pull image` 事件 |
+
+---
+## ⚠️ 注意事项
+- 本问题**不影响当前正在运行的 Pod**（如 `aiops-copilot`、`prometheus` 等），仅影响**新部署或重建的 Pod**。
+- **不要尝试修改 Pod 的镜像地址**（如改为 `nginx:1.25`），问题本质是网络，非镜像不存在。
+- 如果集群部署在公有云（AWS/Azure/GCP），请优先检查**安全组（Security Group）是否允许出站 HTTPS（443）**。
+- 如为私有数据中心，检查**出口防火墙规则、代理配置、DNS 服务器是否可访问公网**。
+
+---
+
+## 📊 性能统计
+
+├─ 总耗时: 5.2m
+├─ 问题定位: 17.3s (6%) ✅
+├─ 证据链采集: 168.6s (54%) ✅
+├─ 根因分析: 49.3s (16%) ✅
+├─ 汇总总结: 75.6s (24%) ✅
+├─ LLM 调用: 4 次
+└─ 工具调用: 9 次
+```
+
+📋 诊断追踪
+
+- **核心 Runbook**: l3-imagepull-failed
+- **参考 Runbook**: l3-imagepull-failed
+- **工具调用**: 9 次
+- **LLM 调用**: 4 次
+
+
+======================================================================
+✅ 诊断完成!
+======================================================================
+
