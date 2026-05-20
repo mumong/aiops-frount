@@ -72,6 +72,8 @@ export interface ChatMessage {
   status?: 'streaming' | 'complete' | 'error'
   /** Run ID from the backend — stored per-message so it survives refresh / multi-question sessions */
   runId?: string
+  /** This message's own node blocks — each assistant message remembers its own */
+  nodeBlocks?: NodeBlock[]
 }
 
 /** Tool call record within a node */

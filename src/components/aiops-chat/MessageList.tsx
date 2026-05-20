@@ -46,8 +46,16 @@ export default function MessageList({ messages, nodeBlocks, finalAnswer }: Messa
             <BotMessage
               key={msg.id}
               message={msg}
-              nodeBlocks={idx === messages.length - 1 ? nodeBlocks : []}
-              finalAnswer={idx === messages.length - 1 ? finalAnswer : msg.content}
+              nodeBlocks={
+                idx === messages.length - 1
+                  ? nodeBlocks
+                  : msg.nodeBlocks ?? []
+              }
+              finalAnswer={
+                idx === messages.length - 1
+                  ? finalAnswer
+                  : msg.content
+              }
               isLatest={idx === messages.length - 1}
             />
           )

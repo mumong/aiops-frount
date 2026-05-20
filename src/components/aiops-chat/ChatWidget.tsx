@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { ChatMessage, NodeBlock, SSEMessage } from './types'
+import { ChatMessage, NodeBlock, ToolCall, SSEMessage } from './types'
 import { useSSE } from '../../hooks/useSSE'
 import { useChatHistory } from '../../hooks/useChatHistory'
 import ChatHeader from './ChatHeader'
@@ -26,14 +26,15 @@ function updateLast(blocks: NodeBlock[], fn: (b: NodeBlock) => NodeBlock): NodeB
 
 export default function ChatWidget({
   apiBase,
-  title = 'K8s AIOps Copilot',
-  placeholder = '输入你的运维问题...',
+  title = 'k8s aiops',
+  placeholder: _placeholder = '输入你的运维问题...',
   maxMessages = 50,
 }: ChatWidgetProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [endpointMode, setEndpointMode] = useState<EndpointMode>('ask')
   const [nodeBlocks, setNodeBlocks] = useState<NodeBlock[]>([])
+  const nodeBlocksRef = useRef<NodeBlock[]>([])
   const [finalAnswer, setFinalAnswer] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const toolIdCounter = useRef(0)
@@ -41,6 +42,17 @@ export default function ChatWidget({
 
   const { connect, disconnect } = useSSE()
   const history = useChatHistory()
+
+  // Keep nodeBlocksRef in sync with nodeBlocks state
+  useEffect(() => {
+    nodeBlocksRef.current = nodeBlocks
+  }, [nodeBlocks])
+
+  // Dynamic placeholder based on endpoint mode
+  const effectivePlaceholder =
+    endpointMode === 'ask'
+      ? '我的集群pod有什么异常？'
+      : '查询集群CPU和内存使用率'
 
   // Load session when activeId changes
   useEffect(() => {
@@ -163,12 +175,14 @@ export default function ChatWidget({
               // otherwise duplicate tool calls in the same node all get the
               // same result (bug: map hits all matches at once).
               const idx = last.toolCalls.findIndex(
-                t => t.toolName === toolName && t.status === 'running'
+                (t: ToolCall) => t.toolName === toolName && t.status === 'running'
               )
               if (idx === -1) return last
-              const updated = [...last.toolCalls]
+              const updated: ToolCall[] = [...last.toolCalls]
+              const old = updated[idx]!
               updated[idx] = {
-                ...updated[idx],
+                id: old.id,
+                toolName: old.toolName,
                 status: (status === 'success' ? 'success' : 'error') as 'success' | 'error',
                 resultPreview: preview,
                 resultData,
@@ -199,16 +213,14 @@ export default function ChatWidget({
 
       case 'final': {
         const answer = String(data.answer || '')
-        // diagnostic: log nodeBlocks state at final event
-        setNodeBlocks(prev => {
-          console.log('[diagnostic] final event — nodeBlocks.length:', prev.length, prev.map(n => n.nodeId))
-          return prev
-        })
         setFinalAnswer(answer)
+        // Take a snapshot of current nodeBlocks and store them on the message
+        // so they survive when the next message is sent
+        const snapshot = nodeBlocksRef.current
         setMessages(prev =>
           prev.map(m =>
             m.id === assistantId
-              ? { ...m, content: answer, status: 'complete' as const }
+              ? { ...m, content: answer, status: 'complete' as const, nodeBlocks: snapshot }
               : m
           )
         )
@@ -252,6 +264,7 @@ export default function ChatWidget({
     setMessages(prev => [...prev.slice(-maxMessages + 2), newMsg, assistantMsg])
     setIsStreaming(true)
     setNodeBlocks([])
+    nodeBlocksRef.current = []
     setFinalAnswer('')
     toolIdCounter.current = 0
 
@@ -338,7 +351,7 @@ export default function ChatWidget({
             onSend={sendMessage}
             onStop={handleStop}
             isStreaming={isStreaming}
-            placeholder={placeholder}
+            placeholder={effectivePlaceholder}
             endpointMode={endpointMode}
           />
         </div>
