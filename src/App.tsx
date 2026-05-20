@@ -6,8 +6,7 @@ function App() {
     <div className={styles.container}>
       <ChatWidget
         apiBase="/api"
-        title="K8s AIOps Copilot"
-        placeholder="输入你的运维问题，例如：我的集群有什么问题？"
+        title="k8s aiops"
       />
     </div>
   )

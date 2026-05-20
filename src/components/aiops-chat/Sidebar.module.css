@@ -19,6 +19,99 @@
   padding-top: 8px;
 }
 
+/* ── 项目介绍面板 ── */
+.aboutPanel {
+  border-bottom: 1px solid #e8e8e8;
+  flex-shrink: 0;
+}
+
+.aboutHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.aboutHeader:hover {
+  background: #f0f0f0;
+}
+
+.aboutTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1677ff;
+}
+
+.aboutToggle {
+  font-size: 11px;
+  color: #bbb;
+  flex-shrink: 0;
+}
+
+.aboutBody {
+  padding: 0 12px 12px;
+}
+
+.aboutDesc {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.aboutSection {
+  margin-bottom: 10px;
+}
+
+.aboutSection:last-child {
+  margin-bottom: 0;
+}
+
+.aboutSectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 4px;
+}
+
+.aboutSectionText {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.6;
+  margin: 0 0 4px;
+}
+
+.aboutExample {
+  font-size: 12px;
+  color: #1677ff;
+  font-style: italic;
+  margin: 4px 0 0;
+  padding-left: 4px;
+  border-left: 2px solid #1677ff;
+}
+
+.aboutList {
+  margin: 4px 0;
+  padding-left: 16px;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.aboutList li {
+  margin-bottom: 1px;
+}
+
+/* ── 分隔线 ── */
+.divider {
+  height: 1px;
+  background: #e8e8e8;
+  flex-shrink: 0;
+}
+
 .header {
   display: flex;
   align-items: center;
