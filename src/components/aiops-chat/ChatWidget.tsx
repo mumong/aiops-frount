@@ -1,12 +1,49 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { ChatMessage, NodeBlock, ToolCall, SSEMessage } from './types'
+import { ChatMessage, NodeBlock, ToolCall, SSEMessage, RemediationApproval } from './types'
 import { useSSE } from '../../hooks/useSSE'
 import { useChatHistory } from '../../hooks/useChatHistory'
 import ChatHeader from './ChatHeader'
 import Sidebar from './Sidebar'
 import MessageList from './MessageList'
 import MessageInput from './MessageInput'
+import { parseRemediationApprovalText, toRemediationApproval } from './remediationParsing'
 import styles from './ChatWidget.module.css'
+
+/**
+ * POST to the remediation approval endpoint.
+ * Returns the parsed JSON response.
+ */
+async function submitRemediationApproval(
+  apiBase: string,
+  runId: string,
+  approvalId: string,
+  approved: boolean,
+  reason?: string,
+): Promise<{ success: boolean }> {
+  const body = new URLSearchParams({
+    run_id: runId,
+    approval_id: approvalId,
+    approved: String(approved),
+    reviewer: 'operator',
+  })
+  if (reason) {
+    body.set('reason', reason)
+  }
+  const res = await fetch(`${apiBase}/remediation/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`审批请求失败 (HTTP ${res.status}): ${text.slice(0, 200)}`)
+  }
+  const json = await res.json()
+  if (json.success !== true) {
+    throw new Error(json.error || '审批请求被拒绝')
+  }
+  return json
+}
 
 export interface ChatWidgetProps {
   apiBase: string
@@ -39,6 +76,7 @@ export default function ChatWidget({
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const toolIdCounter = useRef(0)
   const messageIdCounter = useRef(0)
+  const textStreamBufferRef = useRef('')
 
   const { connect, disconnect } = useSSE()
   const history = useChatHistory()
@@ -80,15 +118,65 @@ export default function ChatWidget({
     prevIsStreaming.current = isStreaming
   }, [isStreaming, messages, nodeBlocks, finalAnswer, endpointMode, history])
 
+  const upsertRemediationApproval = useCallback((assistantId: string, approval: RemediationApproval) => {
+    setMessages(prev =>
+      prev.map(m => {
+        if (m.id !== assistantId) return m
+        const existing = m.remediationApprovals ?? []
+        const existingIndex = existing.findIndex(item => item.approvalId === approval.approvalId)
+        const remediationApprovals =
+          existingIndex >= 0
+            ? existing.map((item, index) => index === existingIndex ? { ...item, ...approval } : item)
+            : [...existing, approval]
+
+        return {
+          ...m,
+          runId: m.runId || approval.runId,
+          remediationApprovals,
+        }
+      })
+    )
+  }, [])
+
+  const parseAndShowTextApproval = useCallback((assistantId: string, text: string) => {
+    const parsed = parseRemediationApprovalText(text)
+    if (!parsed) return
+    upsertRemediationApproval(assistantId, toRemediationApproval(parsed))
+  }, [upsertRemediationApproval])
+
+  const appendTextStreamChunk = useCallback((assistantId: string, chunk: string) => {
+    textStreamBufferRef.current += chunk
+    const nextContent = textStreamBufferRef.current
+    setFinalAnswer(nextContent)
+    setMessages(prev =>
+      prev.map(m =>
+        m.id === assistantId
+          ? { ...m, content: nextContent }
+          : m
+      )
+    )
+    parseAndShowTextApproval(assistantId, nextContent)
+  }, [parseAndShowTextApproval])
+
   const handleSSEEvent = useCallback((msg: SSEMessage, assistantId: string) => {
+    if (msg.event === 'text') {
+      appendTextStreamChunk(assistantId, msg.data)
+      return
+    }
+
     let data: Record<string, unknown>
     try {
       data = JSON.parse(msg.data)
     } catch {
+      appendTextStreamChunk(assistantId, msg.data)
       return
     }
 
-    switch (msg.event) {
+    const eventType = msg.event === 'message' && typeof data.type === 'string'
+      ? data.type
+      : msg.event
+
+    switch (eventType) {
       case 'run_start':
         setMessages(prev =>
           prev.map(m =>
@@ -214,6 +302,7 @@ export default function ChatWidget({
       case 'final': {
         const answer = String(data.answer || '')
         setFinalAnswer(answer)
+        textStreamBufferRef.current = answer
         // Take a snapshot of current nodeBlocks and store them on the message
         // so they survive when the next message is sent
         const snapshot = nodeBlocksRef.current
@@ -224,6 +313,7 @@ export default function ChatWidget({
               : m
           )
         )
+        parseAndShowTextApproval(assistantId, answer)
         break
       }
 
@@ -240,8 +330,45 @@ export default function ChatWidget({
         setIsStreaming(false)
         break
       }
+
+      case 'remediation_approval_required': {
+        const approval: RemediationApproval = {
+          type: String(data.approval_kind || 'plan') as 'plan' | 'action',
+          approvalId: String(data.approval_id || ''),
+          runId: String(data.run_id || ''),
+          title: String(data.title || '修复审批'),
+          description: String(data.description || ''),
+          payload: data.payload as Record<string, unknown> | undefined,
+          requestedAt: Date.now(),
+        }
+        upsertRemediationApproval(assistantId, approval)
+        break
+      }
+
+      case 'remediation_finished': {
+        const finRunId = String(data.run_id || '')
+        const finStatus = String(data.status || 'completed')
+        const finReason = String(data.reason || '')
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  runId: m.runId || finRunId,
+                  remediationStatus: {
+                    runId: finRunId || m.runId || '',
+                    status: finStatus,
+                    reason: finReason,
+                    finishedAt: Date.now(),
+                  },
+                }
+              : m
+          )
+        )
+        break
+      }
     }
-  }, [])
+  }, [appendTextStreamChunk, parseAndShowTextApproval, upsertRemediationApproval])
 
   const sendMessage = useCallback((question: string) => {
     if (!question.trim() || isStreaming) return
@@ -266,12 +393,14 @@ export default function ChatWidget({
     setNodeBlocks([])
     nodeBlocksRef.current = []
     setFinalAnswer('')
+    textStreamBufferRef.current = ''
     toolIdCounter.current = 0
 
     const params = new URLSearchParams({
       q: question,
       format: 'sse',
       stream: 'true',
+      remediate: 'true',
     })
 
     connect(
@@ -296,6 +425,15 @@ export default function ChatWidget({
       }
     )
   }, [apiBase, endpointMode, isStreaming, connect, maxMessages, handleSSEEvent])
+
+  const handleRemediationRespond = useCallback(async (
+    runId: string,
+    approvalId: string,
+    approved: boolean,
+    reason?: string,
+  ) => {
+    return submitRemediationApproval(apiBase, runId, approvalId, approved, reason)
+  }, [apiBase])
 
   const handleStop = useCallback(() => {
     disconnect()
@@ -346,6 +484,7 @@ export default function ChatWidget({
             messages={messages}
             nodeBlocks={nodeBlocks}
             finalAnswer={finalAnswer}
+            onRemediationRespond={handleRemediationRespond}
           />
           <MessageInput
             onSend={sendMessage}

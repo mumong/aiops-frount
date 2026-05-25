@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChatMessage, NodeBlock, NODE_LABELS } from './types'
 import MarkdownReport from './MarkdownReport'
+import RemediationApprovalCard from './RemediationApprovalCard'
 import styles from './MessageList.module.css'
 
 interface BotMessageProps {
@@ -8,16 +9,12 @@ interface BotMessageProps {
   nodeBlocks: NodeBlock[]
   finalAnswer: string
   isLatest: boolean
+  onRemediationRespond?: (runId: string, approvalId: string, approved: boolean, reason?: string) => Promise<unknown>
 }
 
-export default function BotMessage({ message, nodeBlocks, finalAnswer, isLatest }: BotMessageProps) {
+export default function BotMessage({ message, nodeBlocks, finalAnswer, isLatest, onRemediationRespond }: BotMessageProps) {
   const isStreaming = message.status === 'streaming'
   const isError = message.status === 'error'
-
-  // diagnostic
-  if (isLatest && message.status === 'complete') {
-    console.log('[diagnostic] BotMessage render (complete, latest) — nodeBlocks.length:', nodeBlocks.length, 'finalAnswer:', finalAnswer.slice(0, 60))
-  }
 
   return (
     <div className={styles.botRow}>
@@ -66,6 +63,47 @@ export default function BotMessage({ message, nodeBlocks, finalAnswer, isLatest 
                 <div className={styles.streamingContent}>{finalAnswer}</div>
               </div>
             ) : null}
+
+            {/* Remediation approval cards */}
+            {message.remediationApprovals && message.remediationApprovals.length > 0 && (
+              <div className={styles.remediationArea}>
+                {message.remediationApprovals.map((ra, idx) => (
+                  <RemediationApprovalCard
+                    key={ra.approvalId || idx}
+                    approval={ra}
+                    isCurrent={idx === message.remediationApprovals!.length - 1 && isLatest}
+                    onRespond={(approvalId, approved, reason) => {
+                      const runId = ra.runId || message.runId
+                      if (onRemediationRespond && runId) {
+                        return onRemediationRespond(runId, approvalId, approved, reason)
+                      }
+                      return Promise.reject(new Error('runId或审批回调未就绪'))
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Remediation finished status */}
+            {message.remediationStatus && (
+              <div className={`${styles.remediationCard} ${message.remediationStatus.status === 'failed' ? styles.remediationCardFailed : ''}`}>
+                <div className={styles.remediationHeader}>
+                  <span className={styles.remediationIcon}>
+                    {message.remediationStatus.status === 'completed' ? '✅' : '⚠️'}
+                  </span>
+                  <span className={styles.remediationLabel}>
+                    修复流程结束: {message.remediationStatus.status}
+                  </span>
+                </div>
+                {message.remediationStatus.reason && (
+                  <div className={styles.remediationBody}>
+                    <div className={styles.remediationDesc}>
+                      {message.remediationStatus.reason}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

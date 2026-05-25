@@ -49,8 +49,41 @@ export function useSSE() {
         }
 
         const decoder = new TextDecoder()
+        const contentType = response.headers.get('content-type') || ''
+
+        if (!contentType.includes('text/event-stream')) {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            const chunk = decoder.decode(value, { stream: true })
+            if (chunk) {
+              onEvent({ event: 'text', data: chunk })
+            }
+          }
+          const tail = decoder.decode()
+          if (tail) {
+            onEvent({ event: 'text', data: tail })
+          }
+          onComplete()
+          return
+        }
+
         let buffer = ''
         let currentEvent = ''
+        let dataLines: string[] = []
+
+        const dispatch = () => {
+          if (dataLines.length === 0) {
+            currentEvent = ''
+            return
+          }
+          onEvent({
+            event: currentEvent || 'message',
+            data: dataLines.join('\n'),
+          })
+          currentEvent = ''
+          dataLines = []
+        }
 
         while (true) {
           const { done, value } = await reader.read()
@@ -66,17 +99,19 @@ export function useSSE() {
             if (line.startsWith('event: ')) {
               currentEvent = line.slice(7).trim()
             } else if (line.startsWith('data: ')) {
-              const data = line.slice(6).trim()
-              if (currentEvent && data) {
-                onEvent({ event: currentEvent, data })
-              }
-              currentEvent = ''
+              dataLines.push(line.slice(6))
             } else if (line === '') {
-              // Empty line = end of event block, ignore
-              currentEvent = ''
+              dispatch()
             }
           }
         }
+
+        if (buffer) {
+          if (buffer.startsWith('data: ')) {
+            dataLines.push(buffer.slice(6))
+          }
+        }
+        dispatch()
 
         onComplete()
       } catch (err: unknown) {

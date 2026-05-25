@@ -7,6 +7,8 @@ export type SSEEvent =
   | NodeCompleteEvent
   | FinalEvent
   | ErrorEvent
+  | RemediationApprovalEvent
+  | RemediationFinishedEvent
 
 export interface RunStartEvent {
   type: 'run_start'
@@ -57,6 +59,46 @@ export interface ErrorEvent {
   error: string
 }
 
+/** Remediation approval request (sent by backend when human approval is needed) */
+export interface RemediationApprovalEvent {
+  type: 'remediation_approval_required'
+  approval_kind: 'plan' | 'action'
+  approval_id: string
+  run_id: string
+  title: string
+  description?: string
+  /** Optional payload describing the action to be taken (for approval_kind=action) */
+  payload?: Record<string, unknown>
+}
+
+/** Remediation workflow finished */
+export interface RemediationFinishedEvent {
+  type: 'remediation_finished'
+  run_id: string
+  status: string
+  reason?: string
+}
+
+/** Remediation workflow terminal status stored per message */
+export interface RemediationStatus {
+  runId: string
+  status: string
+  reason?: string
+  finishedAt: number
+}
+
+/** Pending remediation approval state stored per message */
+export interface RemediationApproval {
+  type: 'plan' | 'action'
+  approvalId: string
+  runId: string
+  title: string
+  description?: string
+  payload?: Record<string, unknown>
+  /** Timestamp when the approval was requested */
+  requestedAt: number
+}
+
 /** Parsed SSE line pair */
 export interface SSEMessage {
   event: string
@@ -74,6 +116,10 @@ export interface ChatMessage {
   runId?: string
   /** This message's own node blocks — each assistant message remembers its own */
   nodeBlocks?: NodeBlock[]
+  /** Pending remediation approvals for this message */
+  remediationApprovals?: RemediationApproval[]
+  /** Final remediation status for this message */
+  remediationStatus?: RemediationStatus
 }
 
 /** Tool call record within a node */
