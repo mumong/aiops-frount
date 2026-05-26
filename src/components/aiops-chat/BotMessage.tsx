@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChatMessage, NodeBlock, NODE_LABELS } from './types'
 import MarkdownReport from './MarkdownReport'
 import RemediationApprovalCard from './RemediationApprovalCard'
+import { getRemediationStatusPresentation } from './remediationStatusPresentation'
 import styles from './MessageList.module.css'
 
 interface BotMessageProps {
@@ -85,28 +86,38 @@ export default function BotMessage({ message, nodeBlocks, finalAnswer, isLatest,
             )}
 
             {/* Remediation finished status */}
-            {message.remediationStatus && (
-              <div className={`${styles.remediationCard} ${message.remediationStatus.status === 'failed' ? styles.remediationCardFailed : ''}`}>
-                <div className={styles.remediationHeader}>
-                  <span className={styles.remediationIcon}>
-                    {message.remediationStatus.status === 'completed' ? '✅' : '⚠️'}
-                  </span>
-                  <span className={styles.remediationLabel}>
-                    修复流程结束: {message.remediationStatus.status}
-                  </span>
-                </div>
-                {message.remediationStatus.reason && (
-                  <div className={styles.remediationBody}>
-                    <div className={styles.remediationDesc}>
-                      {message.remediationStatus.reason}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            {message.remediationStatus && <RemediationStatusCard status={message.remediationStatus} />}
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+function RemediationStatusCard({ status }: { status: NonNullable<ChatMessage['remediationStatus']> }) {
+  const presentation = getRemediationStatusPresentation(status)
+  const toneClass =
+    presentation.tone === 'failed'
+      ? styles.remediationCardFailed
+      : presentation.tone === 'blocked'
+        ? styles.remediationCardBlocked
+        : presentation.tone === 'success'
+          ? styles.remediationCardSuccess
+          : styles.remediationCardNeutral
+
+  return (
+    <div className={`${styles.remediationCard} ${toneClass}`}>
+      <div className={styles.remediationHeader}>
+        <span className={styles.remediationIcon}>{presentation.icon}</span>
+        <span className={styles.remediationLabel}>{presentation.label}</span>
+      </div>
+      {presentation.detail && (
+        <div className={styles.remediationBody}>
+          <div className={styles.remediationDesc}>
+            {presentation.detail}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
