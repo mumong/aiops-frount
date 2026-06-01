@@ -122,6 +122,8 @@ export interface ChatMessage {
   remediationStatus?: RemediationStatus
 }
 
+export type EndpointMode = 'ask' | 'query'
+
 /** Tool call record within a node */
 export interface ToolCall {
   id: string
@@ -139,7 +141,7 @@ export interface ChatSession {
   messages: ChatMessage[]
   nodeBlocks: NodeBlock[]
   finalAnswer: string
-  endpointMode: 'ask' | 'query'
+  endpointMode: EndpointMode
   createdAt: number
   updatedAt: number
 }

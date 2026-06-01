@@ -10,10 +10,20 @@ interface BotMessageProps {
   nodeBlocks: NodeBlock[]
   finalAnswer: string
   isLatest: boolean
+  streamActive: boolean
+  activitySeq: number
   onRemediationRespond?: (runId: string, approvalId: string, approved: boolean, reason?: string) => Promise<unknown>
 }
 
-export default function BotMessage({ message, nodeBlocks, finalAnswer, isLatest, onRemediationRespond }: BotMessageProps) {
+export default function BotMessage({
+  message,
+  nodeBlocks,
+  finalAnswer,
+  isLatest,
+  streamActive,
+  activitySeq,
+  onRemediationRespond,
+}: BotMessageProps) {
   const isStreaming = message.status === 'streaming'
   const isError = message.status === 'error'
 
@@ -73,6 +83,8 @@ export default function BotMessage({ message, nodeBlocks, finalAnswer, isLatest,
                     key={ra.approvalId || idx}
                     approval={ra}
                     isCurrent={idx === message.remediationApprovals!.length - 1 && isLatest}
+                    streamActive={streamActive}
+                    activitySeq={activitySeq}
                     onRespond={(approvalId, approved, reason) => {
                       const runId = ra.runId || message.runId
                       if (onRemediationRespond && runId) {

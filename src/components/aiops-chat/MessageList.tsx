@@ -8,10 +8,19 @@ interface MessageListProps {
   messages: ChatMessage[]
   nodeBlocks: NodeBlock[]
   finalAnswer: string
+  streamActive: boolean
+  activitySeq: number
   onRemediationRespond?: (runId: string, approvalId: string, approved: boolean, reason?: string) => Promise<unknown>
 }
 
-export default function MessageList({ messages, nodeBlocks, finalAnswer, onRemediationRespond }: MessageListProps) {
+export default function MessageList({
+  messages,
+  nodeBlocks,
+  finalAnswer,
+  streamActive,
+  activitySeq,
+  onRemediationRespond,
+}: MessageListProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const isNearBottomRef = useRef(true)
@@ -58,6 +67,8 @@ export default function MessageList({ messages, nodeBlocks, finalAnswer, onRemed
                   : msg.content
               }
               isLatest={idx === messages.length - 1}
+              streamActive={streamActive}
+              activitySeq={activitySeq}
               onRemediationRespond={onRemediationRespond}
             />
           )

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { ChatSession, ChatMessage, NodeBlock } from '../components/aiops-chat/types'
+import { ChatSession, ChatMessage, NodeBlock, EndpointMode } from '../components/aiops-chat/types'
 
 const STORAGE_KEY = 'aiops_chat_sessions'
 
@@ -44,7 +44,7 @@ export function useChatHistory() {
     messages: ChatMessage[],
     nodeBlocks: NodeBlock[],
     finalAnswer: string,
-    endpointMode: 'ask' | 'query',
+    endpointMode: EndpointMode,
   ) => {
     if (messages.length === 0) return
 

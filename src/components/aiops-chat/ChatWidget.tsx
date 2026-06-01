@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { ChatMessage, NodeBlock, ToolCall, SSEMessage, RemediationApproval } from './types'
+import { ChatMessage, NodeBlock, SSEMessage, RemediationApproval, EndpointMode } from './types'
 import { useSSE } from '../../hooks/useSSE'
 import { useChatHistory } from '../../hooks/useChatHistory'
 import ChatHeader from './ChatHeader'
@@ -7,6 +7,8 @@ import Sidebar from './Sidebar'
 import MessageList from './MessageList'
 import MessageInput from './MessageInput'
 import { parseRemediationApprovalText, toRemediationApproval } from './remediationParsing'
+import { buildChatRequestParams, shouldProcessRemediation } from './chatRequestPolicy'
+import { appendNodeThinking, finishNodeToolCall, startNodeBlock, startNodeToolCall } from './nodeBlockUpdates'
 import styles from './ChatWidget.module.css'
 
 /**
@@ -52,15 +54,6 @@ export interface ChatWidgetProps {
   maxMessages?: number
 }
 
-type EndpointMode = 'ask' | 'query'
-
-function updateLast(blocks: NodeBlock[], fn: (b: NodeBlock) => NodeBlock): NodeBlock[] {
-  if (blocks.length === 0) return blocks
-  const copy = blocks.slice()
-  copy[copy.length - 1] = fn(copy[copy.length - 1]!)
-  return copy
-}
-
 export default function ChatWidget({
   apiBase,
   title = 'k8s aiops',
@@ -74,6 +67,7 @@ export default function ChatWidget({
   const nodeBlocksRef = useRef<NodeBlock[]>([])
   const [finalAnswer, setFinalAnswer] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sseActivitySeq, setSseActivitySeq] = useState(0)
   const toolIdCounter = useRef(0)
   const messageIdCounter = useRef(0)
   const textStreamBufferRef = useRef('')
@@ -138,13 +132,14 @@ export default function ChatWidget({
     )
   }, [])
 
-  const parseAndShowTextApproval = useCallback((assistantId: string, text: string) => {
+  const parseAndShowTextApproval = useCallback((assistantId: string, text: string, endpointMode: EndpointMode) => {
+    if (!shouldProcessRemediation(endpointMode)) return
     const parsed = parseRemediationApprovalText(text)
     if (!parsed) return
     upsertRemediationApproval(assistantId, toRemediationApproval(parsed))
   }, [upsertRemediationApproval])
 
-  const appendTextStreamChunk = useCallback((assistantId: string, chunk: string) => {
+  const appendTextStreamChunk = useCallback((assistantId: string, chunk: string, endpointMode: EndpointMode) => {
     textStreamBufferRef.current += chunk
     const nextContent = textStreamBufferRef.current
     setFinalAnswer(nextContent)
@@ -155,12 +150,14 @@ export default function ChatWidget({
           : m
       )
     )
-    parseAndShowTextApproval(assistantId, nextContent)
+    parseAndShowTextApproval(assistantId, nextContent, endpointMode)
   }, [parseAndShowTextApproval])
 
-  const handleSSEEvent = useCallback((msg: SSEMessage, assistantId: string) => {
+  const handleSSEEvent = useCallback((msg: SSEMessage, assistantId: string, requestEndpointMode: EndpointMode) => {
+    setSseActivitySeq(seq => seq + 1)
+
     if (msg.event === 'text') {
-      appendTextStreamChunk(assistantId, msg.data)
+      appendTextStreamChunk(assistantId, msg.data, requestEndpointMode)
       return
     }
 
@@ -168,7 +165,7 @@ export default function ChatWidget({
     try {
       data = JSON.parse(msg.data)
     } catch {
-      appendTextStreamChunk(assistantId, msg.data)
+      appendTextStreamChunk(assistantId, msg.data, requestEndpointMode)
       return
     }
 
@@ -188,95 +185,42 @@ export default function ChatWidget({
       case 'node_start': {
         const nodeId = String(data.node || '')
         const nodeName = String(data.node_name || data.node || '')
-        setNodeBlocks((prev) => {
-          if (prev.some(n => n.nodeId === nodeId && n.status === 'running')) return prev
-          return [...prev, {
-            nodeId,
-            nodeName,
-            status: 'running',
-            thinkingTokens: '',
-            toolCalls: [],
-          }]
-        })
+        setNodeBlocks(prev => startNodeBlock(prev, nodeId, nodeName))
         break
       }
 
       case 'thinking': {
         const thinkType = String(data.thinking_type || '')
-
-        // Defensive: if thinking event arrives before node_start, auto-create the node
-        setNodeBlocks(prev => {
-          if (prev.length === 0) {
-            const node = String(data.node || '')
-            const nodeName = String(data.node_name || data.node || node || '')
-            if (!node && !nodeName) return prev
-            return [{
-              nodeId: node || nodeName,
-              nodeName: nodeName || node,
-              status: 'running' as const,
-              thinkingTokens: '',
-              toolCalls: [],
-            }]
-          }
-          return prev
-        })
+        const nodeId = String(data.node || '')
+        const nodeName = String(data.node_name || data.node || nodeId || '')
 
         if (thinkType === 'ai_token') {
           const content = String(data.content || '')
-          setNodeBlocks(prev =>
-            updateLast(prev, last => ({
-              ...last,
-              thinkingTokens: last.thinkingTokens + content,
-            }))
-          )
+          setNodeBlocks(prev => appendNodeThinking(prev, nodeId, nodeName, content))
         } else if (thinkType === 'ai_message') {
           const content = String(data.content || '')
-          setNodeBlocks(prev =>
-            updateLast(prev, last => ({
-              ...last,
-              thinkingTokens: last.thinkingTokens
-                ? last.thinkingTokens + '\n' + content
-                : content,
-            }))
-          )
+          setNodeBlocks(prev => appendNodeThinking(prev, nodeId, nodeName, content, '\n'))
         } else if (thinkType === 'tool_start') {
           const toolName = String(data.tool_name || '')
           setNodeBlocks(prev =>
-            updateLast(prev, last => ({
-              ...last,
-              toolCalls: [...last.toolCalls, {
+            startNodeToolCall(
+              prev,
+              nodeId,
+              nodeName,
+              {
                 id: `tool-${++toolIdCounter.current}`,
                 toolName,
                 status: 'running' as const,
-              }],
-            }))
+              },
+            )
           )
         } else if (thinkType === 'tool_result') {
           const toolName = String(data.tool_name || '')
           const status = String(data.status || 'success')
           const preview = String(data.result_preview || '')
-          // Save full result data for click-to-expand
           const resultData = JSON.stringify(data, null, 2)
           setNodeBlocks(prev =>
-            updateLast(prev, last => {
-              // Only update the FIRST still-running tool call with this name,
-              // otherwise duplicate tool calls in the same node all get the
-              // same result (bug: map hits all matches at once).
-              const idx = last.toolCalls.findIndex(
-                (t: ToolCall) => t.toolName === toolName && t.status === 'running'
-              )
-              if (idx === -1) return last
-              const updated: ToolCall[] = [...last.toolCalls]
-              const old = updated[idx]!
-              updated[idx] = {
-                id: old.id,
-                toolName: old.toolName,
-                status: (status === 'success' ? 'success' : 'error') as 'success' | 'error',
-                resultPreview: preview,
-                resultData,
-              }
-              return { ...last, toolCalls: updated }
-            })
+            finishNodeToolCall(prev, nodeId, nodeName, toolName, status, preview, resultData)
           )
         }
         break
@@ -313,7 +257,7 @@ export default function ChatWidget({
               : m
           )
         )
-        parseAndShowTextApproval(assistantId, answer)
+        parseAndShowTextApproval(assistantId, answer, requestEndpointMode)
         break
       }
 
@@ -332,6 +276,7 @@ export default function ChatWidget({
       }
 
       case 'remediation_approval_required': {
+        if (!shouldProcessRemediation(requestEndpointMode)) break
         const approval: RemediationApproval = {
           type: String(data.approval_kind || 'plan') as 'plan' | 'action',
           approvalId: String(data.approval_id || ''),
@@ -346,6 +291,7 @@ export default function ChatWidget({
       }
 
       case 'remediation_finished': {
+        if (!shouldProcessRemediation(requestEndpointMode)) break
         const finRunId = String(data.run_id || '')
         const finStatus = String(data.status || 'completed')
         const finReason = String(data.reason || '')
@@ -395,19 +341,16 @@ export default function ChatWidget({
     setFinalAnswer('')
     textStreamBufferRef.current = ''
     toolIdCounter.current = 0
+    setSseActivitySeq(0)
 
-    const params = new URLSearchParams({
-      q: question,
-      format: 'sse',
-      stream: 'true',
-      remediate: 'true',
-    })
+    const requestEndpointMode = endpointMode
+    const params = buildChatRequestParams(question, requestEndpointMode)
 
     connect(
-      `${apiBase}/${endpointMode}`,
+      `${apiBase}/${requestEndpointMode}`,
       { method: 'GET', body: params },
       (msg: SSEMessage) => {
-        handleSSEEvent(msg, assistantMsg.id)
+        handleSSEEvent(msg, assistantMsg.id, requestEndpointMode)
       },
       (err: Error) => {
         setFinalAnswer(`❌ 错误: ${err.message}`)
@@ -484,6 +427,8 @@ export default function ChatWidget({
             messages={messages}
             nodeBlocks={nodeBlocks}
             finalAnswer={finalAnswer}
+            streamActive={isStreaming}
+            activitySeq={sseActivitySeq}
             onRemediationRespond={handleRemediationRespond}
           />
           <MessageInput

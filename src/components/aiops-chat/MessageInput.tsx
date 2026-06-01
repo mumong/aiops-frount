@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import type { EndpointMode } from './types'
 import styles from './MessageInput.module.css'
 
 interface MessageInputProps {
@@ -6,7 +7,7 @@ interface MessageInputProps {
   onStop: () => void
   isStreaming: boolean
   placeholder: string
-  endpointMode: 'ask' | 'query'
+  endpointMode: EndpointMode
 }
 
 export default function MessageInput({ onSend, onStop, isStreaming, placeholder }: MessageInputProps) {

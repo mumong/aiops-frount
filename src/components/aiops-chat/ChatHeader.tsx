@@ -1,10 +1,11 @@
+import type { EndpointMode } from './types'
 import styles from './ChatHeader.module.css'
 
 interface ChatHeaderProps {
   title: string
   isConnected: boolean
-  endpointMode: 'ask' | 'query'
-  onEndpointChange: (mode: 'ask' | 'query') => void
+  endpointMode: EndpointMode
+  onEndpointChange: (mode: EndpointMode) => void
 }
 
 export default function ChatHeader({ title, isConnected, endpointMode, onEndpointChange }: ChatHeaderProps) {
