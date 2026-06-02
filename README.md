@@ -20,12 +20,13 @@ Kubernetes AIOps 智能对话助手前端组件。提供基于聊天界面的 Ku
 | 渲染 | react-markdown + rehype-highlight + remark-gfm |
 | 代理转发 | Vite dev server proxy |
 
-## 本地开发
+## 本地运行
 
 ### 前置要求
 
 - Node.js >= 18
 - pnpm（推荐）或 npm
+- 后端服务已启动，默认地址为 `http://10.2.0.48:30800`
 
 ### 安装依赖
 
@@ -35,13 +36,20 @@ npm install
 pnpm install
 ```
 
-### 启动开发服务器
+### 启动前端
 
 ```bash
 npm run dev
 ```
 
-开发服务器默认绑定 `0.0.0.0:5173`，API 请求通过 Vite proxy 转发到后端（默认目标 `http://10.2.0.48:30800`）。
+开发服务器默认绑定 `0.0.0.0:5173`：
+
+```text
+http://localhost:5173/
+http://<当前机器IP>:5173/
+```
+
+API 请求通过 Vite proxy 转发到后端，默认目标是 `http://10.2.0.48:30800`。
 
 如需修改 API 后端地址，编辑 `vite.config.ts` 中 `server.proxy` 的 `target` 字段。
 
@@ -93,61 +101,109 @@ frountind/
 
 ## 部署
 
-### 方式一：静态托管（Nginx / CDN）
+当前仓库提供一个临时 Kubernetes Pod 部署方案，便于单独运行前端。未来如果把组件融入其他前端页面，可以只复用 `src/components/aiops-chat/`，不需要这些部署文件。
 
-构建后将 `dist/` 目录部署到任意静态 Web 服务器：
+### 部署前确认
+
+需要具备：
+
+- 本机可执行 `docker`
+- 本机 `kubectl` 已指向目标 K8s 集群
+- 能推送到镜像仓库 `xnet.registry.io:8443`
+- 后端 Service 已存在：`aiops-copilot.aiops.svc.cluster.local:8000`
+
+镜像默认推送到：
+
+```text
+xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>
+```
+
+版本来自仓库根目录的 `VERSION` 文件。当前默认：
 
 ```bash
-npm run build
-# 将 dist/ 上传到服务器
+cat VERSION
 ```
 
-Nginx 配置示例：
+### 一键构建并部署
 
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
+常规使用按顺序执行：
 
-    root /path/to/dist;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # API 反向代理（可选）
-    location /api/ {
-        proxy_pass http://your-backend:30800/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
+```bash
+make build
+make push
+make deploy
 ```
 
-### 方式二：Docker
+含义：
 
-```dockerfile
-FROM nginx:alpine
-COPY dist/ /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+```bash
+make build   # 构建前端镜像
+make push    # 推送镜像到 xnet.registry.io:8443
+make deploy  # 创建/更新 K8s Deployment + NodePort Service
 ```
 
-或使用现有多阶段构建方案（按需添加 `Dockerfile`）。
+`make deploy` 会创建 `aiops` namespace，应用 `deploy/k8s-simple.yaml`，并等待 `aiops-copilot-frontend` Deployment 完成 rollout。
 
-### 方式三：Kubernetes（与后端同集群部署）
+前端通过 NodePort 暴露：
 
-将构建产物容器化后部署到 K8s 集群，API 通过 Service 名内网直连后端，无需外部代理。
+```text
+http://<任意K8s节点IP>:30081/
+```
+
+当前集群示例：
+
+```text
+http://10.2.0.48:30081/
+```
+
+容器内使用 Nginx 承载 Vite 构建产物，浏览器请求 `/api/*` 会被反向代理到集群内后端：
+
+```text
+http://aiops-copilot.aiops.svc.cluster.local:8000/
+```
+
+### 常用运维命令
+
+```bash
+make restart      # 重启前端 Pod
+make logs         # 查看前端 Nginx 日志
+make delete       # 删除前端 Deployment 和 Service
+make sync-version # 将 deploy/k8s-simple.yaml 里的镜像 tag 同步为 VERSION
+```
+
+查看当前部署状态：
+
+```bash
+kubectl get deployment,svc,pod -n aiops -l app=aiops-copilot-frontend -o wide
+```
+
+验证前端和 API 反代：
+
+```bash
+curl -I http://<任意K8s节点IP>:30081/
+curl http://<任意K8s节点IP>:30081/api/health
+```
+
+### 更新版本
+
+修改 `VERSION` 后重新构建部署：
+
+```bash
+echo 0.1.1 > VERSION
+make sync-version
+make build
+make push
+make deploy
+```
 
 ## 环境要求
 
-无硬性环境依赖。前端纯静态，API 请求直接发往配置的后端地址。后端需要暴露以下接口：
+前端容器本身只提供静态页面和 `/api` 反向代理。后端需要暴露以下接口：
 
-- `POST /chat` — 发送对话消息
-- `GET /sessions` — 获取会话列表
-- `POST /sessions` — 创建新会话
-- `DELETE /sessions/:id` — 删除会话
+- `GET /ask` — 诊断模式 SSE/文本接口
+- `GET /query` — 查询模式 SSE/文本接口
+- `POST /remediation/approve` — 修复审批接口
+- `GET /health` — 健康检查接口
 
 ## 开发约定
 
