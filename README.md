@@ -124,49 +124,7 @@ xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>
 cat VERSION
 ```
 
-### 1. 打包前端镜像
-
-使用 Docker 直接打包：
-
-```bash
-docker build -t xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION) .
-```
-
-或者使用 Makefile：
-
-```bash
-make build
-```
-
-### 2. 推送镜像
-
-```bash
-docker push xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
-```
-
-或者：
-
-```bash
-make push
-```
-
-### 3. 一键打包、推送、部署
-
-如果你要从当前代码直接完成“打包镜像 -> 推送镜像 -> 部署到 K8s”，执行：
-
-```bash
-make release
-```
-
-`make release` 等价于：
-
-```bash
-make build && make push && make deploy
-```
-
-注意：`make deploy` 只负责把 `deploy/k8s-simple.yaml` 应用到 K8s，并等待 rollout；它不会自动重新打包镜像，也不会自动 push 镜像。完整一键流程请用 `make release`。
-
-### 4. 只部署已有镜像到 K8s
+### 快速部署已有镜像到 K8s
 
 如果镜像已经构建并推送过，只需要更新 K8s：
 
@@ -174,7 +132,7 @@ make build && make push && make deploy
 make deploy
 ```
 
-它会执行：
+`make deploy` 会把 `deploy/k8s-simple.yaml` 里的镜像 tag 同步为 `VERSION`，然后执行：
 
 ```bash
 kubectl create namespace aiops --dry-run=client -o yaml | kubectl apply -f -
@@ -182,7 +140,7 @@ kubectl apply -f deploy/k8s-simple.yaml
 kubectl rollout status deployment/aiops-copilot-frontend -n aiops --timeout=300s
 ```
 
-### 5. 访问前端
+### 访问前端
 
 前端通过 NodePort 暴露：
 
@@ -200,6 +158,48 @@ http://10.2.0.48:30081/
 
 ```text
 http://aiops-copilot.aiops.svc.cluster.local:8000/
+```
+
+### 镜像还没构建时：一键打包、推送、部署
+
+如果你要从当前代码直接完成“打包镜像 -> 推送镜像 -> 部署到 K8s”，执行：
+
+```bash
+make release
+```
+
+`make release` 等价于：
+
+```bash
+make build && make push && make deploy
+```
+
+注意：`make deploy` 只负责把 `deploy/k8s-simple.yaml` 应用到 K8s，并等待 rollout；它不会自动重新打包镜像，也不会自动 push 镜像。完整一键流程请用 `make release`。
+
+### 手动打包前端镜像
+
+使用 Docker 直接打包：
+
+```bash
+docker build -t xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION) .
+```
+
+或者使用 Makefile：
+
+```bash
+make build
+```
+
+### 手动推送镜像
+
+```bash
+docker push xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
+```
+
+或者：
+
+```bash
+make push
 ```
 
 ### 不使用 Makefile 的等价命令
