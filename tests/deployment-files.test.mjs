@@ -44,14 +44,31 @@ test('Kubernetes manifest deploys a temporary NodePort frontend pod', () => {
   assert.match(manifest, /nodePort: 30081/)
 })
 
-test('Makefile supports build push deploy delete restart logs and version sync', () => {
+test('Makefile supports one-command release plus operations targets', () => {
   const makefile = read('Makefile')
 
-  for (const target of ['build:', 'push:', 'deploy:', 'delete:', 'restart:', 'logs:', 'sync-version:']) {
+  for (const target of ['release:', 'build:', 'push:', 'deploy:', 'delete:', 'restart:', 'logs:', 'sync-version:']) {
     assert.match(makefile, new RegExp(`^${target}`, 'm'))
   }
+  assert.match(makefile, /\.PHONY: .*release/)
+  assert.match(makefile, /release: build push deploy/)
   assert.match(makefile, /IMAGE_NAME := aiops-copilot-frontend/)
   assert.match(makefile, /NAMESPACE := aiops/)
   assert.match(makefile, /DEPLOYMENT := aiops-copilot-frontend/)
   assert.match(makefile, /kubectl rollout status deployment\/\$\(DEPLOYMENT\) -n \$\(NAMESPACE\)/)
+})
+
+test('README documents local running, packaging, K8s one-command deployment, raw commands, and access URL', () => {
+  const readme = read('README.md')
+
+  assert.match(readme, /## 本地运行/)
+  assert.match(readme, /npm run dev/)
+  assert.match(readme, /## K8s 环境部署/)
+  assert.match(readme, /### 1\. 打包前端镜像/)
+  assert.match(readme, /docker build -t xnet\.registry\.io:8443\/xnet-cloud\/aiops-copilot-frontend:\$\(cat VERSION\) \./)
+  assert.match(readme, /### 3\. 一键打包、推送、部署/)
+  assert.match(readme, /make release/)
+  assert.match(readme, /### 不使用 Makefile 的等价命令/)
+  assert.match(readme, /kubectl apply -f deploy\/k8s-simple\.yaml/)
+  assert.match(readme, /http:\/\/<任意K8s节点IP>:30081\//)
 })

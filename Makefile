@@ -8,7 +8,9 @@ DOCKER_TAG := $(VERSION)
 NAMESPACE := aiops
 DEPLOYMENT := aiops-copilot-frontend
 
-.PHONY: build push deploy delete restart logs sync-version
+.PHONY: release build push deploy delete restart logs sync-version
+
+release: build push deploy
 
 build:
 	@echo "Building $(DOCKER_NAME):$(DOCKER_TAG)..."

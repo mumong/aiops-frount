@@ -99,7 +99,7 @@ frountind/
 └── docs/                      # 文档
 ```
 
-## 部署
+## K8s 环境部署
 
 当前仓库提供一个临时 Kubernetes Pod 部署方案，便于单独运行前端。未来如果把组件融入其他前端页面，可以只复用 `src/components/aiops-chat/`，不需要这些部署文件。
 
@@ -118,31 +118,71 @@ frountind/
 xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>
 ```
 
-版本来自仓库根目录的 `VERSION` 文件。当前默认：
+版本来自仓库根目录的 `VERSION` 文件：
 
 ```bash
 cat VERSION
 ```
 
-### 一键构建并部署
+### 1. 打包前端镜像
 
-常规使用按顺序执行：
+使用 Docker 直接打包：
+
+```bash
+docker build -t xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION) .
+```
+
+或者使用 Makefile：
 
 ```bash
 make build
+```
+
+### 2. 推送镜像
+
+```bash
+docker push xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
+```
+
+或者：
+
+```bash
 make push
+```
+
+### 3. 一键打包、推送、部署
+
+如果你要从当前代码直接完成“打包镜像 -> 推送镜像 -> 部署到 K8s”，执行：
+
+```bash
+make release
+```
+
+`make release` 等价于：
+
+```bash
+make build && make push && make deploy
+```
+
+注意：`make deploy` 只负责把 `deploy/k8s-simple.yaml` 应用到 K8s，并等待 rollout；它不会自动重新打包镜像，也不会自动 push 镜像。完整一键流程请用 `make release`。
+
+### 4. 只部署已有镜像到 K8s
+
+如果镜像已经构建并推送过，只需要更新 K8s：
+
+```bash
 make deploy
 ```
 
-含义：
+它会执行：
 
 ```bash
-make build   # 构建前端镜像
-make push    # 推送镜像到 xnet.registry.io:8443
-make deploy  # 创建/更新 K8s Deployment + NodePort Service
+kubectl create namespace aiops --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f deploy/k8s-simple.yaml
+kubectl rollout status deployment/aiops-copilot-frontend -n aiops --timeout=300s
 ```
 
-`make deploy` 会创建 `aiops` namespace，应用 `deploy/k8s-simple.yaml`，并等待 `aiops-copilot-frontend` Deployment 完成 rollout。
+### 5. 访问前端
 
 前端通过 NodePort 暴露：
 
@@ -160,6 +200,28 @@ http://10.2.0.48:30081/
 
 ```text
 http://aiops-copilot.aiops.svc.cluster.local:8000/
+```
+
+### 不使用 Makefile 的等价命令
+
+如果当前环境没有 `make`，可以直接执行下面这些命令：
+
+```bash
+IMAGE=xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
+
+docker build -t "$IMAGE" .
+docker push "$IMAGE"
+
+sed -i "s|image: xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:.*|image: $IMAGE|" deploy/k8s-simple.yaml
+kubectl create namespace aiops --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f deploy/k8s-simple.yaml
+kubectl rollout status deployment/aiops-copilot-frontend -n aiops --timeout=300s
+```
+
+部署完成后访问：
+
+```text
+http://<任意K8s节点IP>:30081/
 ```
 
 ### 常用运维命令
