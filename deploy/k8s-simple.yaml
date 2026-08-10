@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:0.1.0
+          image: xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:0.1.1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
