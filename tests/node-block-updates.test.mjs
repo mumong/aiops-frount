@@ -21,6 +21,12 @@ async function loadNodeBlockModule() {
 
 test('thinking tokens are appended to the event node instead of the last node', async () => {
   const { appendNodeThinking } = await loadNodeBlockModule()
+  const parallelEvidence = {
+    status: 'running',
+    groups: [],
+    pendingTools: [],
+    unassignedResults: [],
+  }
   const blocks = [
     {
       nodeId: 'layer',
@@ -28,6 +34,7 @@ test('thinking tokens are appended to the event node instead of the last node', 
       status: 'complete',
       thinkingTokens: '定位推理',
       toolCalls: [],
+      parallelEvidence,
     },
     {
       nodeId: 'evidence',
@@ -42,6 +49,7 @@ test('thinking tokens are appended to the event node instead of the last node', 
 
   assert.equal(next[0].thinkingTokens, '定位推理补充')
   assert.equal(next[1].thinkingTokens, '')
+  assert.deepEqual(next[0].parallelEvidence, parallelEvidence)
 })
 
 test('missing event nodes are created before appending thinking tokens', async () => {

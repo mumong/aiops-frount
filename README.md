@@ -109,13 +109,13 @@ frountind/
 
 - 本机可执行 `docker`
 - 本机 `kubectl` 已指向目标 K8s 集群
-- 能推送到镜像仓库 `xnet.registry.io:8443`
+- 能推送到镜像仓库 `10.2.0.86:8443`
 - 后端 Service 已存在：`aiops-copilot.aiops.svc.cluster.local:8000`
 
 镜像默认推送到：
 
 ```text
-xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>
+10.2.0.86:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>
 ```
 
 版本来自仓库根目录的 `VERSION` 文件：
@@ -181,7 +181,7 @@ make build && make push && make deploy
 使用 Docker 直接打包：
 
 ```bash
-docker build -t xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION) .
+docker build -t 10.2.0.86:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION) .
 ```
 
 或者使用 Makefile：
@@ -193,7 +193,7 @@ make build
 ### 手动推送镜像
 
 ```bash
-docker push xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
+docker push 10.2.0.86:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
 ```
 
 或者：
@@ -207,12 +207,12 @@ make push
 如果当前环境没有 `make`，可以直接执行下面这些命令：
 
 ```bash
-IMAGE=xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
+IMAGE=10.2.0.86:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
 
 docker build -t "$IMAGE" .
 docker push "$IMAGE"
 
-sed -i "s|image: xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:.*|image: $IMAGE|" deploy/k8s-simple.yaml
+sed -i "s|image: 10.2.0.86:8443/xnet-cloud/aiops-copilot-frontend:.*|image: $IMAGE|" deploy/k8s-simple.yaml
 kubectl create namespace aiops --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f deploy/k8s-simple.yaml
 kubectl rollout status deployment/aiops-copilot-frontend -n aiops --timeout=300s

@@ -1,4 +1,4 @@
-IMAGE_REPOSITORY := xnet.registry.io:8443
+IMAGE_REPOSITORY := 10.2.0.86:8443
 PROJECT := xnet-cloud
 IMAGE_NAME := aiops-copilot-frontend
 DOCKER_NAME := $(IMAGE_REPOSITORY)/$(PROJECT)/$(IMAGE_NAME)

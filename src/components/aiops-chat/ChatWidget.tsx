@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { ChatMessage, NodeBlock, SSEMessage, RemediationApproval, EndpointMode } from './types'
+import { ChatMessage, NodeBlock, SSEMessage, RemediationApproval, EndpointMode, ParallelEvidenceGroup } from './types'
 import { useSSE } from '../../hooks/useSSE'
 import { useChatHistory } from '../../hooks/useChatHistory'
 import ChatHeader from './ChatHeader'
@@ -9,7 +9,27 @@ import MessageInput from './MessageInput'
 import { parseRemediationApprovalText, toRemediationApproval } from './remediationParsing'
 import { buildChatRequestParams, shouldProcessRemediation } from './chatRequestPolicy'
 import { appendNodeThinking, finishNodeToolCall, startNodeBlock, startNodeToolCall } from './nodeBlockUpdates'
+import {
+  completeParallelEvidence,
+  createParallelEvidenceState,
+  extractParallelEvidenceGroups,
+  finishParallelTool,
+  startParallelTool,
+} from './parallelEvidenceModel'
 import styles from './ChatWidget.module.css'
+
+function mirrorParallelEvidence(
+  blocks: NodeBlock[],
+  updater: (state: NonNullable<NodeBlock['parallelEvidence']>) => NonNullable<NodeBlock['parallelEvidence']>,
+): NodeBlock[] {
+  let mirrored = false
+  const next = blocks.map(block => {
+    if (block.nodeId !== 'parallel_evidence' || !block.parallelEvidence) return block
+    mirrored = true
+    return { ...block, parallelEvidence: updater(block.parallelEvidence) }
+  })
+  return mirrored ? next : blocks
+}
 
 /**
  * POST to the remediation approval endpoint.
@@ -65,6 +85,7 @@ export default function ChatWidget({
   const [endpointMode, setEndpointMode] = useState<EndpointMode>('ask')
   const [nodeBlocks, setNodeBlocks] = useState<NodeBlock[]>([])
   const nodeBlocksRef = useRef<NodeBlock[]>([])
+  const parallelGroupsRef = useRef<ParallelEvidenceGroup[]>([])
   const [finalAnswer, setFinalAnswer] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [sseActivitySeq, setSseActivitySeq] = useState(0)
@@ -75,10 +96,11 @@ export default function ChatWidget({
   const { connect, disconnect } = useSSE()
   const history = useChatHistory()
 
-  // Keep nodeBlocksRef in sync with nodeBlocks state
-  useEffect(() => {
-    nodeBlocksRef.current = nodeBlocks
-  }, [nodeBlocks])
+  const updateNodeBlocks = useCallback((updater: (blocks: NodeBlock[]) => NodeBlock[]) => {
+    const next = updater(nodeBlocksRef.current)
+    nodeBlocksRef.current = next
+    setNodeBlocks(next)
+  }, [])
 
   // Dynamic placeholder based on endpoint mode
   const effectivePlaceholder =
@@ -91,7 +113,7 @@ export default function ChatWidget({
     const session = history.getActiveSession()
     if (session) {
       setMessages(session.messages)
-      setNodeBlocks(session.nodeBlocks)
+      updateNodeBlocks(() => session.nodeBlocks)
       setFinalAnswer(session.finalAnswer)
       setEndpointMode(session.endpointMode)
       // Reset counters to max existing IDs
@@ -101,7 +123,7 @@ export default function ChatWidget({
       }, 0)
       messageIdCounter.current = maxMsg
     }
-  }, [history.activeId, history.getActiveSession])
+  }, [history.activeId, history.getActiveSession, updateNodeBlocks])
 
   // Auto-save after streaming completes
   const prevIsStreaming = useRef(false)
@@ -185,7 +207,17 @@ export default function ChatWidget({
       case 'node_start': {
         const nodeId = String(data.node || '')
         const nodeName = String(data.node_name || data.node || '')
-        setNodeBlocks(prev => startNodeBlock(prev, nodeId, nodeName))
+        updateNodeBlocks(prev => {
+          const started = startNodeBlock(prev, nodeId, nodeName)
+          if (nodeId !== 'parallel_evidence' || parallelGroupsRef.current.length <= 2) {
+            return started
+          }
+          return started.map(block => (
+            block.nodeId === nodeId && !block.parallelEvidence
+              ? { ...block, parallelEvidence: createParallelEvidenceState(parallelGroupsRef.current) }
+              : block
+          ))
+        })
         break
       }
 
@@ -196,32 +228,52 @@ export default function ChatWidget({
 
         if (thinkType === 'ai_token') {
           const content = String(data.content || '')
-          setNodeBlocks(prev => appendNodeThinking(prev, nodeId, nodeName, content))
+          updateNodeBlocks(prev => appendNodeThinking(prev, nodeId, nodeName, content))
         } else if (thinkType === 'ai_message') {
           const content = String(data.content || '')
-          setNodeBlocks(prev => appendNodeThinking(prev, nodeId, nodeName, content, '\n'))
+          updateNodeBlocks(prev => appendNodeThinking(prev, nodeId, nodeName, content, '\n'))
         } else if (thinkType === 'tool_start') {
           const toolName = String(data.tool_name || '')
-          setNodeBlocks(prev =>
-            startNodeToolCall(
-              prev,
-              nodeId,
-              nodeName,
-              {
-                id: `tool-${++toolIdCounter.current}`,
-                toolName,
-                status: 'running' as const,
-              },
-            )
-          )
+          const tool = {
+            id: `tool-${++toolIdCounter.current}`,
+            toolName,
+            status: 'running' as const,
+          }
+          updateNodeBlocks(prev => {
+            const isGroupedEvidence = parallelGroupsRef.current.length > 2
+              && (nodeId === 'parallel_evidence' || nodeId === 'evidence')
+            const mirrored = isGroupedEvidence
+              ? mirrorParallelEvidence(prev, state => startParallelTool(state, tool))
+              : prev
+            if (nodeId === 'parallel_evidence' && mirrored !== prev) {
+              return mirrored
+            }
+            return startNodeToolCall(mirrored, nodeId, nodeName, tool)
+          })
         } else if (thinkType === 'tool_result') {
           const toolName = String(data.tool_name || '')
           const status = String(data.status || 'success')
           const preview = String(data.result_preview || '')
           const resultData = JSON.stringify(data, null, 2)
-          setNodeBlocks(prev =>
-            finishNodeToolCall(prev, nodeId, nodeName, toolName, status, preview, resultData)
-          )
+          updateNodeBlocks(prev => {
+            const isGroupedEvidence = parallelGroupsRef.current.length > 2
+              && (nodeId === 'parallel_evidence' || nodeId === 'evidence')
+            const fallbackId = `tool-result-${++toolIdCounter.current}`
+            const mirrored = isGroupedEvidence
+              ? mirrorParallelEvidence(prev, state => finishParallelTool(
+                  state,
+                  toolName,
+                  status,
+                  preview,
+                  resultData,
+                  fallbackId,
+                ))
+              : prev
+            if (nodeId === 'parallel_evidence' && mirrored !== prev) {
+              return mirrored
+            }
+            return finishNodeToolCall(mirrored, nodeId, nodeName, toolName, status, preview, resultData)
+          })
         }
         break
       }
@@ -233,13 +285,32 @@ export default function ChatWidget({
         const nodeId = String(data.node || '')
         const duration = Number(data.duration_seconds || 0)
         const handoff = String(data.handoff_summary || '')
-        setNodeBlocks(prev =>
-          prev.map(n =>
-            n.nodeId === nodeId
-              ? { ...n, status: 'complete' as const, durationSeconds: duration, handoffSummary: handoff || n.handoffSummary }
-              : n
+        if (nodeId === 'layer') {
+          parallelGroupsRef.current = extractParallelEvidenceGroups(
+            data.state_snapshot as Record<string, unknown> | undefined,
           )
-        )
+        }
+        updateNodeBlocks(prev => prev.map(n => {
+          if (n.nodeId === nodeId) {
+            return {
+              ...n,
+              status: 'complete' as const,
+              durationSeconds: duration,
+              handoffSummary: handoff || n.handoffSummary,
+              ...(n.parallelEvidence
+                ? { parallelEvidence: completeParallelEvidence(n.parallelEvidence) }
+                : {}),
+            }
+          }
+          if (
+            nodeId === 'evidence'
+            && parallelGroupsRef.current.length > 2
+            && n.parallelEvidence
+          ) {
+            return { ...n, parallelEvidence: completeParallelEvidence(n.parallelEvidence) }
+          }
+          return n
+        }))
         break
       }
 
@@ -314,7 +385,7 @@ export default function ChatWidget({
         break
       }
     }
-  }, [appendTextStreamChunk, parseAndShowTextApproval, upsertRemediationApproval])
+  }, [appendTextStreamChunk, parseAndShowTextApproval, updateNodeBlocks, upsertRemediationApproval])
 
   const sendMessage = useCallback((question: string) => {
     if (!question.trim() || isStreaming) return
@@ -338,6 +409,7 @@ export default function ChatWidget({
     setIsStreaming(true)
     setNodeBlocks([])
     nodeBlocksRef.current = []
+    parallelGroupsRef.current = []
     setFinalAnswer('')
     textStreamBufferRef.current = ''
     toolIdCounter.current = 0
@@ -395,6 +467,8 @@ export default function ChatWidget({
     }
     setMessages([])
     setNodeBlocks([])
+    nodeBlocksRef.current = []
+    parallelGroupsRef.current = []
     setFinalAnswer('')
     history.newSession()
   }, [isStreaming, disconnect, history])

@@ -134,6 +134,46 @@ export interface ToolCall {
   resultData?: string
 }
 
+export type EvidenceDimension =
+  | 'kubernetes'
+  | 'metrics'
+  | 'logging'
+  | 'tracing'
+  | 'topology'
+  | 'other'
+
+export interface EvidenceEntity {
+  kind: string
+  namespace: string
+  name: string
+}
+
+export interface ParallelEvidenceResult {
+  id: string
+  toolName: string
+  status: 'success' | 'error'
+  resultPreview: string
+  resultData: string
+  dimension: EvidenceDimension
+  sourceSystem?: string
+  entity?: EvidenceEntity
+}
+
+export interface ParallelEvidenceGroup {
+  groupId: string
+  abnormalType: string
+  statusKeywords: string[]
+  entities: EvidenceEntity[]
+  results: ParallelEvidenceResult[]
+}
+
+export interface ParallelEvidenceState {
+  status: 'running' | 'complete'
+  groups: ParallelEvidenceGroup[]
+  pendingTools: ToolCall[]
+  unassignedResults: ParallelEvidenceResult[]
+}
+
 /** A saved chat session */
 export interface ChatSession {
   id: string
@@ -158,15 +198,18 @@ export interface NodeBlock {
   toolCalls: ToolCall[]
   /** Handoff summary from node_complete */
   handoffSummary?: string
+  /** Grouped presentation state for the Backend's parallel_evidence node */
+  parallelEvidence?: ParallelEvidenceState
 }
 
 /** Per-node label mapping */
 export const NODE_LABELS: Record<string, string> = {
   layer: '📍 问题定位',
   evidence: '🔍 证据采集',
+  parallel_evidence: '⚡ 并发证据采集',
   rca: '🎯 根因分析',
   conclusion: '📋 汇总总结',
 }
 
 /** Node order for display */
-export const NODE_ORDER = ['layer', 'evidence', 'rca', 'conclusion']
+export const NODE_ORDER = ['layer', 'parallel_evidence', 'evidence', 'rca', 'conclusion']

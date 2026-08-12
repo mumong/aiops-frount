@@ -35,10 +35,15 @@ test('nginx serves SPA and proxies API to the in-cluster backend service', () =>
 
 test('Kubernetes manifest deploys a temporary NodePort frontend pod', () => {
   const manifest = read('deploy/k8s-simple.yaml')
+  const version = read('VERSION').trim()
 
+  assert.equal(version, '0.1.2')
   assert.match(manifest, /kind: Deployment/)
   assert.match(manifest, /name: aiops-copilot-frontend/)
-  assert.match(manifest, /image: xnet\.registry\.io:8443\/xnet-cloud\/aiops-copilot-frontend:/)
+  assert.match(
+    manifest,
+    new RegExp(`image: 10\\.2\\.0\\.86:8443/xnet-cloud/aiops-copilot-frontend:${version}`),
+  )
   assert.match(manifest, /kind: Service/)
   assert.match(manifest, /type: NodePort/)
   assert.match(manifest, /nodePort: 30081/)
@@ -53,6 +58,7 @@ test('Makefile supports one-command release plus operations targets', () => {
   assert.match(makefile, /\.PHONY: .*release/)
   assert.match(makefile, /release: build push deploy/)
   assert.match(makefile, /IMAGE_NAME := aiops-copilot-frontend/)
+  assert.match(makefile, /IMAGE_REPOSITORY := 10\.2\.0\.86:8443/)
   assert.match(makefile, /NAMESPACE := aiops/)
   assert.match(makefile, /DEPLOYMENT := aiops-copilot-frontend/)
   assert.match(makefile, /kubectl rollout status deployment\/\$\(DEPLOYMENT\) -n \$\(NAMESPACE\)/)
@@ -71,7 +77,7 @@ test('README documents local running, packaging, K8s one-command deployment, raw
   assert.match(readme, /### 镜像还没构建时：一键打包、推送、部署/)
   assert.match(readme, /make release/)
   assert.match(readme, /### 手动打包前端镜像/)
-  assert.match(readme, /docker build -t xnet\.registry\.io:8443\/xnet-cloud\/aiops-copilot-frontend:\$\(cat VERSION\) \./)
+  assert.match(readme, /docker build -t 10\.2\.0\.86:8443\/xnet-cloud\/aiops-copilot-frontend:\$\(cat VERSION\) \./)
   assert.match(readme, /### 不使用 Makefile 的等价命令/)
   assert.match(readme, /kubectl apply -f deploy\/k8s-simple\.yaml/)
 })

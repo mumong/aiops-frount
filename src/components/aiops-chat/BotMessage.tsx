@@ -3,6 +3,7 @@ import { ChatMessage, NodeBlock, NODE_LABELS } from './types'
 import MarkdownReport from './MarkdownReport'
 import RemediationApprovalCard from './RemediationApprovalCard'
 import { getRemediationStatusPresentation } from './remediationStatusPresentation'
+import ParallelEvidenceBoard from './ParallelEvidenceBoard'
 import styles from './MessageList.module.css'
 
 interface BotMessageProps {
@@ -136,11 +137,11 @@ function RemediationStatusCard({ status }: { status: NonNullable<ChatMessage['re
 
 /** Collapsible card for a single workflow node */
 function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(block.nodeId === 'parallel_evidence')
   const label = NODE_LABELS[block.nodeId] || block.nodeName
   const isRunning = block.status === 'running'
   const isComplete = block.status === 'complete'
-  const hasContent = !!(block.thinkingTokens || block.toolCalls.length > 0)
+  const hasContent = !!(block.parallelEvidence || block.thinkingTokens || block.toolCalls.length > 0)
 
   return (
     <div className={`${styles.nodeBlock} ${isRunning && isLast ? styles.nodeBlockActive : ''} ${isComplete ? styles.nodeBlockDone : ''}`}>
@@ -167,6 +168,11 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
           {!hasContent && (
             <div className={styles.nodeSection}>
               <div className={styles.nodeSectionTitle}>⏳ 等待工具响应...</div>
+            </div>
+          )}
+          {block.parallelEvidence && (
+            <div className={styles.nodeSection}>
+              <ParallelEvidenceBoard state={block.parallelEvidence} />
             </div>
           )}
           {/* Thinking tokens */}
