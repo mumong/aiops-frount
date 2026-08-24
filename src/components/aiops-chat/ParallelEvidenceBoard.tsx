@@ -185,12 +185,22 @@ function ResultItem({ result }: { result: ParallelEvidenceResult }) {
       {result.entity && (
         <code className={styles.resultEntity}>{result.entity.namespace}/{result.entity.name}</code>
       )}
+      {!result.entity && result.scope === 'group' && (
+        <span className={styles.groupScope}>组级证据（未绑定 Pod）</span>
+      )}
       <pre className={styles.preview}><code>{result.resultPreview}</code></pre>
       {result.resultData && (
         <details className={styles.rawDetails}>
-          <summary>查看完整原始结果</summary>
+          <summary>查看完整工具结果摘要</summary>
           <pre><code>{result.resultData}</code></pre>
         </details>
+      )}
+      {(result.rawRef || result.structuredRef || result.summaryRef) && (
+        <div className={styles.archiveRefs}>
+          {result.rawRef && <code>raw_ref: {result.rawRef}</code>}
+          {result.structuredRef && <code>structured_ref: {result.structuredRef}</code>}
+          {result.summaryRef && <code>summary_ref: {result.summaryRef}</code>}
+        </div>
       )}
     </article>
   )

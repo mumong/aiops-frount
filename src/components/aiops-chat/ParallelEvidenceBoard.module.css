@@ -371,6 +371,13 @@
   margin: 7px 0 0 23px;
 }
 
+.groupScope {
+  display: block;
+  margin: 7px 0 0 23px;
+  color: #77849b;
+  font-size: 10px;
+}
+
 .preview,
 .rawDetails pre {
   max-height: 230px;
@@ -406,6 +413,20 @@
 .rawDetails pre {
   max-height: 320px;
   background: #111924;
+}
+
+.archiveRefs {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+  color: #77849b;
+  font-size: 9px;
+}
+
+.archiveRefs code {
+  overflow-wrap: anywhere;
 }
 
 .emptyResult {

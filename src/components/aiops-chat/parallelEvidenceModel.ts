@@ -4,6 +4,8 @@ import type {
   ParallelEvidenceGroup,
   ParallelEvidenceResult,
   ParallelEvidenceState,
+  ParallelEvidenceStreamContext,
+  ParallelToolEventMetadata,
   ToolCall,
 } from './types'
 
@@ -135,6 +137,35 @@ function normalizeDimension(value: unknown, toolName: string): EvidenceDimension
   return 'other'
 }
 
+export function parseParallelEvidenceStreamContext(
+  value: unknown,
+): ParallelEvidenceStreamContext | undefined {
+  if (!isRecord(value)) return undefined
+  const groupId = String(value.group_id || value.groupId || '').trim()
+  if (!groupId) return undefined
+  const contractVersion = String(
+    value.contract_version || value.contractVersion || '',
+  ).trim()
+  const sourceSystem = String(value.source_system || value.sourceSystem || '').trim()
+  const entity = normalizeEntity(value.entity)
+  const rawDimension = value.dimension
+  const hasDimension = String(rawDimension || '').trim().length > 0
+
+  return {
+    groupId,
+    ...(contractVersion ? { contractVersion } : {}),
+    ...(entity ? { entity } : {}),
+    ...(hasDimension ? { dimension: normalizeDimension(rawDimension, '') } : {}),
+    ...(sourceSystem ? { sourceSystem } : {}),
+  }
+}
+
+export function resolveParallelResultData(event: UnknownRecord): string {
+  if (typeof event.result === 'string') return event.result
+  if (event.result !== undefined) return JSON.stringify(event.result, null, 2)
+  return JSON.stringify(event, null, 2)
+}
+
 export function parseParallelResultMetadata(
   toolName: string,
   resultPreview: string,
@@ -192,8 +223,29 @@ export function startParallelTool(
 function removeFirstPendingTool(
   pendingTools: ToolCall[],
   toolName: string,
+  metadata?: ParallelToolEventMetadata,
 ): { pendingTools: ToolCall[]; matched?: ToolCall } {
-  const index = pendingTools.findIndex(tool => tool.toolName === toolName)
+  const callId = String(metadata?.toolCallId || '').trim()
+  const groupId = String(metadata?.evidenceContext?.groupId || '').trim()
+  let index = -1
+  if (callId) {
+    const callIndexes = pendingTools.flatMap((tool, candidateIndex) => (
+      tool.backendCallId === callId ? [candidateIndex] : []
+    ))
+    if (groupId) {
+      index = callIndexes.find(candidateIndex => (
+        pendingTools[candidateIndex]?.evidenceContext?.groupId === groupId
+      )) ?? -1
+      if (index < 0 && callIndexes.length === 1) {
+        const onlyIndex = callIndexes[0]!
+        if (!pendingTools[onlyIndex]?.evidenceContext?.groupId) index = onlyIndex
+      }
+    } else if (callIndexes.length === 1) {
+      index = callIndexes[0]!
+    }
+  } else {
+    index = pendingTools.findIndex(tool => tool.toolName === toolName)
+  }
   if (index < 0) return { pendingTools }
   return {
     matched: pendingTools[index],
@@ -205,7 +257,17 @@ function removeFirstPendingTool(
 }
 
 function entityMatches(left: EvidenceEntity, right: EvidenceEntity): boolean {
-  return left.namespace === right.namespace && left.name === right.name
+  return left.kind.toLowerCase() === right.kind.toLowerCase()
+    && left.namespace === right.namespace
+    && left.name === right.name
+}
+
+export function shouldRouteOnlyToParallelBoard(
+  nodeId: string,
+  evidenceContext: ParallelEvidenceStreamContext | undefined,
+  mirrored: boolean,
+): boolean {
+  return mirrored && (nodeId === 'parallel_evidence' || Boolean(evidenceContext))
 }
 
 export function finishParallelTool(
@@ -215,29 +277,54 @@ export function finishParallelTool(
   resultPreview: string,
   resultData: string,
   fallbackId?: string,
+  eventMetadata?: ParallelToolEventMetadata,
 ): ParallelEvidenceState {
-  const { pendingTools, matched } = removeFirstPendingTool(state.pendingTools, toolName)
-  const metadata = parseParallelResultMetadata(toolName, resultPreview)
+  const { pendingTools, matched } = removeFirstPendingTool(
+    state.pendingTools,
+    toolName,
+    eventMetadata,
+  )
+  const previewMetadata = parseParallelResultMetadata(toolName, resultPreview)
+  const context = eventMetadata?.evidenceContext
+  const entity = context ? context.entity : previewMetadata.entity
+  const dimension = context?.dimension || previewMetadata.dimension
+  const sourceSystem = context?.sourceSystem || previewMetadata.sourceSystem
+  let targetIndex = -1
+  if (context?.groupId) {
+    targetIndex = state.groups.findIndex(group => group.groupId === context.groupId)
+  } else if (entity) {
+    const matchingIndexes = state.groups.flatMap((group, index) => (
+      group.entities.some(candidate => entityMatches(candidate, entity)) ? [index] : []
+    ))
+    targetIndex = matchingIndexes.length === 1 ? matchingIndexes[0]! : -1
+  }
+
+  const targetGroup = targetIndex >= 0 ? state.groups[targetIndex] : undefined
+  const exactEntity = entity && targetGroup
+    && targetGroup.entities.some(candidate => entityMatches(candidate, entity))
+    ? entity
+    : (!context?.groupId ? entity : undefined)
   const existingCount = state.groups.reduce((total, group) => total + group.results.length, 0)
     + state.unassignedResults.length
   const result: ParallelEvidenceResult = {
     id: matched?.id || fallbackId || `parallel-result-${existingCount + 1}`,
     toolName,
-    status: status === 'success' ? 'success' : 'error',
+    status: status === 'success' && eventMetadata?.semanticSuccess !== false
+      ? 'success'
+      : 'error',
     resultPreview,
     resultData,
-    dimension: metadata.dimension,
-    ...(metadata.sourceSystem ? { sourceSystem: metadata.sourceSystem } : {}),
-    ...(metadata.entity ? { entity: metadata.entity } : {}),
+    dimension,
+    scope: exactEntity ? 'entity' : 'group',
+    ...(context?.groupId ? { groupId: context.groupId } : {}),
+    ...(sourceSystem ? { sourceSystem } : {}),
+    ...(exactEntity ? { entity: exactEntity } : {}),
+    ...(eventMetadata?.rawRef ? { rawRef: eventMetadata.rawRef } : {}),
+    ...(eventMetadata?.structuredRef ? { structuredRef: eventMetadata.structuredRef } : {}),
+    ...(eventMetadata?.summaryRef ? { summaryRef: eventMetadata.summaryRef } : {}),
   }
 
-  const matchingIndexes = metadata.entity
-    ? state.groups.flatMap((group, index) => (
-        group.entities.some(entity => entityMatches(entity, metadata.entity!)) ? [index] : []
-      ))
-    : []
-
-  if (matchingIndexes.length !== 1) {
+  if (targetIndex < 0) {
     return {
       ...state,
       pendingTools,
@@ -245,7 +332,6 @@ export function finishParallelTool(
     }
   }
 
-  const targetIndex = matchingIndexes[0]
   return {
     ...state,
     pendingTools,

@@ -30,6 +30,20 @@ export interface ThinkingEvent {
   tool_name?: string
   status?: string
   result_preview?: string
+  result?: string
+  tool_call_id?: string
+  tool_sequence?: number
+  semantic_success?: boolean
+  raw_ref?: string
+  structured_ref?: string
+  summary_ref?: string
+  evidence_context?: {
+    contract_version?: string
+    group_id: string
+    entity?: EvidenceEntity
+    dimension?: EvidenceDimension
+    source_system?: string
+  }
   iteration?: number
 }
 
@@ -127,10 +141,12 @@ export type EndpointMode = 'ask' | 'query'
 /** Tool call record within a node */
 export interface ToolCall {
   id: string
+  backendCallId?: string
   toolName: string
   status: 'running' | 'success' | 'error'
+  evidenceContext?: ParallelEvidenceStreamContext
   resultPreview?: string
-  /** Full raw result data (shown when user clicks to expand) */
+  /** Full processed tool summary (shown when user clicks to expand) */
   resultData?: string
 }
 
@@ -148,6 +164,23 @@ export interface EvidenceEntity {
   name: string
 }
 
+export interface ParallelEvidenceStreamContext {
+  contractVersion?: string
+  groupId: string
+  entity?: EvidenceEntity
+  dimension?: EvidenceDimension
+  sourceSystem?: string
+}
+
+export interface ParallelToolEventMetadata {
+  toolCallId?: string
+  semanticSuccess?: boolean
+  evidenceContext?: ParallelEvidenceStreamContext
+  rawRef?: string
+  structuredRef?: string
+  summaryRef?: string
+}
+
 export interface ParallelEvidenceResult {
   id: string
   toolName: string
@@ -155,8 +188,13 @@ export interface ParallelEvidenceResult {
   resultPreview: string
   resultData: string
   dimension: EvidenceDimension
+  scope: 'group' | 'entity'
+  groupId?: string
   sourceSystem?: string
   entity?: EvidenceEntity
+  rawRef?: string
+  structuredRef?: string
+  summaryRef?: string
 }
 
 export interface ParallelEvidenceGroup {

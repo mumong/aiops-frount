@@ -193,6 +193,313 @@ test('same-name results returned out of order map to exact Pod groups', async ()
   assert.equal(state.pendingTools.length, 0)
 })
 
+test('structured group context assigns a result even when the preview is truncated', async () => {
+  const {
+    createParallelEvidenceState,
+    extractParallelEvidenceGroups,
+    finishParallelTool,
+  } = await loadModel()
+  const groups = extractParallelEvidenceGroups({
+    layer_analysis: JSON.stringify({ abnormal_groups: realGroups }),
+  })
+
+  const state = finishParallelTool(
+    createParallelEvidenceState(groups),
+    'kubectl_previous_logs',
+    'success',
+    'Command failed (exit 1): preview ends before namespace and Pod identity',
+    'Command failed (exit 1): full processed summary after the 200-character boundary',
+    'result-structured',
+    {
+      toolCallId: 'call-structured',
+      evidenceContext: {
+        contractVersion: 'aiops.parallel-evidence-stream.v1',
+        groupId: 'g4',
+        entity: realGroups[3].entities[0],
+        dimension: 'kubernetes',
+      },
+    },
+  )
+
+  assert.equal(state.groups[3].results.length, 1)
+  assert.equal(state.unassignedResults.length, 0)
+  assert.deepEqual(state.groups[3].results[0].entity, realGroups[3].entities[0])
+})
+
+test('same-name calls returned in reverse pair by group and backend tool call id', async () => {
+  const {
+    createParallelEvidenceState,
+    extractParallelEvidenceGroups,
+    finishParallelTool,
+    startParallelTool,
+  } = await loadModel()
+  const groups = extractParallelEvidenceGroups({
+    layer_analysis: JSON.stringify({ abnormal_groups: realGroups }),
+  })
+  let state = createParallelEvidenceState(groups)
+  state = startParallelTool(state, {
+    id: 'ui-g1',
+    backendCallId: 'call-same',
+    evidenceContext: { groupId: 'g1' },
+    toolName: 'kubectl_events',
+    status: 'running',
+  })
+  state = startParallelTool(state, {
+    id: 'ui-g2',
+    backendCallId: 'call-same',
+    evidenceContext: { groupId: 'g2' },
+    toolName: 'kubectl_events',
+    status: 'running',
+  })
+
+  state = finishParallelTool(
+    state,
+    'kubectl_events',
+    'success',
+    'truncated second result',
+    'full second result',
+    'fallback-g2',
+    {
+      toolCallId: 'call-same',
+      evidenceContext: { groupId: 'g2', dimension: 'kubernetes' },
+    },
+  )
+  state = finishParallelTool(
+    state,
+    'kubectl_events',
+    'success',
+    'truncated first result',
+    'full first result',
+    'fallback-g1',
+    {
+      toolCallId: 'call-same',
+      evidenceContext: { groupId: 'g1', dimension: 'kubernetes' },
+    },
+  )
+
+  assert.equal(state.groups[0].results[0].id, 'ui-g1')
+  assert.equal(state.groups[1].results[0].id, 'ui-g2')
+  assert.equal(state.pendingTools.length, 0)
+})
+
+test('exact group and call tuple wins over an earlier ungrouped pending call', async () => {
+  const {
+    createParallelEvidenceState,
+    extractParallelEvidenceGroups,
+    finishParallelTool,
+    startParallelTool,
+  } = await loadModel()
+  const groups = extractParallelEvidenceGroups({
+    layer_analysis: JSON.stringify({ abnormal_groups: realGroups }),
+  })
+  let state = createParallelEvidenceState(groups)
+  state = startParallelTool(state, {
+    id: 'ui-legacy',
+    backendCallId: 'call-mixed',
+    toolName: 'kubectl_events',
+    status: 'running',
+  })
+  state = startParallelTool(state, {
+    id: 'ui-g2-exact',
+    backendCallId: 'call-mixed',
+    evidenceContext: { groupId: 'g2' },
+    toolName: 'kubectl_events',
+    status: 'running',
+  })
+
+  state = finishParallelTool(
+    state,
+    'kubectl_events',
+    'success',
+    'truncated result',
+    'full result',
+    'fallback-result',
+    {
+      toolCallId: 'call-mixed',
+      evidenceContext: { groupId: 'g2', dimension: 'kubernetes' },
+    },
+  )
+
+  assert.equal(state.groups[1].results[0].id, 'ui-g2-exact')
+  assert.deepEqual(state.pendingTools.map(tool => tool.id), ['ui-legacy'])
+})
+
+test('an unmatched structured call id never consumes a same-name pending call', async () => {
+  const {
+    createParallelEvidenceState,
+    extractParallelEvidenceGroups,
+    finishParallelTool,
+    startParallelTool,
+  } = await loadModel()
+  const groups = extractParallelEvidenceGroups({
+    layer_analysis: JSON.stringify({ abnormal_groups: realGroups }),
+  })
+  const running = startParallelTool(createParallelEvidenceState(groups), {
+    id: 'ui-known',
+    backendCallId: 'call-known',
+    evidenceContext: { groupId: 'g1' },
+    toolName: 'kubectl_events',
+    status: 'running',
+  })
+
+  const state = finishParallelTool(
+    running,
+    'kubectl_events',
+    'success',
+    'unrelated result',
+    'unrelated full result',
+    'result-unknown',
+    {
+      toolCallId: 'call-unknown',
+      evidenceContext: { groupId: 'g2', dimension: 'kubernetes' },
+    },
+  )
+
+  assert.equal(state.pendingTools.length, 1)
+  assert.equal(state.pendingTools[0].id, 'ui-known')
+  assert.equal(state.groups[1].results[0].id, 'result-unknown')
+})
+
+test('group-only context assigns runbook evidence without fabricating a Pod', async () => {
+  const {
+    createParallelEvidenceState,
+    extractParallelEvidenceGroups,
+    finishParallelTool,
+  } = await loadModel()
+  const groups = extractParallelEvidenceGroups({
+    layer_analysis: JSON.stringify({ abnormal_groups: realGroups }),
+  })
+
+  const state = finishParallelTool(
+    createParallelEvidenceState(groups),
+    'fetch_runbook',
+    'success',
+    'runbook summary without entity',
+    'full processed runbook summary',
+    'runbook-result',
+    {
+      toolCallId: 'call-runbook',
+      evidenceContext: { groupId: 'g3', dimension: 'other' },
+    },
+  )
+
+  assert.equal(state.groups[2].results.length, 1)
+  assert.equal(state.groups[2].results[0].entity, undefined)
+  assert.equal(state.groups[2].results[0].scope, 'group')
+  assert.equal(state.unassignedResults.length, 0)
+})
+
+test('group-only structured context never upgrades preview Pod text into an entity', async () => {
+  const {
+    createParallelEvidenceState,
+    extractParallelEvidenceGroups,
+    finishParallelTool,
+  } = await loadModel()
+  const groups = extractParallelEvidenceGroups({
+    layer_analysis: JSON.stringify({ abnormal_groups: realGroups }),
+  })
+  const pod = realGroups[2].entities[0]
+
+  const state = finishParallelTool(
+    createParallelEvidenceState(groups),
+    'fetch_runbook',
+    'success',
+    `runbook example only\nENTITY=${JSON.stringify(pod)}`,
+    'full processed runbook summary',
+    'runbook-preview-pod',
+    {
+      toolCallId: 'call-runbook-preview',
+      evidenceContext: { groupId: 'g3', dimension: 'other' },
+    },
+  )
+
+  assert.equal(state.groups[2].results[0].entity, undefined)
+  assert.equal(state.groups[2].results[0].scope, 'group')
+})
+
+test('structured entity kind must match the authoritative group entity kind', async () => {
+  const {
+    createParallelEvidenceState,
+    extractParallelEvidenceGroups,
+    finishParallelTool,
+  } = await loadModel()
+  const serviceGroups = realGroups.map((group, index) => (
+    index === 0
+      ? { ...group, entities: [{ ...group.entities[0], kind: 'Service' }] }
+      : group
+  ))
+  const groups = extractParallelEvidenceGroups({
+    layer_analysis: JSON.stringify({ abnormal_groups: serviceGroups }),
+  })
+
+  const state = finishParallelTool(
+    createParallelEvidenceState(groups),
+    'kubectl_get_by_name',
+    'success',
+    'structured result',
+    'full structured result',
+    'kind-mismatch',
+    {
+      evidenceContext: {
+        groupId: 'g1',
+        dimension: 'kubernetes',
+        entity: { ...realGroups[0].entities[0], kind: 'Pod' },
+      },
+    },
+  )
+
+  assert.equal(state.groups[0].results[0].entity, undefined)
+  assert.equal(state.groups[0].results[0].scope, 'group')
+})
+
+test('structured collector events route only to the grouped board', async () => {
+  const { shouldRouteOnlyToParallelBoard } = await loadModel()
+
+  assert.equal(
+    shouldRouteOnlyToParallelBoard('evidence', { groupId: 'g2' }, true),
+    true,
+  )
+  assert.equal(shouldRouteOnlyToParallelBoard('evidence', undefined, true), false)
+  assert.equal(shouldRouteOnlyToParallelBoard('parallel_evidence', undefined, true), true)
+  assert.equal(
+    shouldRouteOnlyToParallelBoard('evidence', { groupId: 'g2' }, false),
+    false,
+  )
+})
+
+test('semantic failure overrides transport success and full processed result beats preview', async () => {
+  const {
+    createParallelEvidenceState,
+    extractParallelEvidenceGroups,
+    finishParallelTool,
+    resolveParallelResultData,
+  } = await loadModel()
+  const groups = extractParallelEvidenceGroups({
+    layer_analysis: JSON.stringify({ abnormal_groups: realGroups }),
+  })
+  const event = {
+    result_preview: 'Command failed (exit 1)',
+    result: 'Command failed (exit 1): full processed result after preview boundary',
+  }
+
+  const state = finishParallelTool(
+    createParallelEvidenceState(groups),
+    'kubectl_previous_logs',
+    'success',
+    event.result_preview,
+    resolveParallelResultData(event),
+    'semantic-failure',
+    {
+      semanticSuccess: false,
+      evidenceContext: { groupId: 'g4', dimension: 'kubernetes' },
+    },
+  )
+
+  assert.equal(state.groups[3].results[0].status, 'error')
+  assert.equal(state.groups[3].results[0].resultData, event.result)
+  assert.notEqual(state.groups[3].results[0].resultData, event.result_preview)
+})
+
 test('failed unmatched result remains visible and does not replace group evidence', async () => {
   const {
     createParallelEvidenceState,

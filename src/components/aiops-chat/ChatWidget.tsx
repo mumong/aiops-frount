@@ -14,6 +14,9 @@ import {
   createParallelEvidenceState,
   extractParallelEvidenceGroups,
   finishParallelTool,
+  parseParallelEvidenceStreamContext,
+  resolveParallelResultData,
+  shouldRouteOnlyToParallelBoard,
   startParallelTool,
 } from './parallelEvidenceModel'
 import styles from './ChatWidget.module.css'
@@ -234,8 +237,12 @@ export default function ChatWidget({
           updateNodeBlocks(prev => appendNodeThinking(prev, nodeId, nodeName, content, '\n'))
         } else if (thinkType === 'tool_start') {
           const toolName = String(data.tool_name || '')
+          const backendCallId = String(data.tool_call_id || '').trim()
+          const evidenceContext = parseParallelEvidenceStreamContext(data.evidence_context)
           const tool = {
             id: `tool-${++toolIdCounter.current}`,
+            ...(backendCallId ? { backendCallId } : {}),
+            ...(evidenceContext ? { evidenceContext } : {}),
             toolName,
             status: 'running' as const,
           }
@@ -245,7 +252,11 @@ export default function ChatWidget({
             const mirrored = isGroupedEvidence
               ? mirrorParallelEvidence(prev, state => startParallelTool(state, tool))
               : prev
-            if (nodeId === 'parallel_evidence' && mirrored !== prev) {
+            if (shouldRouteOnlyToParallelBoard(
+              nodeId,
+              evidenceContext,
+              mirrored !== prev,
+            )) {
               return mirrored
             }
             return startNodeToolCall(mirrored, nodeId, nodeName, tool)
@@ -255,6 +266,15 @@ export default function ChatWidget({
           const status = String(data.status || 'success')
           const preview = String(data.result_preview || '')
           const resultData = JSON.stringify(data, null, 2)
+          const parallelResultData = resolveParallelResultData(data)
+          const toolCallId = String(data.tool_call_id || '').trim()
+          const evidenceContext = parseParallelEvidenceStreamContext(data.evidence_context)
+          const semanticSuccess = typeof data.semantic_success === 'boolean'
+            ? data.semantic_success
+            : undefined
+          const rawRef = String(data.raw_ref || '').trim()
+          const structuredRef = String(data.structured_ref || '').trim()
+          const summaryRef = String(data.summary_ref || '').trim()
           updateNodeBlocks(prev => {
             const isGroupedEvidence = parallelGroupsRef.current.length > 2
               && (nodeId === 'parallel_evidence' || nodeId === 'evidence')
@@ -265,11 +285,23 @@ export default function ChatWidget({
                   toolName,
                   status,
                   preview,
-                  resultData,
+                  parallelResultData,
                   fallbackId,
+                  {
+                    ...(toolCallId ? { toolCallId } : {}),
+                    ...(evidenceContext ? { evidenceContext } : {}),
+                    ...(semanticSuccess !== undefined ? { semanticSuccess } : {}),
+                    ...(rawRef ? { rawRef } : {}),
+                    ...(structuredRef ? { structuredRef } : {}),
+                    ...(summaryRef ? { summaryRef } : {}),
+                  },
                 ))
               : prev
-            if (nodeId === 'parallel_evidence' && mirrored !== prev) {
+            if (shouldRouteOnlyToParallelBoard(
+              nodeId,
+              evidenceContext,
+              mirrored !== prev,
+            )) {
               return mirrored
             }
             return finishNodeToolCall(mirrored, nodeId, nodeName, toolName, status, preview, resultData)
