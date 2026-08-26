@@ -115,7 +115,7 @@ frountind/
 镜像默认推送到：
 
 ```text
-10.2.0.86:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>
+xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>
 ```
 
 版本来自仓库根目录的 `VERSION` 文件：
@@ -181,7 +181,7 @@ make build && make push && make deploy
 使用 Docker 直接打包：
 
 ```bash
-docker build -t 10.2.0.86:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION) .
+docker build -t xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION) .
 ```
 
 或者使用 Makefile：
@@ -193,7 +193,7 @@ make build
 ### 手动推送镜像
 
 ```bash
-docker push 10.2.0.86:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
+docker push xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
 ```
 
 或者：
@@ -207,12 +207,12 @@ make push
 如果当前环境没有 `make`，可以直接执行下面这些命令：
 
 ```bash
-IMAGE=10.2.0.86:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
+IMAGE=xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
 
 docker build -t "$IMAGE" .
 docker push "$IMAGE"
 
-sed -i "s|image: 10.2.0.86:8443/xnet-cloud/aiops-copilot-frontend:.*|image: $IMAGE|" deploy/k8s-simple.yaml
+sed -i "s|image: xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:.*|image: $IMAGE|" deploy/k8s-simple.yaml
 kubectl create namespace aiops --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f deploy/k8s-simple.yaml
 kubectl rollout status deployment/aiops-copilot-frontend -n aiops --timeout=300s
