@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChatMessage, NodeBlock, NODE_LABELS } from './types'
 import MarkdownReport from './MarkdownReport'
 import RemediationApprovalCard from './RemediationApprovalCard'
@@ -142,6 +142,16 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
   const isRunning = block.status === 'running'
   const isComplete = block.status === 'complete'
   const hasContent = !!(block.parallelEvidence || block.thinkingTokens || block.toolCalls.length > 0)
+  const pending = block.toolCalls.filter(tool => tool.status === 'running').length
+  const phase = block.runtimeStatus?.text || (pending
+    ? `正在等待 ${pending} 个工具返回` : '模型正在生成分析或决定下一步')
+  const [waitSeconds, setWaitSeconds] = useState(0)
+  useEffect(() => {
+    if (!isRunning) return
+    const started = Date.now()
+    const timer = window.setInterval(() => setWaitSeconds(Math.floor((Date.now() - started) / 1000)), 1000)
+    return () => window.clearInterval(timer)
+  }, [isRunning, phase])
 
   return (
     <div className={`${styles.nodeBlock} ${isRunning && isLast ? styles.nodeBlockActive : ''} ${isComplete ? styles.nodeBlockDone : ''}`}>
@@ -152,7 +162,7 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
         style={{ cursor: 'pointer' }}
       >
         <span className={`${styles.nodeStatus} ${isRunning ? styles.nodeRunning : styles.nodeComplete}`}>
-          {isRunning ? '⏳' : '✅'}
+          {isRunning ? '⏳' : isComplete ? '✅' : '⏹'}
         </span>
         <span className={styles.nodeLabel}>{label}</span>
         {isRunning && isLast && <span className={styles.nodePulse}>执行中...</span>}
@@ -162,12 +172,17 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
         <span className={styles.nodeToggle}>{expanded ? '▾' : '▸'}</span>
       </div>
 
+      {isRunning && <div className={styles.nodeSection} role="status" aria-live="polite">
+        {phase}（本阶段已用 {waitSeconds} 秒）
+        {waitSeconds >= 15 && '。暂未收到下一阶段结果，不代表工具失败。'}
+      </div>}
+
       {/* Expandable body */}
       {expanded && (
         <div className={styles.nodeBody}>
           {!hasContent && (
             <div className={styles.nodeSection}>
-              <div className={styles.nodeSectionTitle}>⏳ 等待工具响应...</div>
+              <div className={styles.nodeSectionTitle}>等待分析或工具事件...</div>
             </div>
           )}
           {block.parallelEvidence && (
@@ -178,7 +193,7 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
           {/* Thinking tokens */}
           {block.thinkingTokens && (
             <div className={styles.nodeSection}>
-              <div className={styles.nodeSectionTitle}>💭 AI 推理过程</div>
+              <div className={styles.nodeSectionTitle}>💭 分析说明（按类型汇总，非执行时间线）</div>
               <pre className={styles.nodeThinking}>{block.thinkingTokens}</pre>
             </div>
           )}

@@ -3,6 +3,44 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import ts from 'typescript'
 
+test('runtime status clears on activity and terminal outcomes', async () => {
+  const m = await loadNodeBlockModule()
+  const blocks = m.setNodeRuntimeStatus([], 'query_collect', '查询', '整理 1/2', 'running', 123)
+  assert.equal(blocks[0].runtimeStatus.at, 123)
+  const active = m.applyNodeThinkingEvent(blocks, 'query_collect', '查询', 'ai_token', '结果')
+  assert.equal(active[0].runtimeStatus, undefined)
+  for (const status of ['stopped', 'complete']) {
+    const ended = m.settleNodeBlocks(blocks, status)
+    assert.equal(ended[0].status, status)
+    assert.equal(ended[0].runtimeStatus, undefined)
+  }
+})
+
+test('stream completion confirms text without duplication or preview truncation', async () => {
+  const { applyNodeThinkingEvent: apply } = await loadNodeBlockModule()
+  const full = '查询 CPU 和磁盘。'.repeat(100)
+  let blocks = apply([], 'query_collect', '查询', 'ai_token', full.slice(0, 100))
+  blocks = apply(blocks, 'query_collect', '查询', 'ai_token', full.slice(100))
+  blocks = apply(blocks, 'query_collect', '查询', 'ai_message', full.slice(0, 500))
+  assert.equal(blocks[0].thinkingTokens, full)
+  // The same sentence in another genuine model turn must not be suppressed.
+  blocks = apply(blocks, 'query_collect', '查询', 'ai_token', full)
+  blocks = apply(blocks, 'query_collect', '查询', 'ai_message', full)
+  assert.equal(blocks[0].thinkingTokens, full + '\n\n' + full)
+})
+
+test('full message repairs a partial stream and nonstreaming answers still display', async () => {
+  const { applyNodeThinkingEvent: apply } = await loadNodeBlockModule()
+  let blocks = apply([], 'a', 'A', 'ai_token', 'hello')
+  blocks = apply(blocks, 'b', 'B', 'ai_message', 'other node')
+  blocks = apply(blocks, 'a', 'A', 'ai_message', 'hello world')
+  assert.equal(blocks[0].thinkingTokens, 'hello world')
+  assert.equal(blocks[1].thinkingTokens, 'other node')
+  blocks = apply(blocks, 'a', 'A', 'ai_token', 'different')
+  blocks = apply(blocks, 'a', 'A', 'ai_message', 'not the same message')
+  assert.ok(blocks[0].thinkingTokens.endsWith('different\n\nnot the same message'))
+})
+
 async function loadNodeBlockModule() {
   const source = readFileSync(
     new URL('../src/components/aiops-chat/nodeBlockUpdates.ts', import.meta.url),

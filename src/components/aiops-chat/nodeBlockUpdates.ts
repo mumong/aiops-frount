@@ -50,6 +50,18 @@ export function startNodeBlock(blocks: NodeBlock[], nodeId: string, nodeName: st
   return [...blocks, createNodeBlock(id, name)]
 }
 
+export function setNodeRuntimeStatus(blocks: NodeBlock[], nodeId: string, nodeName: string,
+  text: string, status: string, at = Date.now()): NodeBlock[] {
+  return updateEventNode(blocks, nodeId, nodeName, block => ({
+    ...block, runtimeStatus: { text, status, at },
+  }))
+}
+
+export function settleNodeBlocks(blocks: NodeBlock[], status: 'complete' | 'stopped'): NodeBlock[] {
+  return blocks.map(block => ({ ...block, runtimeStatus: undefined,
+    status: block.status === 'running' ? status : block.status }))
+}
+
 export function appendNodeThinking(
   blocks: NodeBlock[],
   nodeId: string,
@@ -65,6 +77,32 @@ export function appendNodeThinking(
   }))
 }
 
+// A completion event confirms the active stream, rather than adding a second
+// copy. Older backends send only a 500-character completion preview.
+export function applyNodeThinkingEvent(
+  blocks: NodeBlock[], nodeId: string, nodeName: string,
+  kind: 'ai_token' | 'ai_message', content: string,
+): NodeBlock[] {
+  if (!content) return blocks
+  return updateEventNode(blocks, nodeId, nodeName, block => {
+    if (kind === 'ai_token') {
+      const prefix = block.thinkingStreamStart === undefined && block.thinkingTokens
+        ? `${block.thinkingTokens}\n\n` : block.thinkingTokens
+      return { ...block, runtimeStatus: undefined, thinkingStreamStart: block.thinkingStreamStart ?? prefix.length,
+        thinkingTokens: prefix + content }
+    }
+    const start = block.thinkingStreamStart
+    const streamed = start === undefined ? '' : block.thinkingTokens.slice(start)
+    let text = block.thinkingTokens
+    if (streamed && (streamed.startsWith(content) || content.startsWith(streamed))) {
+      text = text.slice(0, start) + (streamed.length >= content.length ? streamed : content)
+    } else {
+      text += (text ? '\n\n' : '') + content
+    }
+    return { ...block, runtimeStatus: undefined, thinkingTokens: text, thinkingStreamStart: undefined }
+  })
+}
+
 export function startNodeToolCall(
   blocks: NodeBlock[],
   nodeId: string,
@@ -73,6 +111,7 @@ export function startNodeToolCall(
 ): NodeBlock[] {
   return updateEventNode(blocks, nodeId, nodeName, block => ({
     ...block,
+    runtimeStatus: undefined,
     toolCalls: [...block.toolCalls, toolCall],
   }))
 }

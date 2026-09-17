@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { ChatSession, ChatMessage, NodeBlock, EndpointMode } from '../components/aiops-chat/types'
+import { newChatSessionId } from '../components/aiops-chat/chatRequestPolicy'
 
 const STORAGE_KEY = 'aiops_chat_sessions'
 
@@ -9,7 +10,7 @@ function loadSessions(): ChatSession[] {
     if (!raw) return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    return parsed
+    return parsed.map((s: ChatSession) => ({ ...s, id: /^[a-f0-9]{32}$/.test(s.id) ? s.id : newChatSessionId() }))
   } catch {
     return []
   }
@@ -27,7 +28,7 @@ function saveSessions(sessions: ChatSession[]) {
 
 export function useChatHistory() {
   const [sessions, setSessions] = useState<ChatSession[]>(() => loadSessions())
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string>(() => newChatSessionId())
 
   // Persist on change
   useEffect(() => {
@@ -36,7 +37,7 @@ export function useChatHistory() {
 
   /** Start a brand-new blank session */
   const newSession = useCallback(() => {
-    setActiveId(null)
+    setActiveId(newChatSessionId())
   }, [])
 
   /** Save the current chat state as a session (called when streaming completes) */
@@ -55,7 +56,7 @@ export function useChatHistory() {
 
     const now = Date.now()
     const updatedSession: ChatSession = {
-      id: `${now}`,
+      id: activeId,
       title,
       messages,
       nodeBlocks,
@@ -76,7 +77,7 @@ export function useChatHistory() {
       return [...prev, updatedSession]
     })
     setActiveId(updatedSession.id)
-  }, [])
+  }, [activeId])
 
   /** Load a session into active view */
   const loadSession = useCallback((id: string) => {
@@ -88,7 +89,7 @@ export function useChatHistory() {
     setSessions(prev => {
       const filtered = prev.filter(s => s.id !== id)
       if (activeId === id) {
-        setActiveId(filtered.length > 0 ? filtered[filtered.length - 1]!.id : null)
+        setActiveId(filtered.length > 0 ? filtered[filtered.length - 1]!.id : newChatSessionId())
       }
       return filtered
     })

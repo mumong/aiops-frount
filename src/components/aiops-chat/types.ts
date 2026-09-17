@@ -228,10 +228,12 @@ export interface ChatSession {
 export interface NodeBlock {
   nodeId: string
   nodeName: string
-  status: 'running' | 'complete'
+  status: 'running' | 'complete' | 'stopped'
   durationSeconds?: number
   /** AI thinking tokens streamed during this node */
   thinkingTokens: string
+  thinkingStreamStart?: number
+  runtimeStatus?: { text: string; status: string; at: number }
   /** Tool calls that happened in this node */
   toolCalls: ToolCall[]
   /** Handoff summary from node_complete */

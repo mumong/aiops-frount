@@ -3,6 +3,16 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import ts from 'typescript'
 
+test('query keeps session identity while ask remains stateless', async () => {
+  const { buildChatRequestParams, newChatSessionId } = await loadPolicyModule()
+  const id = newChatSessionId()
+  assert.match(id, /^[a-f0-9]{32}$/)
+  assert.notEqual(id, newChatSessionId())
+  assert.equal(buildChatRequestParams('pods', 'query', id).get('session_id'), id)
+  assert.equal(buildChatRequestParams('their cpu', 'query', id).get('session_id'), id)
+  assert.equal(buildChatRequestParams('diagnose', 'ask', id).has('session_id'), false)
+})
+
 async function loadPolicyModule() {
   const source = readFileSync(
     new URL('../src/components/aiops-chat/chatRequestPolicy.ts', import.meta.url),

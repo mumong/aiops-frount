@@ -8,7 +8,7 @@ import MessageList from './MessageList'
 import MessageInput from './MessageInput'
 import { parseRemediationApprovalText, toRemediationApproval } from './remediationParsing'
 import { buildChatRequestParams, shouldProcessRemediation } from './chatRequestPolicy'
-import { appendNodeThinking, finishNodeToolCall, startNodeBlock, startNodeToolCall } from './nodeBlockUpdates'
+import { applyNodeThinkingEvent, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
 import {
   completeParallelEvidence,
   createParallelEvidenceState,
@@ -229,12 +229,15 @@ export default function ChatWidget({
         const nodeId = String(data.node || '')
         const nodeName = String(data.node_name || data.node || nodeId || '')
 
-        if (thinkType === 'ai_token') {
+        if (thinkType === 'runtime_status') {
+          updateNodeBlocks(prev => setNodeRuntimeStatus(prev, nodeId, nodeName,
+            String(data.content || ''), String(data.status || 'running')))
+        } else if (thinkType === 'ai_token') {
           const content = String(data.content || '')
-          updateNodeBlocks(prev => appendNodeThinking(prev, nodeId, nodeName, content))
+          updateNodeBlocks(prev => applyNodeThinkingEvent(prev, nodeId, nodeName, 'ai_token', content))
         } else if (thinkType === 'ai_message') {
-          const content = String(data.content || '')
-          updateNodeBlocks(prev => appendNodeThinking(prev, nodeId, nodeName, content, '\n'))
+          const content = String(data.full_content || data.content || '')
+          updateNodeBlocks(prev => applyNodeThinkingEvent(prev, nodeId, nodeName, 'ai_message', content))
         } else if (thinkType === 'tool_start') {
           const toolName = String(data.tool_name || '')
           const backendCallId = String(data.tool_call_id || '').trim()
@@ -327,6 +330,7 @@ export default function ChatWidget({
             return {
               ...n,
               status: 'complete' as const,
+              runtimeStatus: undefined,
               durationSeconds: duration,
               handoffSummary: handoff || n.handoffSummary,
               ...(n.parallelEvidence
@@ -347,6 +351,7 @@ export default function ChatWidget({
       }
 
       case 'final': {
+        updateNodeBlocks(prev => settleNodeBlocks(prev, 'complete'))
         const answer = String(data.answer || '')
         setFinalAnswer(answer)
         textStreamBufferRef.current = answer
@@ -365,6 +370,7 @@ export default function ChatWidget({
       }
 
       case 'error': {
+        updateNodeBlocks(prev => settleNodeBlocks(prev, 'stopped'))
         const errorMsg = String(data.error || '未知错误')
         setFinalAnswer(`❌ ${errorMsg}`)
         setMessages(prev =>
@@ -448,7 +454,7 @@ export default function ChatWidget({
     setSseActivitySeq(0)
 
     const requestEndpointMode = endpointMode
-    const params = buildChatRequestParams(question, requestEndpointMode)
+    const params = buildChatRequestParams(question, requestEndpointMode, history.activeId)
 
     connect(
       `${apiBase}/${requestEndpointMode}`,
@@ -457,6 +463,7 @@ export default function ChatWidget({
         handleSSEEvent(msg, assistantMsg.id, requestEndpointMode)
       },
       (err: Error) => {
+        updateNodeBlocks(prev => settleNodeBlocks(prev, 'stopped'))
         setFinalAnswer(`❌ 错误: ${err.message}`)
         setIsStreaming(false)
         setMessages(prev =>
@@ -468,10 +475,11 @@ export default function ChatWidget({
         )
       },
       () => {
+        updateNodeBlocks(prev => settleNodeBlocks(prev, 'stopped'))
         setIsStreaming(false)
       }
     )
-  }, [apiBase, endpointMode, isStreaming, connect, maxMessages, handleSSEEvent])
+  }, [apiBase, endpointMode, isStreaming, connect, maxMessages, handleSSEEvent, history.activeId, updateNodeBlocks])
 
   const handleRemediationRespond = useCallback(async (
     runId: string,
@@ -483,6 +491,7 @@ export default function ChatWidget({
   }, [apiBase])
 
   const handleStop = useCallback(() => {
+    updateNodeBlocks(prev => settleNodeBlocks(prev, 'stopped'))
     disconnect()
     setIsStreaming(false)
     setMessages(prev =>
@@ -490,7 +499,7 @@ export default function ChatWidget({
         m.status === 'streaming' ? { ...m, status: 'complete' as const } : m
       )
     )
-  }, [disconnect])
+  }, [disconnect, updateNodeBlocks])
 
   const handleNewSession = useCallback(() => {
     if (isStreaming) {
