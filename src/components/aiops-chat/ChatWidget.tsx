@@ -9,6 +9,7 @@ import MessageInput from './MessageInput'
 import { parseRemediationApprovalText, toRemediationApproval } from './remediationParsing'
 import { buildChatRequestParams, shouldProcessRemediation } from './chatRequestPolicy'
 import { applyNodeThinkingEvent, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
+import { presentToolEvent } from './toolPresentation'
 import {
   completeParallelEvidence,
   createParallelEvidenceState,
@@ -267,8 +268,9 @@ export default function ChatWidget({
         } else if (thinkType === 'tool_result') {
           const toolName = String(data.tool_name || '')
           const status = String(data.status || 'success')
-          const preview = String(data.result_preview || '')
-          const resultData = JSON.stringify(data, null, 2)
+          const presentation = presentToolEvent(data)
+          const preview = presentation.preview
+          const resultData = presentation.detail
           const parallelResultData = resolveParallelResultData(data)
           const toolCallId = String(data.tool_call_id || '').trim()
           const evidenceContext = parseParallelEvidenceStreamContext(data.evidence_context)
@@ -307,7 +309,7 @@ export default function ChatWidget({
             )) {
               return mirrored
             }
-            return finishNodeToolCall(mirrored, nodeId, nodeName, toolName, status, preview, resultData)
+            return finishNodeToolCall(mirrored, nodeId, nodeName, toolName, status, preview, resultData, toolCallId)
           })
         }
         break

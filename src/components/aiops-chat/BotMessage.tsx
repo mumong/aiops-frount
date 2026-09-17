@@ -376,7 +376,7 @@ function ToolCallItem({ tc }: { tc: import('./types').ToolCall }) {
         <code className={styles.toolCallName}>{tc.toolName}</code>
         {tc.resultPreview && (
           <span className={styles.toolCallPreview}>
-            — {tc.resultPreview.slice(0, 120)}
+            — {tc.resultPreview}
           </span>
         )}
         {hasDetail && (

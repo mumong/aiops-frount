@@ -124,17 +124,23 @@ export function finishNodeToolCall(
   status: string,
   resultPreview: string,
   resultData: string,
+  backendCallId?: string,
 ): NodeBlock[] {
   return updateEventNode(blocks, nodeId, nodeName, block => {
     const idx = block.toolCalls.findIndex(
-      tool => tool.toolName === toolName && tool.status === 'running',
+      tool => backendCallId ? tool.backendCallId === backendCallId
+        : tool.toolName === toolName && tool.status === 'running',
     )
-    if (idx === -1) return block
+    if (idx === -1) return { ...block, toolCalls: [...block.toolCalls, {
+      id: backendCallId || `result-${block.toolCalls.length}`,
+      backendCallId, toolName, status: status === 'success' ? 'success' : 'error',
+      resultPreview, resultData,
+    }] }
 
     const updatedToolCalls = [...block.toolCalls]
     const old = updatedToolCalls[idx]!
     updatedToolCalls[idx] = {
-      id: old.id,
+      ...old,
       toolName: old.toolName,
       status: status === 'success' ? 'success' : 'error',
       resultPreview,

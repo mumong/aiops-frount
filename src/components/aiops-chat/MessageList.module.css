@@ -597,12 +597,11 @@
 }
 
 .toolCallPreview {
-  color: #999;
+  color: #555;
   margin-left: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 400px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 /* ===== Node Status Colors ===== */

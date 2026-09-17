@@ -3,6 +3,19 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import ts from 'typescript'
 
+test('parallel same-name results use call IDs even when completed out of order', async () => {
+  const m = await loadNodeBlockModule()
+  let blocks = []
+  for (const id of ['cpu', 'memory']) blocks = m.startNodeToolCall(blocks, 'query_collect', '查询', {
+    id, backendCallId: id, toolName: 'execute_pod_promql', status: 'running',
+  })
+  blocks = m.finishNodeToolCall(blocks, 'query_collect', '查询', 'execute_pod_promql', 'success', 'empty', 'memory detail', 'memory')
+  assert.equal(blocks[0].toolCalls[0].status, 'running')
+  assert.equal(blocks[0].toolCalls[1].resultData, 'memory detail')
+  blocks = m.finishNodeToolCall(blocks, 'query_collect', '查询', 'execute_pod_promql', 'success', '2m', 'cpu detail', 'cpu')
+  assert.equal(blocks[0].toolCalls[0].resultData, 'cpu detail')
+})
+
 test('runtime status clears on activity and terminal outcomes', async () => {
   const m = await loadNodeBlockModule()
   const blocks = m.setNodeRuntimeStatus([], 'query_collect', '查询', '整理 1/2', 'running', 123)
