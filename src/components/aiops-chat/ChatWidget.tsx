@@ -519,6 +519,7 @@ export default function ChatWidget({
   const handleLoadSession = useCallback((id: string) => {
     if (isStreaming) return
     history.loadSession(id)
+    if (window.matchMedia('(max-width: 640px)').matches) setSidebarOpen(false)
   }, [isStreaming, history])
 
   return (

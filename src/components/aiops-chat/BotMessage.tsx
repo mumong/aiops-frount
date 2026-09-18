@@ -4,6 +4,7 @@ import MarkdownReport from './MarkdownReport'
 import RemediationApprovalCard from './RemediationApprovalCard'
 import { getRemediationStatusPresentation } from './remediationStatusPresentation'
 import ParallelEvidenceBoard from './ParallelEvidenceBoard'
+import { isLegacyHandoff, emptyNodeMessage, visibleNarrative } from './handoffPresentation'
 import styles from './MessageList.module.css'
 
 interface BotMessageProps {
@@ -27,6 +28,7 @@ export default function BotMessage({
 }: BotMessageProps) {
   const isStreaming = message.status === 'streaming'
   const isError = message.status === 'error'
+  const displayedAnswer = visibleNarrative(finalAnswer)
 
   return (
     <div className={styles.botRow}>
@@ -66,13 +68,13 @@ export default function BotMessage({
             )}
 
             {/* Final markdown report */}
-            {finalAnswer && message.status === 'complete' ? (
+            {displayedAnswer && message.status === 'complete' ? (
               <div className={styles.botBubble}>
-                <MarkdownReport content={finalAnswer} />
+                <MarkdownReport content={displayedAnswer} />
               </div>
-            ) : finalAnswer && isStreaming ? (
+            ) : displayedAnswer && isStreaming ? (
               <div className={styles.botBubble}>
-                <div className={styles.streamingContent}>{finalAnswer}</div>
+                <MarkdownReport content={displayedAnswer} />
               </div>
             ) : null}
 
@@ -141,7 +143,9 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
   const label = NODE_LABELS[block.nodeId] || block.nodeName
   const isRunning = block.status === 'running'
   const isComplete = block.status === 'complete'
-  const hasContent = !!(block.parallelEvidence || block.thinkingTokens || block.toolCalls.length > 0)
+  const thinking = visibleNarrative(block.thinkingTokens || '')
+  const handoff = visibleNarrative(block.handoffSummary || '')
+  const hasContent = !!(block.parallelEvidence || thinking || handoff || block.toolCalls.length > 0)
   const pending = block.toolCalls.filter(tool => tool.status === 'running').length
   const phase = block.runtimeStatus?.text || (pending
     ? `正在等待 ${pending} 个工具返回` : '模型正在生成分析或决定下一步')
@@ -165,6 +169,7 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
           {isRunning ? '⏳' : isComplete ? '✅' : '⏹'}
         </span>
         <span className={styles.nodeLabel}>{label}</span>
+        {block.toolCalls.length > 0 && <span className={styles.nodeDuration}>工具 {block.toolCalls.length}</span>}
         {isRunning && isLast && <span className={styles.nodePulse}>执行中...</span>}
         {isComplete && block.durationSeconds != null && (
           <span className={styles.nodeDuration}>{formatDuration(block.durationSeconds)}</span>
@@ -182,7 +187,7 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
         <div className={styles.nodeBody}>
           {!hasContent && (
             <div className={styles.nodeSection}>
-              <div className={styles.nodeSectionTitle}>等待分析或工具事件...</div>
+              <div className={styles.nodeSectionTitle}>{emptyNodeMessage(isRunning)}</div>
             </div>
           )}
           {block.parallelEvidence && (
@@ -191,10 +196,10 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
             </div>
           )}
           {/* Thinking tokens */}
-          {block.thinkingTokens && (
+          {thinking && (
             <div className={styles.nodeSection}>
               <div className={styles.nodeSectionTitle}>💭 分析说明（按类型汇总，非执行时间线）</div>
-              <pre className={styles.nodeThinking}>{block.thinkingTokens}</pre>
+              <div className={styles.nodeAnalysis}><MarkdownReport content={thinking} /></div>
             </div>
           )}
 
@@ -211,10 +216,12 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
           )}
 
           {/* Handoff summary */}
-          {block.handoffSummary && (
+          {handoff && (
             <div className={styles.nodeSection}>
-              <div className={styles.nodeSectionTitle}>📤 输出</div>
-              <HandoffDisplay text={block.handoffSummary} />
+              <details>
+                <summary className={styles.nodeSectionTitle}>📤 阶段输出（展开查看，最终结论见下方）</summary>
+                <HandoffDisplay text={handoff} />
+              </details>
             </div>
           )}
         </div>
@@ -310,6 +317,9 @@ function tryFormatJson(raw: string): string {
 }
 
 function HandoffDisplay({ text }: { text: string }) {
+  if (!isLegacyHandoff(text)) {
+    return <div className={styles.nodeHandoff}><MarkdownReport content={text} /></div>
+  }
   const pairs = parseHandoff(text)
   if (pairs.length === 0) {
     return <div className={styles.nodeHandoff}>{text}</div>

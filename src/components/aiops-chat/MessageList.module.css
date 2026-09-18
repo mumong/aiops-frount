@@ -72,6 +72,7 @@
 
 .botContent {
   flex: 1;
+  min-width: 0;
   max-width: calc(100% - 40px);
 }
 
@@ -418,18 +419,16 @@
   text-transform: none;
 }
 
-/* AI thinking tokens (monospace block) */
-.nodeThinking {
-  background: #1e1e1e;
-  color: #d4d4d4;
+/* User-facing analysis is Markdown, not a raw preformatted token dump. */
+.nodeAnalysis {
+  max-height: 320px;
+  overflow: auto;
+  background: #fff;
   padding: 10px 14px;
   border-radius: 6px;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 12px;
   line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-x: auto;
+  overflow-wrap: anywhere;
 }
 
 /* Handoff summary */
@@ -615,10 +614,15 @@
 
 /* ===== Markdown Report ===== */
 .markdownReport {
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-size: 14px;
   line-height: 1.7;
   color: #333;
 }
+
+.markdownReport > :first-child { margin-top: 0; }
+.markdownReport > :last-child { margin-bottom: 0; }
 
 .markdownReport h2 {
   font-size: 20px;
@@ -711,6 +715,7 @@
 
 /* Code blocks */
 .codeBlock {
+  white-space: pre;
   background: #1e1e1e;
   color: #d4d4d4;
   padding: 0;

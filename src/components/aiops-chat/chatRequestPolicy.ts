@@ -14,7 +14,7 @@ export function buildChatRequestParams(question: string, endpointMode: EndpointM
   if (endpointMode === 'ask') {
     params.set('remediate', 'true')
   }
-  if (endpointMode === 'query' && sessionId) params.set('session_id', sessionId)
+  if (sessionId) params.set('session_id', sessionId)
 
   return params
 }

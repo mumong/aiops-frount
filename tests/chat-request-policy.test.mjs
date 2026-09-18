@@ -3,14 +3,14 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import ts from 'typescript'
 
-test('query keeps session identity while ask remains stateless', async () => {
+test('query and ask share the conversation session identity', async () => {
   const { buildChatRequestParams, newChatSessionId } = await loadPolicyModule()
   const id = newChatSessionId()
   assert.match(id, /^[a-f0-9]{32}$/)
   assert.notEqual(id, newChatSessionId())
   assert.equal(buildChatRequestParams('pods', 'query', id).get('session_id'), id)
   assert.equal(buildChatRequestParams('their cpu', 'query', id).get('session_id'), id)
-  assert.equal(buildChatRequestParams('diagnose', 'ask', id).has('session_id'), false)
+  assert.equal(buildChatRequestParams('diagnose', 'ask', id).get('session_id'), id)
 })
 
 async function loadPolicyModule() {
