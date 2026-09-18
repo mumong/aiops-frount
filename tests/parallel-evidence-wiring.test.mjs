@@ -30,7 +30,7 @@ test('multi-group runs mirror fallback evidence-node tools into the grouped boar
   assert.match(chatWidgetSource, /mirrorParallelEvidence/)
   assert.match(chatWidgetSource, /shouldRouteOnlyToParallelBoard/)
   assert.match(chatWidgetSource, /nodeId === 'evidence'/)
-  assert.match(chatWidgetSource, /parallelGroupsRef\.current\.length > 2/)
+  assert.match(chatWidgetSource, /parallelGroupsRef\.current\.length >= 2/)
 })
 
 test('BotMessage renders the grouped board only when parallel state exists', () => {

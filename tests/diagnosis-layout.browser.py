@@ -18,6 +18,11 @@ args = parser.parse_args()
 report = '## 根因与证据\n\nPod `workload-demo` 上一次退出为 **OOMKilled**。\n\n| 维度 | 结果 |\n|---|---|\n| Metrics | 未采集 |\n| Logging | 已采集 |\n| Tracing | 未采集 |'
 raw = 'Name: workload-demo\n    Limit: 64Mi\n\n\n    Reason: OOMKilled'
 blocks = [
+    {'nodeId': 'request_router', 'nodeName': '任务理解', 'status': 'complete',
+     'thinkingTokens': '', 'toolCalls': [], 'routeDecision': {
+         'route': 'full_diagnosis', 'title': '深度诊断', 'scope': '指定 Pod · demo/workload-demo',
+         'basis': '用户指定 workload-demo', 'outputs': ['重启根因'],
+         'steps': ['layer', 'evidence', 'rca', 'conclusion']}},
     {'nodeId': 'layer', 'nodeName': '问题定位', 'status': 'complete',
      'thinkingTokens': '\n \n' * 80, 'toolCalls': [], 'handoffSummary': '\n' * 80},
     {'nodeId': 'evidence', 'nodeName': '证据采集', 'status': 'complete',
@@ -61,6 +66,11 @@ with sync_playwright() as p:
         assert 'FAILURE_MODE=oom_growth' in page.locator('body').inner_text()
         page.screenshot(path=str(Path(args.screenshots) / f'diagnosis-{width}.png'), full_page=True)
         if args.verify:
+            assert page.get_by_label('任务路由').count() == 1
+            assert '深度诊断' in page.get_by_label('任务路由').inner_text()
+            assert '指定 Pod' in page.get_by_label('任务路由').inner_text()
+            assert '未提供单独的分析说明' not in page.locator('body').inner_text()
+            assert page.locator('body').evaluate('(e) => e.scrollWidth <= window.innerWidth')
             assert len(measurements) == 1, measurements
             assert measurements[0]['scroll'] < 200, measurements
             assert not errors, errors
@@ -92,9 +102,16 @@ with sync_playwright() as p:
         page.wait_for_function('typeof window.emitTestEvent === "function"')
         def emit(event, data):
             page.evaluate('([event,data]) => window.emitTestEvent(event,data)', [event, data])
+        emit('node_start', {'node': 'request_router', 'node_name': '任务理解'})
+        emit('node_complete', {'node': 'request_router', 'state_snapshot': {
+            'request_route': 'full_diagnosis', 'request_contract': {
+                'scope': 'pod', 'namespaces': ['demo'], 'pod_names': ['workload-demo'],
+                'scope_basis': '用户指定 Pod', 'requested_outputs': ['重启原因']}}})
+        page.get_by_label('任务路由').wait_for()
+        assert '指定 Pod' in page.get_by_label('任务路由').inner_text()
         emit('node_start', {'node': 'evidence', 'node_name': '证据采集'})
         emit('thinking', {'node': 'evidence', 'thinking_type': 'ai_token', 'content': '\n' * 100})
-        page.locator('[class*="nodeHeader"]').filter(has_text='证据采集').click()
+        # Running analysis is visible without manually expanding its stage.
         assert page.locator('[class*="nodeAnalysis"]').count() == 0
         emit('thinking', {'node': 'evidence', 'thinking_type': 'ai_token', 'content': '## 当前证据\n内存上限 `64Mi`。'})
         page.get_by_text('当前证据', exact=True).wait_for()

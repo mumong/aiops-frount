@@ -17,8 +17,11 @@ Kubernetes AIOps 智能对话助手前端组件。提供基于聊天界面的 Ku
 | 框架 | React 18 |
 | 构建工具 | Vite 6 |
 | 语言 | TypeScript 5 |
+| 过程展示 | Ant Design X ThoughtChain + Ant Design；路由、范围、阶段状态 |
 | 渲染 | react-markdown + rehype-highlight + remark-gfm |
 | 代理转发 | Vite dev server proxy |
+
+任务路由卡展示后端真实的 `request_contract`，不在前端重新分类。深度诊断不等于全量扫描，范围单独显示；展开处理路径可查看各阶段状态。运行中的工具和分析自动展开，阶段结束后可回看详情。历史会话没有路由字段时不补猜结果。
 
 ## 本地运行
 

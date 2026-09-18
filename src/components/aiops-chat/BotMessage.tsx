@@ -4,6 +4,7 @@ import MarkdownReport from './MarkdownReport'
 import RemediationApprovalCard from './RemediationApprovalCard'
 import { getRemediationStatusPresentation } from './remediationStatusPresentation'
 import ParallelEvidenceBoard from './ParallelEvidenceBoard'
+import RouteCard from './RouteCard'
 import { isLegacyHandoff, emptyNodeMessage, visibleNarrative } from './handoffPresentation'
 import styles from './MessageList.module.css'
 
@@ -48,13 +49,14 @@ export default function BotMessage({
               </div>
             )}
             {/* Node blocks — collapsible sections */}
+            <RouteCard blocks={nodeBlocks} terminal={!isStreaming} />
             {nodeBlocks.length > 0 && (
               <div className={styles.nodeBlocksArea}>
-                {nodeBlocks.map((nb, idx) => (
+                {nodeBlocks.filter(nb => !nb.routeDecision).map((nb, idx, visible) => (
                   <NodeBlockCard
                     key={nb.nodeId || idx}
                     block={nb}
-                    isLast={idx === nodeBlocks.length - 1}
+                    isLast={idx === visible.length - 1}
                   />
                 ))}
               </div>
@@ -139,9 +141,10 @@ function RemediationStatusCard({ status }: { status: NonNullable<ChatMessage['re
 
 /** Collapsible card for a single workflow node */
 function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean }) {
-  const [expanded, setExpanded] = useState(block.nodeId === 'parallel_evidence')
+  const [expanded, setExpanded] = useState<boolean | null>(block.nodeId === 'parallel_evidence' ? true : null)
   const label = NODE_LABELS[block.nodeId] || block.nodeName
   const isRunning = block.status === 'running'
+  const showBody = expanded ?? isRunning
   const isComplete = block.status === 'complete'
   const thinking = visibleNarrative(block.thinkingTokens || '')
   const handoff = visibleNarrative(block.handoffSummary || '')
@@ -162,7 +165,7 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
       {/* Node header - always clickable */}
       <div
         className={styles.nodeHeader}
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => setExpanded(!showBody)}
         style={{ cursor: 'pointer' }}
       >
         <span className={`${styles.nodeStatus} ${isRunning ? styles.nodeRunning : styles.nodeComplete}`}>
@@ -174,7 +177,7 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
         {isComplete && block.durationSeconds != null && (
           <span className={styles.nodeDuration}>{formatDuration(block.durationSeconds)}</span>
         )}
-        <span className={styles.nodeToggle}>{expanded ? '▾' : '▸'}</span>
+        <span className={styles.nodeToggle}>{showBody ? '▾' : '▸'}</span>
       </div>
 
       {isRunning && <div className={styles.nodeSection} role="status" aria-live="polite">
@@ -183,9 +186,9 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
       </div>}
 
       {/* Expandable body */}
-      {expanded && (
+      {showBody && (
         <div className={styles.nodeBody}>
-          {!hasContent && (
+          {!hasContent && isRunning && (
             <div className={styles.nodeSection}>
               <div className={styles.nodeSectionTitle}>{emptyNodeMessage(isRunning)}</div>
             </div>

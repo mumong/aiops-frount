@@ -19,6 +19,25 @@ async function loadModel() {
   return import(`data:text/javascript;base64,${encoded}`)
 }
 
+test('autonomous fan-out supports two independently diagnosed Pods', async () => {
+  const { extractParallelEvidenceGroups } = await loadModel()
+  assert.equal(extractParallelEvidenceGroups({autonomous_groups: [
+    {group_id:'g1', entities:[{kind:'Pod',namespace:'ns',name:'a'}]},
+    {group_id:'g2', entities:[{kind:'Pod',namespace:'ns',name:'b'}]},
+  ]}).length, 2)
+})
+
+test('lane failure is visible without discarding successful groups', async () => {
+  const { applyParallelOutcomes } = await loadModel()
+  const state = {status:'complete', groups:[{groupId:'g1'}, {groupId:'g2'}]}
+  const result = applyParallelOutcomes(state, {groups:[
+    {group_id:'g1',status:'partial',error:'timeout'}, {group_id:'g2',status:'completed'},
+  ]})
+  assert.equal(result.groups[0].terminalStatus, 'partial')
+  assert.equal(result.groups[0].error, 'timeout')
+  assert.equal(result.groups[1].terminalStatus, 'completed')
+})
+
 const realGroups = [
   {
     group_id: 'g1',

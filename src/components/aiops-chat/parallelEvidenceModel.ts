@@ -55,7 +55,8 @@ export function extractParallelEvidenceGroups(
   snapshot: Record<string, unknown> | undefined,
 ): ParallelEvidenceGroup[] {
   const analysis = parseJsonObject(snapshot?.layer_analysis)
-  const rawGroups = analysis?.abnormal_groups
+  const autonomous = Array.isArray(snapshot?.autonomous_groups)
+  const rawGroups = autonomous ? snapshot?.autonomous_groups : analysis?.abnormal_groups
   if (!Array.isArray(rawGroups)) return []
 
   const groups = rawGroups.flatMap((value): ParallelEvidenceGroup[] => {
@@ -68,14 +69,25 @@ export function extractParallelEvidenceGroups(
 
     return [{
       groupId,
-      abnormalType: String(value.pod_abnormal_type || '').trim() || 'Unknown',
+      abnormalType: String(value.pod_abnormal_type || '').trim() || (autonomous ? '自主诊断' : 'Unknown'),
       statusKeywords: normalizeStrings(value.status_keywords),
       entities,
       results: [],
     }]
   })
 
-  return groups.length > 2 ? groups : []
+  return groups.length >= (autonomous ? 2 : 3) ? groups : []
+}
+
+export function applyParallelOutcomes(state: ParallelEvidenceState, snapshot: unknown): ParallelEvidenceState {
+  if (!isRecord(snapshot) || !Array.isArray(snapshot.groups)) return state
+  const outcomes = snapshot.groups.filter(isRecord)
+  return {...state, groups: state.groups.map(group => {
+    const outcome = outcomes.find(item => item.group_id === group.groupId)
+    if (!outcome || !['completed', 'partial'].includes(String(outcome.status))) return group
+    return {...group, terminalStatus: outcome.status as 'completed' | 'partial',
+      error: typeof outcome.error === 'string' ? outcome.error : undefined}
+  })}
 }
 
 function extractMarkerJson(text: string, marker: string): unknown {

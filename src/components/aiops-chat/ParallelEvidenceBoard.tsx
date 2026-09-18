@@ -45,7 +45,7 @@ export default function ParallelEvidenceBoard({
         </div>
         <span className={`${styles.streamState} ${state.status === 'running' ? styles.running : styles.complete}`}>
           <span className={styles.stateDot} />
-          {state.status === 'running' ? '持续接收结果' : '采集已完成'}
+          {state.status === 'running' ? '持续接收结果' : '本阶段已结束'}
         </span>
       </div>
 
@@ -130,6 +130,9 @@ function GroupCard({
         </span>
         <span className={styles.cardFooter}>
           <span>{group.results.length} 条证据</span>
+          {group.terminalStatus && <span className={group.terminalStatus === 'partial' ? styles.failureBadge : ''}>
+            {group.terminalStatus === 'partial' ? '部分完成' : '分支已结束'}
+          </span>}
           {failedCount > 0 && <span className={styles.failureBadge}>{failedCount} 失败</span>}
           <DimensionBadges counts={counts} />
         </span>
@@ -137,6 +140,7 @@ function GroupCard({
 
       {expanded && (
         <div className={styles.groupBody} id={contentId}>
+          {group.error && <div className={styles.failureBadge}>{group.error}</div>}
           {group.statusKeywords.length > 0 && (
             <div className={styles.keywords}>
               {group.statusKeywords.map(keyword => <span key={keyword}>{keyword}</span>)}
@@ -147,7 +151,7 @@ function GroupCard({
               {group.results.map(result => <ResultItem key={result.id} result={result} />)}
             </div>
           ) : (
-            <div className={styles.emptyResult}>等待该异常组的证据返回…</div>
+            <div className={styles.emptyResult}>{group.terminalStatus ? '该分支没有返回可展示证据。' : '等待该异常组的证据返回…'}</div>
           )}
         </div>
       )}

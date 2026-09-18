@@ -10,8 +10,10 @@ import { parseRemediationApprovalText, toRemediationApproval } from './remediati
 import { buildChatRequestParams, shouldProcessRemediation } from './chatRequestPolicy'
 import { applyNodeThinkingEvent, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
 import { presentToolEvent } from './toolPresentation'
+import { presentRoute } from './routePresentation'
 import {
   completeParallelEvidence,
+  applyParallelOutcomes,
   createParallelEvidenceState,
   extractParallelEvidenceGroups,
   finishParallelTool,
@@ -213,7 +215,7 @@ export default function ChatWidget({
         const nodeName = String(data.node_name || data.node || '')
         updateNodeBlocks(prev => {
           const started = startNodeBlock(prev, nodeId, nodeName)
-          if (nodeId !== 'parallel_evidence' || parallelGroupsRef.current.length <= 2) {
+          if (nodeId !== 'parallel_evidence' || parallelGroupsRef.current.length < 2) {
             return started
           }
           return started.map(block => (
@@ -251,7 +253,7 @@ export default function ChatWidget({
             status: 'running' as const,
           }
           updateNodeBlocks(prev => {
-            const isGroupedEvidence = parallelGroupsRef.current.length > 2
+            const isGroupedEvidence = parallelGroupsRef.current.length >= 2
               && (nodeId === 'parallel_evidence' || nodeId === 'evidence')
             const mirrored = isGroupedEvidence
               ? mirrorParallelEvidence(prev, state => startParallelTool(state, tool))
@@ -281,7 +283,7 @@ export default function ChatWidget({
           const structuredRef = String(data.structured_ref || '').trim()
           const summaryRef = String(data.summary_ref || '').trim()
           updateNodeBlocks(prev => {
-            const isGroupedEvidence = parallelGroupsRef.current.length > 2
+            const isGroupedEvidence = parallelGroupsRef.current.length >= 2
               && (nodeId === 'parallel_evidence' || nodeId === 'evidence')
             const fallbackId = `tool-result-${++toolIdCounter.current}`
             const mirrored = isGroupedEvidence
@@ -335,14 +337,16 @@ export default function ChatWidget({
               runtimeStatus: undefined,
               durationSeconds: duration,
               handoffSummary: handoff || n.handoffSummary,
+              ...(nodeId === 'request_router'
+                ? { routeDecision: presentRoute(data.state_snapshot) } : {}),
               ...(n.parallelEvidence
-                ? { parallelEvidence: completeParallelEvidence(n.parallelEvidence) }
+                ? { parallelEvidence: applyParallelOutcomes(completeParallelEvidence(n.parallelEvidence), data.state_snapshot) }
                 : {}),
             }
           }
           if (
             nodeId === 'evidence'
-            && parallelGroupsRef.current.length > 2
+            && parallelGroupsRef.current.length >= 2
             && n.parallelEvidence
           ) {
             return { ...n, parallelEvidence: completeParallelEvidence(n.parallelEvidence) }

@@ -198,6 +198,8 @@ export interface ParallelEvidenceResult {
 }
 
 export interface ParallelEvidenceGroup {
+  terminalStatus?: 'completed' | 'partial'
+  error?: string
   groupId: string
   abnormalType: string
   statusKeywords: string[]
@@ -238,12 +240,15 @@ export interface NodeBlock {
   toolCalls: ToolCall[]
   /** Handoff summary from node_complete */
   handoffSummary?: string
+  routeDecision?: import('./routePresentation').RoutePresentation
   /** Grouped presentation state for the Backend's parallel_evidence node */
   parallelEvidence?: ParallelEvidenceState
 }
 
 /** Per-node label mapping */
 export const NODE_LABELS: Record<string, string> = {
+  request_router: '任务理解',
+  query_collect: '自主查询与分析',
   layer: '📍 问题定位',
   evidence: '🔍 证据采集',
   parallel_evidence: '⚡ 并发证据采集',
