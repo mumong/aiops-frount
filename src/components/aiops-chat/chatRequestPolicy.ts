@@ -20,5 +20,5 @@ export function buildChatRequestParams(question: string, endpointMode: EndpointM
 }
 
 export function shouldProcessRemediation(endpointMode: EndpointMode): boolean {
-  return endpointMode === 'ask'
+  return endpointMode === 'ask' || endpointMode === 'query'
 }

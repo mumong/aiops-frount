@@ -36,5 +36,6 @@ test('multi-group runs mirror fallback evidence-node tools into the grouped boar
 test('BotMessage renders the grouped board only when parallel state exists', () => {
   assert.match(botMessageSource, /ParallelEvidenceBoard/)
   assert.match(botMessageSource, /block\.parallelEvidence/)
-  assert.match(botMessageSource, /block\.nodeId === 'parallel_evidence'/)
+  assert.match(botMessageSource, /const \[expanded, setExpanded\] = useState\(true\)/)
+  assert.match(botMessageSource, /const showBody = expanded/)
 })

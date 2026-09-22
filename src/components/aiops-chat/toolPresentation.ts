@@ -12,7 +12,7 @@ export function presentToolEvent(data: Record<string, unknown>) {
       + (unit === 'bytes' && value && Number.isFinite(numeric) ? ` ≈ ${(numeric / 1048576).toFixed(2)} MiB` : '')
   }).join('；')
   const empty = ['empty', 'absent'].includes(String(display.coverage))
-  const outcome = data.status === 'error' ? '调用失败' : empty ? '请求成功 · 无匹配数据（不等于 0）' : values || String(display.coverage || '调用完成')
+  const outcome = data.status === 'error' || data.semantic_success === false ? '调用失败或查询被拒绝' : empty ? '请求成功 · 无匹配数据（不等于 0）' : values || String(display.coverage || '调用完成')
   const scope = [args.namespace, args.pod || args.name].filter(Boolean).join('/')
   const preview = [outcome, scope].filter(Boolean).join(' · ')
   const query = JSON.stringify(display.query || args, null, 2)

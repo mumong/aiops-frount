@@ -19,6 +19,16 @@ export function getRemediationStatusPresentation(
   const rawStatus = String(status.status || '').trim().toLowerCase()
   const reason = String(status.reason || '').trim()
 
+  if (rawStatus === 'needs_followup') {
+    return { icon: '🔎', label: '命令已执行，待复查恢复状态', tone: 'neutral', detail: reason }
+  }
+  if (rawStatus === 'cancelled') {
+    return { icon: '⏹', label: '修复已停止', tone: 'neutral', detail: reason }
+  }
+  if (rawStatus === 'blocked') {
+    return { icon: '⚠️', label: '修复被安全检查阻止', tone: 'blocked', detail: reason }
+  }
+
   if (isUnsafePlan(reason)) {
     return {
       icon: '⚠️',

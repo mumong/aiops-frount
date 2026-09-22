@@ -233,8 +233,18 @@ export default function ChatWidget({
         const nodeName = String(data.node_name || data.node || nodeId || '')
 
         if (thinkType === 'runtime_status') {
-          updateNodeBlocks(prev => setNodeRuntimeStatus(prev, nodeId, nodeName,
-            String(data.content || ''), String(data.status || 'running')))
+          const groupId = String(data.parallel_group_id || '')
+          if (groupId) {
+            updateNodeBlocks(prev => prev.map(block => !block.parallelEvidence ? block : {
+              ...block, parallelEvidence: {...block.parallelEvidence,
+                groups: block.parallelEvidence.groups.map(group => group.groupId !== groupId ? group : {
+                  ...group, runtimeStatus: String(data.content || ''),
+                })},
+            }))
+          } else {
+            updateNodeBlocks(prev => setNodeRuntimeStatus(prev, nodeId, nodeName,
+              String(data.content || ''), String(data.status || 'running')))
+          }
         } else if (thinkType === 'ai_token') {
           const content = String(data.content || '')
           updateNodeBlocks(prev => applyNodeThinkingEvent(prev, nodeId, nodeName, 'ai_token', content))
@@ -269,7 +279,7 @@ export default function ChatWidget({
           })
         } else if (thinkType === 'tool_result') {
           const toolName = String(data.tool_name || '')
-          const status = String(data.status || 'success')
+          const status = data.semantic_success === false ? 'error' : String(data.status || 'success')
           const presentation = presentToolEvent(data)
           const preview = presentation.preview
           const resultData = presentation.detail
@@ -367,7 +377,9 @@ export default function ChatWidget({
         setMessages(prev =>
           prev.map(m =>
             m.id === assistantId
-              ? { ...m, content: answer, status: 'complete' as const, nodeBlocks: snapshot }
+              ? { ...m, content: answer, status: 'complete' as const,
+                  resultStatus: data.status === 'partial' ? 'partial' as const : data.status === 'error' ? 'error' as const : 'success' as const,
+                  nodeBlocks: snapshot }
               : m
           )
         )
@@ -400,8 +412,25 @@ export default function ChatWidget({
           description: String(data.description || ''),
           payload: data.payload as Record<string, unknown> | undefined,
           requestedAt: Date.now(),
+          expiresAt: typeof data.expires_at === 'number' && typeof data.server_time === 'number'
+            ? Date.now() + Math.max(0, data.expires_at - data.server_time) * 1000 : undefined,
         }
         upsertRemediationApproval(assistantId, approval)
+        break
+      }
+
+      case 'remediation_tool_start':
+      case 'remediation_tool_result': {
+        const result = {
+          key: [data.run_id, data.group_id, data.action_id, data.stage].join(':'),
+          groupId: String(data.group_id || ''), actionId: String(data.action_id || ''),
+          stage: String(data.stage || ''), command: String(data.command || ''),
+          status: String(data.status || ''), result: String(data.result_preview || ''),
+          truncated: data.result_truncated === true,
+        }
+        setMessages(prev => prev.map(m => m.id === assistantId ? {
+          ...m, remediationResults: [...(m.remediationResults || []).filter(r => r.key !== result.key), result],
+        } : m))
         break
       }
 
@@ -552,6 +581,7 @@ export default function ChatWidget({
             streamActive={isStreaming}
             activitySeq={sseActivitySeq}
             onRemediationRespond={handleRemediationRespond}
+            onRequestRepair={() => sendMessage('请根据刚才的诊断，为其中异常 Pod 制定修复方案并提交人工审查；先核实当前状态并参考 Runbook。')}
           />
           <MessageInput
             onSend={sendMessage}

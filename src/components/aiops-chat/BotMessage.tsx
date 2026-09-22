@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChatMessage, NodeBlock, NODE_LABELS } from './types'
 import MarkdownReport from './MarkdownReport'
 import RemediationApprovalCard from './RemediationApprovalCard'
 import { getRemediationStatusPresentation } from './remediationStatusPresentation'
 import ParallelEvidenceBoard from './ParallelEvidenceBoard'
 import RouteCard from './RouteCard'
-import { isLegacyHandoff, emptyNodeMessage, visibleNarrative } from './handoffPresentation'
+import { isLegacyHandoff, emptyNodeMessage, visibleNarrative, queryNarrative } from './handoffPresentation'
 import styles from './MessageList.module.css'
 
 interface BotMessageProps {
@@ -15,6 +15,7 @@ interface BotMessageProps {
   isLatest: boolean
   streamActive: boolean
   activitySeq: number
+  onRequestRepair?: () => void
   onRemediationRespond?: (runId: string, approvalId: string, approved: boolean, reason?: string) => Promise<unknown>
 }
 
@@ -26,6 +27,7 @@ export default function BotMessage({
   streamActive,
   activitySeq,
   onRemediationRespond,
+  onRequestRepair,
 }: BotMessageProps) {
   const isStreaming = message.status === 'streaming'
   const isError = message.status === 'error'
@@ -50,6 +52,10 @@ export default function BotMessage({
             )}
             {/* Node blocks — collapsible sections */}
             <RouteCard blocks={nodeBlocks} terminal={!isStreaming} />
+            {isStreaming && isLatest && <RunProgress blocks={nodeBlocks} />}
+            {message.resultStatus === 'partial' && (
+              <div role="status">⚠️ 本次仅部分完成；已取得的结果保留，未完成项见报告说明。</div>
+            )}
             {nodeBlocks.length > 0 && (
               <div className={styles.nodeBlocksArea}>
                 {nodeBlocks.filter(nb => !nb.routeDecision).map((nb, idx, visible) => (
@@ -63,11 +69,6 @@ export default function BotMessage({
             )}
 
             {/* Streaming indicator when waiting but no content yet */}
-            {isStreaming && isLatest && nodeBlocks.length === 0 && (
-              <div className={styles.botBubble}>
-                <div className={styles.streamingContent}>⏳ 等待响应...</div>
-              </div>
-            )}
 
             {/* Final markdown report */}
             {displayedAnswer && message.status === 'complete' ? (
@@ -103,12 +104,61 @@ export default function BotMessage({
             )}
 
             {/* Remediation finished status */}
+            {message.remediationResults?.map(result => (
+              <details key={result.key} className={`${styles.remediationCard} ${styles.repairResult}`} open>
+                <summary>{result.groupId || '修复'} · {result.actionId} · {{ dry_run: '预演', execute: '执行', verify: '验证' }[result.stage] || result.stage} · {{ success: '命令成功', running: '正在执行', failed: '执行失败' }[result.status] || result.status}</summary>
+                <pre className={styles.repairCode}>{result.command}</pre>
+                <pre className={styles.repairOutput}>{result.result || (result.status === 'running' ? '已提交后端执行，正在等待命令返回。' : '命令未返回正文；请结合验证结果判断。')}</pre>
+                {result.truncated && <div>返回内容较长，此处仅展示部分结果。</div>}
+              </details>
+            ))}
             {message.remediationStatus && <RemediationStatusCard status={message.remediationStatus} />}
+            {isLatest && !streamActive && message.status === 'complete' && displayedAnswer
+              && nodeBlocks.some(block => block.routeDecision?.route === 'full_diagnosis')
+              && !message.remediationApprovals?.length && !message.remediationResults?.length
+              && onRequestRepair && (
+                <div className={styles.repairEntry}>
+                  <div><strong>下一步 · 修复评估</strong>
+                    <p>仅针对证据充分、具备明确操作的故障生成方案。先审阅命令，再决定是否执行。</p></div>
+                  <button className={styles.repairPrimary} type="button" onClick={onRequestRepair}>生成修复方案并审阅</button>
+                </div>
+              )}
           </>
         )}
       </div>
     </div>
   )
+}
+
+function RunProgress({ blocks }: { blocks: NodeBlock[] }) {
+  const [now, setNow] = useState(() => Date.now())
+  const started = useRef(now)
+  const updated = useRef(now)
+  // Heartbeats are not model progress. Only visible content/stage changes reset idle time.
+  const signature = blocks.map(block => [block.nodeId, block.status, block.thinkingTokens,
+    block.runtimeStatus?.text, block.handoffSummary,
+    ...block.toolCalls.map(tool => `${tool.id}:${tool.status}`)].join('|')).join('\n')
+  useEffect(() => { updated.current = Date.now() }, [signature])
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  const active = blocks.filter(block => block.status === 'running')
+  const pending = active.reduce((count, block) => count + block.toolCalls.filter(tool => tool.status === 'running').length, 0)
+  const runtime = active.find(block => block.runtimeStatus)?.runtimeStatus
+  const idle = Math.max(0, Math.floor((now - updated.current) / 1000))
+  const elapsed = Math.max(0, Math.floor((now - started.current) / 1000))
+  const phase = runtime?.text || (pending ? `正在等待 ${pending} 个工具返回`
+    : active.some(block => block.nodeId === 'request_router') ? '正在理解任务，等待模型返回路由'
+      : active.length ? '正在等待模型返回分析或下一步工具调用' : '请求已提交，正在等待后端事件')
+  return <div className={styles.runProgress} aria-label="运行状态">
+    <div role="status" aria-live="polite"><span className={styles.progressDot} />{phase}</div>
+    <div className={styles.progressMeta}>已用 {elapsed} 秒 · 距上次进展 {idle} 秒</div>
+    {idle >= 30 && <div className={styles.progressWarning} role="status">
+      暂无新进展，可能正在等待模型或服务响应；不表示操作已成功。可使用下方停止按钮结束等待，写操作中断后需核实是否生效。
+    </div>}
+    {!blocks.some(block => block.thinkingTokens) && <div className={styles.progressMeta}>尚未收到可展示的分析说明；收到后会自动显示。</div>}
+  </div>
 }
 
 function RemediationStatusCard({ status }: { status: NonNullable<ChatMessage['remediationStatus']> }) {
@@ -141,29 +191,32 @@ function RemediationStatusCard({ status }: { status: NonNullable<ChatMessage['re
 
 /** Collapsible card for a single workflow node */
 function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean }) {
-  const [expanded, setExpanded] = useState<boolean | null>(block.nodeId === 'parallel_evidence' ? true : null)
+  const [expanded, setExpanded] = useState(true)
   const label = NODE_LABELS[block.nodeId] || block.nodeName
   const isRunning = block.status === 'running'
-  const showBody = expanded ?? isRunning
+  const showBody = expanded
   const isComplete = block.status === 'complete'
-  const thinking = visibleNarrative(block.thinkingTokens || '')
+  const thinking = block.nodeId === 'query_collect'
+    ? queryNarrative(block.thinkingTokens || '') : visibleNarrative(block.thinkingTokens || '')
   const handoff = visibleNarrative(block.handoffSummary || '')
   const hasContent = !!(block.parallelEvidence || thinking || handoff || block.toolCalls.length > 0)
   const pending = block.toolCalls.filter(tool => tool.status === 'running').length
   const phase = block.runtimeStatus?.text || (pending
-    ? `正在等待 ${pending} 个工具返回` : '模型正在生成分析或决定下一步')
+    ? `正在等待 ${pending} 个工具返回` : '等待模型返回分析或下一步工具调用')
   const [waitSeconds, setWaitSeconds] = useState(0)
   useEffect(() => {
     if (!isRunning) return
     const started = Date.now()
     const timer = window.setInterval(() => setWaitSeconds(Math.floor((Date.now() - started) / 1000)), 1000)
     return () => window.clearInterval(timer)
-  }, [isRunning, phase])
+  }, [isRunning])
 
   return (
     <div className={`${styles.nodeBlock} ${isRunning && isLast ? styles.nodeBlockActive : ''} ${isComplete ? styles.nodeBlockDone : ''}`}>
       {/* Node header - always clickable */}
-      <div
+      <button
+        type="button"
+        aria-expanded={showBody}
         className={styles.nodeHeader}
         onClick={() => setExpanded(!showBody)}
         style={{ cursor: 'pointer' }}
@@ -178,7 +231,7 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
           <span className={styles.nodeDuration}>{formatDuration(block.durationSeconds)}</span>
         )}
         <span className={styles.nodeToggle}>{showBody ? '▾' : '▸'}</span>
-      </div>
+      </button>
 
       {isRunning && <div className={styles.nodeSection} role="status" aria-live="polite">
         {phase}（本阶段已用 {waitSeconds} 秒）
@@ -201,7 +254,7 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
           {/* Thinking tokens */}
           {thinking && (
             <div className={styles.nodeSection}>
-              <div className={styles.nodeSectionTitle}>💭 分析说明（按类型汇总，非执行时间线）</div>
+              <div className={styles.nodeSectionTitle}>💭 分析过程 · 实时更新</div>
               <div className={styles.nodeAnalysis}><MarkdownReport content={thinking} /></div>
             </div>
           )}

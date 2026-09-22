@@ -51,6 +51,15 @@ async function renderBoard(state) {
   }
 }
 
+test('terminal board preserves missing results without showing endless running', async () => {
+  const html = await renderBoard({status: 'complete', groups: [group('g1'), group('g2')],
+    pendingTools: [{id: 'unfinished', toolName: 'query_pod_tracing', status: 'running'}],
+    unassignedResults: []})
+  assert.match(html, /1<\/strong>未返回/)
+  assert.match(html, /阶段已结束，不再等待/)
+  assert.doesNotMatch(html, /执行中|pendingSpinner/)
+})
+
 test('renders every anomaly group collapsed and hides grouped tool details initially', async () => {
   const html = await renderBoard({
     status: 'running',

@@ -54,8 +54,10 @@ with sync_playwright() as p:
         if toggle.count():
             toggle.click()
         page.screenshot(path=str(Path(args.screenshots) / f'collapsed-{width}.png'), full_page=True)
-        page.locator('[class*="nodeHeader"]').filter(has_text='问题定位').click()
-        page.locator('[class*="nodeHeader"]').filter(has_text='证据采集').click()
+        for title in ('问题定位', '证据采集'):
+            header = page.locator('[class*="nodeHeader"]').filter(has_text=title)
+            if header.get_attribute('aria-expanded') == 'false':
+                header.click()
         panels = page.locator('[class*="nodeAnalysis"], [class*="nodeThinking"]')
         measurements = panels.evaluate_all('(els) => els.map(e => ({height:e.clientHeight, scroll:e.scrollHeight, text:e.textContent.trim()}))')
         page.get_by_text('kubectl_describe', exact=True).click()
@@ -81,6 +83,7 @@ with sync_playwright() as p:
         page.close()
     if args.verify:
         page = browser.new_page(viewport={'width': 1100, 'height': 900})
+        page.clock.install()
         page.add_init_script('''
           const originalFetch = window.fetch.bind(window);
           window.fetch = (url, options) => {
@@ -116,9 +119,23 @@ with sync_playwright() as p:
         emit('thinking', {'node': 'evidence', 'thinking_type': 'ai_token', 'content': '## 当前证据\n内存上限 `64Mi`。'})
         page.get_by_text('当前证据', exact=True).wait_for()
         assert page.locator('[class*="nodeAnalysis"]').evaluate('(e) => e.scrollHeight') < 200
+        # Long analysis is naturally expanded rather than trapped in a 320px pane.
+        emit('thinking', {'node': 'evidence', 'thinking_type': 'ai_token',
+                         'content': '\n\n' + '\n\n'.join(f'观察 {i}：保留实际证据及来源。' for i in range(40))})
+        page.wait_for_timeout(200)
+        panel = page.locator('[class*="nodeAnalysis"]')
+        assert panel.evaluate('(e) => getComputedStyle(e).maxHeight') == 'none'
+        assert panel.evaluate('(e) => e.clientHeight') > 320
+        assert page.get_by_label('运行状态').count() == 1
+        assert '等待模型' in page.get_by_label('运行状态').inner_text()
+        page.locator('[class*="list_"]').first.evaluate('(e) => { e.scrollTop = 0; e.dispatchEvent(new Event("scroll")); }')
+        page.get_by_role('button', name='↓ 回到最新内容').click()
+        page.clock.run_for(31000)
+        assert '暂无新进展' in page.get_by_label('运行状态').inner_text()
         emit('final', {'answer': report, 'run_id': 'stream-layout-replay'})
         page.evaluate('window.endTestStream()')
         page.get_by_text('根因与证据', exact=True).wait_for()
+        assert page.get_by_label('运行状态').count() == 0
         assert '等待分析或工具事件' not in page.locator('body').inner_text()
         page.screenshot(path=str(Path(args.screenshots) / 'stream-completed.png'))
         print('Streaming whitespace → analysis → final report: PASS')

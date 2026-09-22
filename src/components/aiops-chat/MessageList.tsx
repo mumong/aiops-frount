@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { ChatMessage, NodeBlock } from './types'
 import UserMessage from './UserMessage'
 import BotMessage from './BotMessage'
@@ -10,6 +10,7 @@ interface MessageListProps {
   finalAnswer: string
   streamActive: boolean
   activitySeq: number
+  onRequestRepair?: () => void
   onRemediationRespond?: (runId: string, approvalId: string, approved: boolean, reason?: string) => Promise<unknown>
 }
 
@@ -20,10 +21,14 @@ export default function MessageList({
   streamActive,
   activitySeq,
   onRemediationRespond,
+  onRequestRepair,
 }: MessageListProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const isNearBottomRef = useRef(true)
+  const [showLatest, setShowLatest] = useState(false)
+  const latestMessageId = messages[messages.length - 1]?.id
+  useEffect(() => { isNearBottomRef.current = true }, [latestMessageId])
 
   // Track whether user is near the bottom
   const handleScroll = useCallback(() => {
@@ -31,12 +36,14 @@ export default function MessageList({
     if (!el) return
     const threshold = 80
     isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
+    setShowLatest(!isNearBottomRef.current)
   }, [])
 
   // Smart auto-scroll: only if user is at the bottom
   useEffect(() => {
     if (isNearBottomRef.current) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      // Avoid queuing smooth animations for every streaming token.
+      bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
     }
   }, [messages, nodeBlocks, finalAnswer])
 
@@ -70,10 +77,16 @@ export default function MessageList({
               streamActive={streamActive}
               activitySeq={activitySeq}
               onRemediationRespond={onRemediationRespond}
+              onRequestRepair={onRequestRepair}
             />
           )
       ))}
       <div ref={bottomRef} />
+      {showLatest && <button className={styles.jumpLatest} type="button" onClick={() => {
+        isNearBottomRef.current = true
+        setShowLatest(false)
+        bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
+      }}>↓ 回到最新内容</button>}
     </div>
   )
 }

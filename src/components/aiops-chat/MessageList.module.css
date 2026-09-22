@@ -168,6 +168,27 @@
   margin-bottom: 12px;
 }
 
+.repairEntry { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; margin-top: 16px; border: 1px solid #cddffb; border-radius: 12px; background: #f5f9ff; }
+.repairEntry > div { flex: 1 1 240px; }
+.repairEntry strong { font-size: 15px; color: #173966; }
+.repairEntry p { margin: 8px 0 0; font-size: 13px; line-height: 1.7; color: #596b83; }
+.repairPrimary { padding: 11px 18px; border: 0; border-radius: 8px; background: #1677ff; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
+.repairPrimary:hover { background: #0958d9; }
+.repairPrimary:focus-visible { outline: 3px solid #91caff; outline-offset: 3px; }
+.repairPlan { display: grid; gap: 12px; margin-top: 14px; min-width: 0; }
+.repairTarget { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; font-size: 13px; overflow-wrap: anywhere; }
+.repairBadge { border-radius: 5px; padding: 2px 7px; background: #e6f4ff; color: #0958d9; }
+.repairFieldLabel { font-size: 12px; font-weight: 600; color: #53647a; margin-bottom: 6px; }
+.repairCode { margin: 0; padding: 12px 14px; background: #142337; color: #e0eafb; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.7; }
+.repairNote { padding: 10px 12px; background: #fff7e6; border-radius: 8px; font-size: 13px; line-height: 1.7; }
+.repairNote p { margin: 5px 0 0; }
+.repairDetails { font-size: 12px; line-height: 1.7; color: #65748b; }
+.repairDetails summary { cursor: pointer; padding: 5px 0; }
+.repairCountdown { margin-top: 14px; padding: 9px 12px; border-radius: 6px; background: #f0f5ff; color: #244b80; font-size: 12px; }
+.repairResult { padding: 14px 16px; margin-top: 12px; background: #fafcff !important; border-color: #dbe5ef !important; }
+.repairResult summary { cursor: pointer; font-size: 13px; font-weight: 600; margin-bottom: 10px; line-height: 1.6; }
+.repairOutput { margin: 10px 0 0; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.7; color: #36546d; background: #edf3f8; border-radius: 6px; }
+
 /* ===== Remediation Approval Card ===== */
 .remediationCard {
   border: 1px solid #ffd591;
@@ -436,8 +457,7 @@
 
 /* User-facing analysis is Markdown, not a raw preformatted token dump. */
 .nodeAnalysis {
-  max-height: 320px;
-  overflow: auto;
+  overflow: visible;
   background: #fff;
   padding: 10px 14px;
   border-radius: 6px;
@@ -445,6 +465,14 @@
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+
+.nodeHeader { width: 100%; border: 0; text-align: left; font: inherit; }
+.nodeHeader:focus-visible { outline: 2px solid #1677ff; outline-offset: -2px; }
+.runProgress { margin: 12px 0; padding: 12px 16px; background: #f0f6ff; border: 1px solid #c7ddfa; border-radius: 10px; color: #244b80; line-height: 1.6; }
+.progressDot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: #1677ff; }
+.progressMeta { margin-top: 4px; color: #61758a; font-size: 12px; }
+.progressWarning { margin-top: 8px; color: #91620c; font-size: 13px; }
+.jumpLatest { position: sticky; bottom: 12px; display: block; margin: 12px auto; padding: 8px 16px; border: 1px solid #b9d4fa; border-radius: 20px; background: #fff; color: #0958d9; box-shadow: 0 2px 10px #0001; cursor: pointer; z-index: 2; }
 
 /* Handoff summary */
 .nodeHandoff {

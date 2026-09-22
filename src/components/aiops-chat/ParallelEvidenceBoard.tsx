@@ -53,15 +53,16 @@ export default function ParallelEvidenceBoard({
 
       <div className={styles.totals} aria-label="采集统计">
         <span><strong>{allResults.length}</strong>已返回</span>
-        <span><strong>{state.pendingTools.length}</strong>执行中</span>
+        <span><strong>{state.pendingTools.length}</strong>{state.status === 'running' ? '执行中' : '未返回'}</span>
         <span className={failedCount > 0 ? styles.failedTotal : ''}><strong>{failedCount}</strong>失败</span>
       </div>
 
       {state.pendingTools.length > 0 && (
         <div className={styles.pendingArea}>
           <div className={styles.noticeTitle}>
-            <span className={styles.pendingSpinner} aria-hidden="true" />
-            {state.pendingTools.length} 条工具调用等待结果归组
+            {state.status === 'running' && <span className={styles.pendingSpinner} aria-hidden="true" />}
+            {state.status === 'running' ? `${state.pendingTools.length} 条工具调用等待结果归组`
+              : `${state.pendingTools.length} 条工具调用未收到结果（阶段已结束，不再等待）`}
           </div>
           <div className={styles.pendingTools}>
             {state.pendingTools.map(tool => <code key={tool.id}>{tool.toolName}</code>)}
@@ -129,6 +130,7 @@ function GroupCard({
           ))}
         </span>
         <span className={styles.cardFooter}>
+          {!group.terminalStatus && group.runtimeStatus && <span role="status">{group.runtimeStatus}</span>}
           <span>{group.results.length} 条证据</span>
           {group.terminalStatus && <span className={group.terminalStatus === 'partial' ? styles.failureBadge : ''}>
             {group.terminalStatus === 'partial' ? '部分完成' : '分支已结束'}

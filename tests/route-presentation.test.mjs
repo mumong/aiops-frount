@@ -19,9 +19,25 @@ test('deep route shows actual Pod scope instead of implying cluster scan', () =>
 })
 
 test('quick, clarify, stop and legacy histories have truthful routes', () => {
-  assert.deepEqual(presentRoute({request_route: 'focused'}).steps, ['query_collect', 'conclusion'])
+  assert.deepEqual(presentRoute({request_route: 'focused'}).steps, ['query_collect'])
   assert.deepEqual(presentRoute({request_route: 'clarify'}).steps, [])
   assert.equal(presentRoute({request_route: 'stop'}).title, '任务识别未完成')
   assert.equal(presentRoute({}), undefined)
   assert.equal(presentRoute(null), undefined)
+})
+
+test('capability explanation does not imply missing user information', () => {
+  assert.equal(presentRoute({request_route: 'focused', request_contract: {
+    scope: 'unspecified', task: 'explain',
+  }}).scope, '通用说明')
+})
+
+test('provider failure is distinct from clarification and retains safe error details', () => {
+  const route = presentRoute({request_route: 'stop', request_error: {
+    title: '模型服务请求失败', message: '模型服务返回 HTTP 500；本次已加载会话上下文。',
+  }})
+  assert.equal(route.title, '模型服务请求失败')
+  assert.match(route.errorMessage, /HTTP 500/)
+  assert.deepEqual(route.steps, [])
+  assert.equal(presentRoute({request_route: 'clarify'}).errorMessage, undefined)
 })

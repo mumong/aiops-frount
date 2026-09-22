@@ -25,3 +25,10 @@ test('bytes display with units and timestamp; unknown units never guessed', () =
   assert.match(result.preview, /单位未标注/)
   assert.match(result.detail, /2026-09-17/)
 })
+
+test('semantic rejection overrides transport success', () => {
+  const result = presentToolEvent({ status: 'success', semantic_success: false,
+    tool_display: { coverage: 'error', result_excerpt: 'missing_pod_scope' } })
+  assert.match(result.preview, /失败或查询被拒绝/)
+  assert.match(result.detail, /missing_pod_scope/)
+})

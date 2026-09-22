@@ -75,6 +75,8 @@ export interface ErrorEvent {
 
 /** Remediation approval request (sent by backend when human approval is needed) */
 export interface RemediationApprovalEvent {
+  expires_at?: number
+  server_time?: number
   type: 'remediation_approval_required'
   approval_kind: 'plan' | 'action'
   approval_id: string
@@ -103,6 +105,7 @@ export interface RemediationStatus {
 
 /** Pending remediation approval state stored per message */
 export interface RemediationApproval {
+  expiresAt?: number
   type: 'plan' | 'action'
   approvalId: string
   runId: string
@@ -121,6 +124,9 @@ export interface SSEMessage {
 
 /** A single message in the chat */
 export interface ChatMessage {
+  remediationResults?: Array<{ key: string; groupId: string; actionId: string; stage: string;
+    command: string; status: string; result: string; truncated: boolean }>
+  resultStatus?: 'success' | 'partial' | 'error'
   id: string
   role: 'user' | 'assistant'
   content: string
@@ -198,6 +204,7 @@ export interface ParallelEvidenceResult {
 }
 
 export interface ParallelEvidenceGroup {
+  runtimeStatus?: string
   terminalStatus?: 'completed' | 'partial'
   error?: string
   groupId: string

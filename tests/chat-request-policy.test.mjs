@@ -51,9 +51,9 @@ test('query requests do not ask backend to run remediation safety review', async
   assert.equal(params.has('remediate'), false)
 })
 
-test('only ask mode processes remediation events in the frontend', async () => {
+test('both routed endpoints process server-authorized remediation events', async () => {
   const { shouldProcessRemediation } = await loadPolicyModule()
 
   assert.equal(shouldProcessRemediation('ask'), true)
-  assert.equal(shouldProcessRemediation('query'), false)
+  assert.equal(shouldProcessRemediation('query'), true)
 })
