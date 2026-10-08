@@ -1,0 +1,1 @@
+PASS: 8 theme/viewport combinations; mobile drawer/Escape/focus; theme persistence; IME/keyboard; raw/code/report copy and failure; reduced motion; unchanged request/session schema; post-final approval, HTTP failure and rejection; history search/delete/cancel; responsive diagnosis screenshots

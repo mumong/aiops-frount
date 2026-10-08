@@ -149,7 +149,8 @@ git commit -m "feat: add brainstorm server foundation"
 
 ```javascript
 (function() {
-  const WS_URL = 'ws://' + window.location.host;
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const WS_URL = wsProtocol + '//' + window.location.host;
   let ws = null;
   let eventQueue = [];
 

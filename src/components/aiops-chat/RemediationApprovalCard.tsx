@@ -6,6 +6,8 @@ import {
   getApprovalContinuationPresentation,
 } from './remediationApprovalContinuation'
 import styles from './MessageList.module.css'
+import { ShieldCheck, Check, X, Clock3, LoaderCircle, TriangleAlert } from 'lucide-react'
+import CodeBlock from './CodeBlock'
 
 interface RemediationApprovalCardProps {
   approval: RemediationApproval
@@ -93,8 +95,8 @@ export default function RemediationApprovalCard({
     }
   }
 
-  const approvalLabel = approval.type === 'plan' ? '🛠️ 修复方案' : '🔧 修复动作'
-  const doneLabel = done === 'approved' ? '✅ 已同意' : done === 'rejected' ? '❌ 已拒绝' : null
+  const approvalLabel = approval.type === 'plan' ? '修复方案' : '修复动作'
+  const doneLabel = done === 'approved' ? '已同意' : done === 'rejected' ? '已拒绝' : null
   const continuation = getApprovalContinuationPresentation(continuationStatus)
   const payload = approval.payload || {}
   const target = payload.target && typeof payload.target === 'object'
@@ -106,9 +108,10 @@ export default function RemediationApprovalCard({
       {/* Header */}
       <div className={styles.remediationHeader}>
         <span className={styles.remediationIcon}>
-          {done === 'approved' ? '✅' : done === 'rejected' ? '❌' : '⏳'}
+          {done === 'approved' ? <Check size={18} /> : done === 'rejected' ? <X size={18} /> : <ShieldCheck size={18} />}
         </span>
         <span className={styles.remediationLabel}>{approvalLabel}</span>
+        {!done && <span className={styles.approvalBadge}>{unavailable ? '当前不可审批' : '等待人工审批'}</span>}
       </div>
 
       {/* Title / description */}
@@ -123,21 +126,20 @@ export default function RemediationApprovalCard({
               <span className={styles.repairBadge}>{String(payload.group_id || '当前对象')}</span>
               <strong>{[target.namespace, target.pod].filter(Boolean).map(String).join(' / ') || '修复命令'}</strong>
             </div>
-            {typeof payload.risk === 'string' && <div className={styles.repairNote}><strong>风险说明</strong><p>{payload.risk}</p></div>}
+            {(typeof payload.risk === 'string' || typeof payload.risk_level === 'string') && <div className={styles.repairNote}><strong><TriangleAlert size={15} />风险说明{typeof payload.risk_level === 'string' ? ` · ${payload.risk_level}` : ''}</strong>{typeof payload.risk === 'string' && <p>{payload.risk}</p>}</div>}
             {fields.map(([key, label]) => typeof payload[key] === 'string' && payload[key] ? (
-              <div key={key}><div className={styles.repairFieldLabel}>{label}</div>
-                <pre className={styles.repairCode}>{String(payload[key])}</pre></div>
+              <CodeBlock key={key} text={String(payload[key])} language="bash" label={label} />
             ) : null)}
             {typeof payload.rollback_advice === 'string' && <details className={styles.repairDetails}>
               <summary>回退建议</summary><p>{payload.rollback_advice}</p>
             </details>}
             <details className={styles.repairDetails}>
-              <summary>查看完整审批数据</summary><pre className={styles.repairCode}>{JSON.stringify(payload, null, 2)}</pre>
+              <summary>查看完整审批数据</summary><CodeBlock label="JSON" language="json" text={JSON.stringify(payload, null, 2)} />
             </details>
           </div>
         )}
         {!done && remainingSeconds !== null && (
-          <div role="status" className={styles.repairCountdown}>{remainingSeconds > 0
+          <div role="status" className={styles.repairCountdown}><Clock3 size={14} />{remainingSeconds > 0
             ? `审批剩余 ${remainingSeconds} 秒；超时取消，不自动执行。`
             : '审批已过期，未授权执行。'}</div>
         )}
@@ -152,8 +154,8 @@ export default function RemediationApprovalCard({
 
       {/* Error message */}
       {error && (
-        <div className={styles.remediationError}>
-          ❌ {error}
+        <div className={styles.remediationError} role="alert">
+          {error}
         </div>
       )}
 
@@ -169,14 +171,14 @@ export default function RemediationApprovalCard({
             onClick={() => handleAction(true)}
             disabled={submitting || unavailable}
           >
-            {submitting ? '⏳ 提交中...' : '✅ 同意'}
+            {submitting ? <LoaderCircle size={15} className={styles.spinner} /> : <Check size={15} />}{submitting ? '提交中...' : '同意'}
           </button>
           <button
             className={`${styles.remediationBtn} ${styles.remediationBtnReject}`}
             onClick={() => handleAction(false)}
             disabled={submitting || unavailable}
           >
-            {submitting ? '⏳ 提交中...' : '❌ 拒绝'}
+            {submitting ? <LoaderCircle size={15} className={styles.spinner} /> : <X size={15} />}{submitting ? '提交中...' : '拒绝'}
           </button>
         </div>
       )}

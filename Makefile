@@ -8,9 +8,36 @@ DOCKER_TAG := $(VERSION)
 NAMESPACE := aiops
 DEPLOYMENT := aiops-copilot-frontend
 
-.PHONY: release build push deploy delete restart logs sync-version
+.PHONY: release build push deploy delete restart logs sync-version check test lint app-build help
 
-release: build push deploy
+# Recursive recipes preserve order even when invoked with make -j.
+release:
+	$(MAKE) build
+	$(MAKE) push
+	$(MAKE) deploy
+
+check:
+	$(MAKE) test
+	$(MAKE) lint
+	$(MAKE) app-build
+
+test:
+	npm test
+
+lint:
+	npm run lint
+
+app-build:
+	npm run build
+
+help:
+	@echo "check       Run tests, lint and application build in order (no deployment)"
+	@echo "test/lint   Run the corresponding npm check"
+	@echo "app-build   Compile TypeScript and build Vite assets"
+	@echo "build/push  Build/push the Docker image (existing commands unchanged)"
+	@echo "release     Build image, push, deploy in order"
+	@echo "deploy      Apply existing image and wait for rollout; updates manifest tag"
+	@echo "restart/logs/sync-version/delete  Existing Kubernetes operations"
 
 build:
 	@echo "Building $(DOCKER_NAME):$(DOCKER_TAG)..."

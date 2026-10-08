@@ -1,0 +1,153 @@
+=== aiops-final-check.log ===
+make test
+make[1]: Entering directory '/root/huhu/agent/combine-aiops-mcp/frountind'
+npm test
+
+> aiops-chat-widget@0.1.0 test
+> node --test tests/*.test.mjs
+
+Warning: [antdx: XNotification] Notification API is not supported in this environment.
+✔ handoff parsing retains nested JSON, escapes, malformed JSON and plain value boundaries (1.831041ms)
+✔ completed stage remains expanded and tool and handoff raw details remain initially closed (22.724876ms)
+✔ query and ask share the conversation session identity (69.33402ms)
+✔ ask requests include remediation so diagnosis can continue into approval flow (6.347191ms)
+✔ query requests do not ask backend to run remediation safety review (7.544567ms)
+✔ both routed endpoints process server-authorized remediation events (11.236841ms)
+✔ same-batch final snapshots include completed nodes and do not close approval stream (2.236702ms)
+✔ tool call identity, semantic failure, heartbeat and terminal error preserve existing transitions (1.072731ms)
+✔ text and malformed JSON append, typed message dispatches and repeated approval upserts (0.332795ms)
+✔ transition clocks and queued updates are deterministic and preserve unrelated messages (0.700927ms)
+✔ shell highlighting escapes HTML-like command output rather than creating executable markup (11.078569ms)
+✔ unknown language falls back to complete escaped text and preserves whitespace (0.846243ms)
+✔ Markdown fenced YAML receives highlighting and copy controls without rendering raw HTML (12.075467ms)
+✔ frontend image build files exist (1.271907ms)
+✔ Dockerfile builds Vite app and serves dist with nginx (0.706158ms)
+✔ nginx serves SPA and proxies API to the in-cluster backend service (1.321051ms)
+✔ Kubernetes manifest deploys a temporary NodePort frontend pod (1.951952ms)
+✔ Makefile supports one-command release plus operations targets (0.420924ms)
+✔ README documents local running, packaging, K8s one-command deployment, raw commands, and access URL (0.68678ms)
+✔ diagnostic prose and assignments are Markdown, not key/value fields (0.907224ms)
+✔ completed empty stages do not claim to be waiting (0.228251ms)
+✔ blank streamed narrative creates no empty panel and retains code indentation (0.43876ms)
+✔ query streams Markdown answer without JSON envelope or partial escapes (2.243538ms)
+✔ parallel same-name results use call IDs even when completed out of order (138.82496ms)
+✔ runtime status clears on activity and terminal outcomes (20.161315ms)
+✔ stream completion confirms text without duplication or preview truncation (19.212481ms)
+✔ full message repairs a partial stream and nonstreaming answers still display (19.204273ms)
+✔ thinking tokens are appended to the event node instead of the last node (10.970848ms)
+✔ missing event nodes are created before appending thinking tokens (11.901507ms)
+✔ tool results update only the matching running tool in the event node (8.959903ms)
+✔ terminal board preserves missing results without showing endless running (563.729182ms)
+✔ renders every anomaly group collapsed and hides grouped tool details initially (155.243441ms)
+✔ renders streaming, failed, pending, and unassigned summary counts (142.680997ms)
+✔ autonomous fan-out supports two independently diagnosed Pods (161.121249ms)
+✔ lane failure is visible without discarding successful groups (47.574462ms)
+✔ extracts five authoritative groups from a real-shaped layer snapshot (23.982876ms)
+✔ accepts fenced layer JSON and rejects two-group non-parallel workflows (21.260182ms)
+✔ malformed or incomplete layer analysis safely disables grouping (21.319317ms)
+✔ parses observability dimension, source, and exact entity from a result preview (18.308237ms)
+✔ balanced marker parsing supports nested JSON and infers Kubernetes tools (16.634205ms)
+✔ parses exact Pod identity from real Kubernetes summary labels (13.348728ms)
+✔ same-name results returned out of order map to exact Pod groups (14.962211ms)
+✔ structured group context assigns a result even when the preview is truncated (20.0424ms)
+✔ same-name calls returned in reverse pair by group and backend tool call id (16.414212ms)
+✔ exact group and call tuple wins over an earlier ungrouped pending call (19.061475ms)
+✔ an unmatched structured call id never consumes a same-name pending call (11.902695ms)
+✔ group-only context assigns runbook evidence without fabricating a Pod (22.490279ms)
+✔ group-only structured context never upgrades preview Pod text into an entity (35.09488ms)
+✔ structured entity kind must match the authoritative group entity kind (12.007588ms)
+✔ structured collector events route only to the grouped board (14.697077ms)
+✔ semantic failure overrides transport success and full processed result beats preview (25.771226ms)
+✔ failed unmatched result remains visible and does not replace group evidence (16.640179ms)
+✔ dimension counts remain independent and state is serializable (11.493175ms)
+✔ completion preserves unfinished tools instead of inventing success (13.064656ms)
+✔ a mirrored fallback tool reopens a board completed before evidence events arrived (12.684111ms)
+Warning: [antdx: XNotification] Notification API is not supported in this environment.
+✔ Layer catalog is consumed by the next parallel stage and structured events route only to its board (2.894919ms)
+✔ consecutive final transitions snapshot the latest nodes without mutating earlier state (0.628813ms)
+✔ multi-group fallback evidence tools are mirrored and unfinished tools survive stage completion (0.353644ms)
+✔ BotMessage renders the grouped board only when parallel state exists (11.556758ms)
+✔ approval continuation state explains waiting for the next backend event (54.148466ms)
+✔ approval continuation state explains when the SSE stream is already closed (5.557797ms)
+✔ approval continuation state explains when no follow-up event arrives in time (4.013188ms)
+✔ remediation approval card receives stream liveness and activity markers (0.308123ms)
+✔ parses approval interrupt from real text-mode backend output (79.261445ms)
+✔ parses action approval interrupt and prefers curl ids (15.304881ms)
+✔ unsafe remediation plan is presented as a blocked approval flow (92.663048ms)
+✔ skipped remediation is presented as no automatic approval needed (18.134056ms)
+✔ remediation approval cards render after the final markdown report (1.119397ms)
+✔ remediation finished status renders after the final markdown report (0.212823ms)
+✔ remediation finished status renders after approval controls (0.190428ms)
+✔ remediation finished does not replace the final report content (0.654276ms)
+✔ chat widget parses text-mode remediation approval interrupts (0.651504ms)
+✔ deep route shows actual Pod scope instead of implying cluster scan (2.869371ms)
+✔ quick, clarify, stop and legacy histories have truthful routes (0.256111ms)
+✔ capability explanation does not imply missing user information (0.19459ms)
+✔ provider failure is distinct from clarification and retains safe error details (0.300627ms)
+✔ SSE decoding preserves UTF-8 at every byte boundary and multiline data (2.466084ms)
+✔ legacy SSE decoder ignores comments and fields without a space, including EOF event-only frames (0.1827ms)
+✔ legacy CRLF and incomplete UTF-8 behavior is retained rather than broadened during extraction (0.175602ms)
+✔ empty is not zero; parameters and truncation remain visible (1.199913ms)
+✔ bytes display with units and timestamp; unknown units never guessed (0.295539ms)
+✔ semantic rejection overrides transport success (0.170146ms)
+ℹ tests 82
+ℹ suites 0
+ℹ pass 82
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4623.497993
+make[1]: Leaving directory '/root/huhu/agent/combine-aiops-mcp/frountind'
+make lint
+make[1]: Entering directory '/root/huhu/agent/combine-aiops-mcp/frountind'
+npm run lint
+
+> aiops-chat-widget@0.1.0 lint
+> eslint .
+
+make[1]: Leaving directory '/root/huhu/agent/combine-aiops-mcp/frountind'
+make app-build
+make[1]: Entering directory '/root/huhu/agent/combine-aiops-mcp/frountind'
+npm run build
+
+> aiops-chat-widget@0.1.0 build
+> tsc -b && vite build
+
+vite v6.4.2 building for production...
+transforming...
+✓ 8376 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.55 kB │ gzip:   0.37 kB
+dist/assets/index-C_fkhb55.css   32.51 kB │ gzip:   7.01 kB
+dist/assets/index-BX1cSv6D.js   723.82 kB │ gzip: 239.59 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 8.37s
+make[1]: Leaving directory '/root/huhu/agent/combine-aiops-mcp/frountind'
+
+
+=== aiops-production-autonomous-parallel.log ===
+PASS: two lanes, out-of-order events, partial failure, route and history persistence
+
+
+=== aiops-production-diagnosis-layout.log ===
+{"width": 1100, "analysis_panels": [{"height": 60, "scroll": 60, "text": "已采证据\n内存限制 64Mi。"}], "browser_errors": []}
+{"width": 390, "analysis_panels": [{"height": 60, "scroll": 60, "text": "已采证据\n内存限制 64Mi。"}], "browser_errors": []}
+Streaming whitespace → analysis → final report: PASS
+
+
+=== aiops-production-direct-query.log ===
+PASS: direct answer, expanded history, manual collapse, HTTP 500 distinct from clarification
+
+
+=== aiops-production-remediation-review.log ===
+PASS: approval/expiry, execution groups, deep follow-up entry retaining session without approving
+
+
+=== aiops-production-ui-workspace.log ===
+PASS: 8 theme/viewport combinations; mobile drawer/Escape/focus; theme persistence; IME/keyboard; raw/code/report copy and failure; reduced motion; unchanged request/session schema; post-final approval, HTTP failure and rejection; history search/delete/cancel; responsive diagnosis screenshots

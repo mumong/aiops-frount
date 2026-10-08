@@ -1,77 +1,9 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { ChatMessage, NodeBlock, SSEMessage, RemediationApproval, EndpointMode, ParallelEvidenceGroup } from './types'
-import { useSSE } from '../../hooks/useSSE'
+import { useState, useCallback, useRef } from 'react'
+import type { ChatSession, EndpointMode } from './types'
 import { useChatHistory } from '../../hooks/useChatHistory'
-import ChatHeader from './ChatHeader'
 import Sidebar from './Sidebar'
-import MessageList from './MessageList'
-import MessageInput from './MessageInput'
-import { parseRemediationApprovalText, toRemediationApproval } from './remediationParsing'
-import { buildChatRequestParams, shouldProcessRemediation } from './chatRequestPolicy'
-import { applyNodeThinkingEvent, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
-import { presentToolEvent } from './toolPresentation'
-import { presentRoute } from './routePresentation'
-import {
-  completeParallelEvidence,
-  applyParallelOutcomes,
-  createParallelEvidenceState,
-  extractParallelEvidenceGroups,
-  finishParallelTool,
-  parseParallelEvidenceStreamContext,
-  resolveParallelResultData,
-  shouldRouteOnlyToParallelBoard,
-  startParallelTool,
-} from './parallelEvidenceModel'
+import ChatSessionPanel from './ChatSessionPanel'
 import styles from './ChatWidget.module.css'
-
-function mirrorParallelEvidence(
-  blocks: NodeBlock[],
-  updater: (state: NonNullable<NodeBlock['parallelEvidence']>) => NonNullable<NodeBlock['parallelEvidence']>,
-): NodeBlock[] {
-  let mirrored = false
-  const next = blocks.map(block => {
-    if (block.nodeId !== 'parallel_evidence' || !block.parallelEvidence) return block
-    mirrored = true
-    return { ...block, parallelEvidence: updater(block.parallelEvidence) }
-  })
-  return mirrored ? next : blocks
-}
-
-/**
- * POST to the remediation approval endpoint.
- * Returns the parsed JSON response.
- */
-async function submitRemediationApproval(
-  apiBase: string,
-  runId: string,
-  approvalId: string,
-  approved: boolean,
-  reason?: string,
-): Promise<{ success: boolean }> {
-  const body = new URLSearchParams({
-    run_id: runId,
-    approval_id: approvalId,
-    approved: String(approved),
-    reviewer: 'operator',
-  })
-  if (reason) {
-    body.set('reason', reason)
-  }
-  const res = await fetch(`${apiBase}/remediation/approve`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`审批请求失败 (HTTP ${res.status}): ${text.slice(0, 200)}`)
-  }
-  const json = await res.json()
-  if (json.success !== true) {
-    throw new Error(json.error || '审批请求被拒绝')
-  }
-  return json
-}
 
 export interface ChatWidgetProps {
   apiBase: string
@@ -80,518 +12,60 @@ export interface ChatWidgetProps {
   maxMessages?: number
 }
 
-export default function ChatWidget({
-  apiBase,
-  title = 'k8s aiops',
-  placeholder: _placeholder = '输入你的运维问题...',
-  maxMessages = 50,
-}: ChatWidgetProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [endpointMode, setEndpointMode] = useState<EndpointMode>('ask')
-  const [nodeBlocks, setNodeBlocks] = useState<NodeBlock[]>([])
-  const nodeBlocksRef = useRef<NodeBlock[]>([])
-  const parallelGroupsRef = useRef<ParallelEvidenceGroup[]>([])
-  const [finalAnswer, setFinalAnswer] = useState('')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [sseActivitySeq, setSseActivitySeq] = useState(0)
-  const toolIdCounter = useRef(0)
-  const messageIdCounter = useRef(0)
-  const textStreamBufferRef = useRef('')
-
-  const { connect, disconnect } = useSSE()
+export default function ChatWidget({ apiBase, title = 'k8s aiops', maxMessages = 50 }: ChatWidgetProps) {
   const history = useChatHistory()
+  const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia('(max-width: 640px)').matches)
+  const [runningSessions, setRunningSessions] = useState<Record<string, ChatSession>>({})
+  const drafts = useRef(new Map<string, string>())
+  const modes = useRef(new Map<string, EndpointMode>())
 
-  const updateNodeBlocks = useCallback((updater: (blocks: NodeBlock[]) => NodeBlock[]) => {
-    const next = updater(nodeBlocksRef.current)
-    nodeBlocksRef.current = next
-    setNodeBlocks(next)
+  const handleStart = useCallback((session: ChatSession) => {
+    setRunningSessions(previous => ({ ...previous, [session.id]: session }))
   }, [])
-
-  // Dynamic placeholder based on endpoint mode
-  const effectivePlaceholder =
-    endpointMode === 'ask'
-      ? '我的集群pod有什么异常？'
-      : '查询集群CPU和内存使用率'
-
-  // Load session when activeId changes
-  useEffect(() => {
-    const session = history.getActiveSession()
-    if (session) {
-      setMessages(session.messages)
-      updateNodeBlocks(() => session.nodeBlocks)
-      setFinalAnswer(session.finalAnswer)
-      setEndpointMode(session.endpointMode)
-      // Reset counters to max existing IDs
-      const maxMsg = session.messages.reduce((max, m) => {
-        const n = parseInt(m.id.replace('msg-', ''), 10)
-        return n > max ? n : max
-      }, 0)
-      messageIdCounter.current = maxMsg
-    }
-  }, [history.activeId, history.getActiveSession, updateNodeBlocks])
-
-  // Auto-save after streaming completes
-  const prevIsStreaming = useRef(false)
-  useEffect(() => {
-    if (prevIsStreaming.current && !isStreaming && messages.length > 0) {
-      history.saveCurrentSession(messages, nodeBlocks, finalAnswer, endpointMode)
-    }
-    prevIsStreaming.current = isStreaming
-  }, [isStreaming, messages, nodeBlocks, finalAnswer, endpointMode, history])
-
-  const upsertRemediationApproval = useCallback((assistantId: string, approval: RemediationApproval) => {
-    setMessages(prev =>
-      prev.map(m => {
-        if (m.id !== assistantId) return m
-        const existing = m.remediationApprovals ?? []
-        const existingIndex = existing.findIndex(item => item.approvalId === approval.approvalId)
-        const remediationApprovals =
-          existingIndex >= 0
-            ? existing.map((item, index) => index === existingIndex ? { ...item, ...approval } : item)
-            : [...existing, approval]
-
-        return {
-          ...m,
-          runId: m.runId || approval.runId,
-          remediationApprovals,
-        }
-      })
-    )
+  const handleFinish = useCallback((id: string) => {
+    setRunningSessions(previous => {
+      if (!(id in previous)) return previous
+      const next = { ...previous }
+      delete next[id]
+      return next
+    })
   }, [])
-
-  const parseAndShowTextApproval = useCallback((assistantId: string, text: string, endpointMode: EndpointMode) => {
-    if (!shouldProcessRemediation(endpointMode)) return
-    const parsed = parseRemediationApprovalText(text)
-    if (!parsed) return
-    upsertRemediationApproval(assistantId, toRemediationApproval(parsed))
-  }, [upsertRemediationApproval])
-
-  const appendTextStreamChunk = useCallback((assistantId: string, chunk: string, endpointMode: EndpointMode) => {
-    textStreamBufferRef.current += chunk
-    const nextContent = textStreamBufferRef.current
-    setFinalAnswer(nextContent)
-    setMessages(prev =>
-      prev.map(m =>
-        m.id === assistantId
-          ? { ...m, content: nextContent }
-          : m
-      )
-    )
-    parseAndShowTextApproval(assistantId, nextContent, endpointMode)
-  }, [parseAndShowTextApproval])
-
-  const handleSSEEvent = useCallback((msg: SSEMessage, assistantId: string, requestEndpointMode: EndpointMode) => {
-    setSseActivitySeq(seq => seq + 1)
-
-    if (msg.event === 'text') {
-      appendTextStreamChunk(assistantId, msg.data, requestEndpointMode)
-      return
-    }
-
-    let data: Record<string, unknown>
-    try {
-      data = JSON.parse(msg.data)
-    } catch {
-      appendTextStreamChunk(assistantId, msg.data, requestEndpointMode)
-      return
-    }
-
-    const eventType = msg.event === 'message' && typeof data.type === 'string'
-      ? data.type
-      : msg.event
-
-    switch (eventType) {
-      case 'run_start':
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === assistantId ? { ...m, runId: String(data.run_id || '') } : m
-          )
-        )
-        break
-
-      case 'node_start': {
-        const nodeId = String(data.node || '')
-        const nodeName = String(data.node_name || data.node || '')
-        updateNodeBlocks(prev => {
-          const started = startNodeBlock(prev, nodeId, nodeName)
-          if (nodeId !== 'parallel_evidence' || parallelGroupsRef.current.length < 2) {
-            return started
-          }
-          return started.map(block => (
-            block.nodeId === nodeId && !block.parallelEvidence
-              ? { ...block, parallelEvidence: createParallelEvidenceState(parallelGroupsRef.current) }
-              : block
-          ))
-        })
-        break
-      }
-
-      case 'thinking': {
-        const thinkType = String(data.thinking_type || '')
-        const nodeId = String(data.node || '')
-        const nodeName = String(data.node_name || data.node || nodeId || '')
-
-        if (thinkType === 'runtime_status') {
-          const groupId = String(data.parallel_group_id || '')
-          if (groupId) {
-            updateNodeBlocks(prev => prev.map(block => !block.parallelEvidence ? block : {
-              ...block, parallelEvidence: {...block.parallelEvidence,
-                groups: block.parallelEvidence.groups.map(group => group.groupId !== groupId ? group : {
-                  ...group, runtimeStatus: String(data.content || ''),
-                })},
-            }))
-          } else {
-            updateNodeBlocks(prev => setNodeRuntimeStatus(prev, nodeId, nodeName,
-              String(data.content || ''), String(data.status || 'running')))
-          }
-        } else if (thinkType === 'ai_token') {
-          const content = String(data.content || '')
-          updateNodeBlocks(prev => applyNodeThinkingEvent(prev, nodeId, nodeName, 'ai_token', content))
-        } else if (thinkType === 'ai_message') {
-          const content = String(data.full_content || data.content || '')
-          updateNodeBlocks(prev => applyNodeThinkingEvent(prev, nodeId, nodeName, 'ai_message', content))
-        } else if (thinkType === 'tool_start') {
-          const toolName = String(data.tool_name || '')
-          const backendCallId = String(data.tool_call_id || '').trim()
-          const evidenceContext = parseParallelEvidenceStreamContext(data.evidence_context)
-          const tool = {
-            id: `tool-${++toolIdCounter.current}`,
-            ...(backendCallId ? { backendCallId } : {}),
-            ...(evidenceContext ? { evidenceContext } : {}),
-            toolName,
-            status: 'running' as const,
-          }
-          updateNodeBlocks(prev => {
-            const isGroupedEvidence = parallelGroupsRef.current.length >= 2
-              && (nodeId === 'parallel_evidence' || nodeId === 'evidence')
-            const mirrored = isGroupedEvidence
-              ? mirrorParallelEvidence(prev, state => startParallelTool(state, tool))
-              : prev
-            if (shouldRouteOnlyToParallelBoard(
-              nodeId,
-              evidenceContext,
-              mirrored !== prev,
-            )) {
-              return mirrored
-            }
-            return startNodeToolCall(mirrored, nodeId, nodeName, tool)
-          })
-        } else if (thinkType === 'tool_result') {
-          const toolName = String(data.tool_name || '')
-          const status = data.semantic_success === false ? 'error' : String(data.status || 'success')
-          const presentation = presentToolEvent(data)
-          const preview = presentation.preview
-          const resultData = presentation.detail
-          const parallelResultData = resolveParallelResultData(data)
-          const toolCallId = String(data.tool_call_id || '').trim()
-          const evidenceContext = parseParallelEvidenceStreamContext(data.evidence_context)
-          const semanticSuccess = typeof data.semantic_success === 'boolean'
-            ? data.semantic_success
-            : undefined
-          const rawRef = String(data.raw_ref || '').trim()
-          const structuredRef = String(data.structured_ref || '').trim()
-          const summaryRef = String(data.summary_ref || '').trim()
-          updateNodeBlocks(prev => {
-            const isGroupedEvidence = parallelGroupsRef.current.length >= 2
-              && (nodeId === 'parallel_evidence' || nodeId === 'evidence')
-            const fallbackId = `tool-result-${++toolIdCounter.current}`
-            const mirrored = isGroupedEvidence
-              ? mirrorParallelEvidence(prev, state => finishParallelTool(
-                  state,
-                  toolName,
-                  status,
-                  preview,
-                  parallelResultData,
-                  fallbackId,
-                  {
-                    ...(toolCallId ? { toolCallId } : {}),
-                    ...(evidenceContext ? { evidenceContext } : {}),
-                    ...(semanticSuccess !== undefined ? { semanticSuccess } : {}),
-                    ...(rawRef ? { rawRef } : {}),
-                    ...(structuredRef ? { structuredRef } : {}),
-                    ...(summaryRef ? { summaryRef } : {}),
-                  },
-                ))
-              : prev
-            if (shouldRouteOnlyToParallelBoard(
-              nodeId,
-              evidenceContext,
-              mirrored !== prev,
-            )) {
-              return mirrored
-            }
-            return finishNodeToolCall(mirrored, nodeId, nodeName, toolName, status, preview, resultData, toolCallId)
-          })
-        }
-        break
-      }
-
-      case 'heartbeat':
-        break
-
-      case 'node_complete': {
-        const nodeId = String(data.node || '')
-        const duration = Number(data.duration_seconds || 0)
-        const handoff = String(data.handoff_summary || '')
-        if (nodeId === 'layer') {
-          parallelGroupsRef.current = extractParallelEvidenceGroups(
-            data.state_snapshot as Record<string, unknown> | undefined,
-          )
-        }
-        updateNodeBlocks(prev => prev.map(n => {
-          if (n.nodeId === nodeId) {
-            return {
-              ...n,
-              status: 'complete' as const,
-              runtimeStatus: undefined,
-              durationSeconds: duration,
-              handoffSummary: handoff || n.handoffSummary,
-              ...(nodeId === 'request_router'
-                ? { routeDecision: presentRoute(data.state_snapshot) } : {}),
-              ...(n.parallelEvidence
-                ? { parallelEvidence: applyParallelOutcomes(completeParallelEvidence(n.parallelEvidence), data.state_snapshot) }
-                : {}),
-            }
-          }
-          if (
-            nodeId === 'evidence'
-            && parallelGroupsRef.current.length >= 2
-            && n.parallelEvidence
-          ) {
-            return { ...n, parallelEvidence: completeParallelEvidence(n.parallelEvidence) }
-          }
-          return n
-        }))
-        break
-      }
-
-      case 'final': {
-        updateNodeBlocks(prev => settleNodeBlocks(prev, 'complete'))
-        const answer = String(data.answer || '')
-        setFinalAnswer(answer)
-        textStreamBufferRef.current = answer
-        // Take a snapshot of current nodeBlocks and store them on the message
-        // so they survive when the next message is sent
-        const snapshot = nodeBlocksRef.current
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === assistantId
-              ? { ...m, content: answer, status: 'complete' as const,
-                  resultStatus: data.status === 'partial' ? 'partial' as const : data.status === 'error' ? 'error' as const : 'success' as const,
-                  nodeBlocks: snapshot }
-              : m
-          )
-        )
-        parseAndShowTextApproval(assistantId, answer, requestEndpointMode)
-        break
-      }
-
-      case 'error': {
-        updateNodeBlocks(prev => settleNodeBlocks(prev, 'stopped'))
-        const errorMsg = String(data.error || '未知错误')
-        setFinalAnswer(`❌ ${errorMsg}`)
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === assistantId
-              ? { ...m, status: 'error' as const, content: `❌ ${errorMsg}` }
-              : m
-          )
-        )
-        setIsStreaming(false)
-        break
-      }
-
-      case 'remediation_approval_required': {
-        if (!shouldProcessRemediation(requestEndpointMode)) break
-        const approval: RemediationApproval = {
-          type: String(data.approval_kind || 'plan') as 'plan' | 'action',
-          approvalId: String(data.approval_id || ''),
-          runId: String(data.run_id || ''),
-          title: String(data.title || '修复审批'),
-          description: String(data.description || ''),
-          payload: data.payload as Record<string, unknown> | undefined,
-          requestedAt: Date.now(),
-          expiresAt: typeof data.expires_at === 'number' && typeof data.server_time === 'number'
-            ? Date.now() + Math.max(0, data.expires_at - data.server_time) * 1000 : undefined,
-        }
-        upsertRemediationApproval(assistantId, approval)
-        break
-      }
-
-      case 'remediation_tool_start':
-      case 'remediation_tool_result': {
-        const result = {
-          key: [data.run_id, data.group_id, data.action_id, data.stage].join(':'),
-          groupId: String(data.group_id || ''), actionId: String(data.action_id || ''),
-          stage: String(data.stage || ''), command: String(data.command || ''),
-          status: String(data.status || ''), result: String(data.result_preview || ''),
-          truncated: data.result_truncated === true,
-        }
-        setMessages(prev => prev.map(m => m.id === assistantId ? {
-          ...m, remediationResults: [...(m.remediationResults || []).filter(r => r.key !== result.key), result],
-        } : m))
-        break
-      }
-
-      case 'remediation_finished': {
-        if (!shouldProcessRemediation(requestEndpointMode)) break
-        const finRunId = String(data.run_id || '')
-        const finStatus = String(data.status || 'completed')
-        const finReason = String(data.reason || '')
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === assistantId
-              ? {
-                  ...m,
-                  runId: m.runId || finRunId,
-                  remediationStatus: {
-                    runId: finRunId || m.runId || '',
-                    status: finStatus,
-                    reason: finReason,
-                    finishedAt: Date.now(),
-                  },
-                }
-              : m
-          )
-        )
-        break
-      }
-    }
-  }, [appendTextStreamChunk, parseAndShowTextApproval, updateNodeBlocks, upsertRemediationApproval])
-
-  const sendMessage = useCallback((question: string) => {
-    if (!question.trim() || isStreaming) return
-
-    const newMsg: ChatMessage = {
-      id: `msg-${++messageIdCounter.current}`,
-      role: 'user',
-      content: question,
-      timestamp: Date.now(),
-    }
-
-    const assistantMsg: ChatMessage = {
-      id: `msg-${++messageIdCounter.current}`,
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      status: 'streaming',
-    }
-
-    setMessages(prev => [...prev.slice(-maxMessages + 2), newMsg, assistantMsg])
-    setIsStreaming(true)
-    setNodeBlocks([])
-    nodeBlocksRef.current = []
-    parallelGroupsRef.current = []
-    setFinalAnswer('')
-    textStreamBufferRef.current = ''
-    toolIdCounter.current = 0
-    setSseActivitySeq(0)
-
-    const requestEndpointMode = endpointMode
-    const params = buildChatRequestParams(question, requestEndpointMode, history.activeId)
-
-    connect(
-      `${apiBase}/${requestEndpointMode}`,
-      { method: 'GET', body: params },
-      (msg: SSEMessage) => {
-        handleSSEEvent(msg, assistantMsg.id, requestEndpointMode)
-      },
-      (err: Error) => {
-        updateNodeBlocks(prev => settleNodeBlocks(prev, 'stopped'))
-        setFinalAnswer(`❌ 错误: ${err.message}`)
-        setIsStreaming(false)
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === assistantMsg.id
-              ? { ...m, status: 'error', content: `❌ 错误: ${err.message}` }
-              : m
-          )
-        )
-      },
-      () => {
-        updateNodeBlocks(prev => settleNodeBlocks(prev, 'stopped'))
-        setIsStreaming(false)
-      }
-    )
-  }, [apiBase, endpointMode, isStreaming, connect, maxMessages, handleSSEEvent, history.activeId, updateNodeBlocks])
-
-  const handleRemediationRespond = useCallback(async (
-    runId: string,
-    approvalId: string,
-    approved: boolean,
-    reason?: string,
-  ) => {
-    return submitRemediationApproval(apiBase, runId, approvalId, approved, reason)
-  }, [apiBase])
-
-  const handleStop = useCallback(() => {
-    updateNodeBlocks(prev => settleNodeBlocks(prev, 'stopped'))
-    disconnect()
-    setIsStreaming(false)
-    setMessages(prev =>
-      prev.map(m =>
-        m.status === 'streaming' ? { ...m, status: 'complete' as const } : m
-      )
-    )
-  }, [disconnect, updateNodeBlocks])
-
-  const handleNewSession = useCallback(() => {
-    if (isStreaming) {
-      disconnect()
-      setIsStreaming(false)
-    }
-    setMessages([])
-    setNodeBlocks([])
-    nodeBlocksRef.current = []
-    parallelGroupsRef.current = []
-    setFinalAnswer('')
-    history.newSession()
-  }, [isStreaming, disconnect, history])
-
-  const handleLoadSession = useCallback((id: string) => {
-    if (isStreaming) return
+  const handleDraftChange = useCallback((id: string, text: string) => {
+    drafts.current.set(id, text)
+  }, [])
+  const handleModeChange = useCallback((id: string, mode: EndpointMode) => {
+    modes.current.set(id, mode)
+  }, [])
+  const handleLoadSession = (id: string) => {
     history.loadSession(id)
     if (window.matchMedia('(max-width: 640px)').matches) setSidebarOpen(false)
-  }, [isStreaming, history])
+  }
+  const handleDeleteSession = (id: string) => {
+    // Removing its panel also aborts only this session's transport.
+    handleFinish(id)
+    drafts.current.delete(id)
+    modes.current.delete(id)
+    history.deleteSession(id)
+  }
 
-  return (
-    <div className={styles.widget}>
-      <div className={styles.body}>
-        <Sidebar
-          sessions={history.sessions}
-          activeId={history.activeId}
-          onSelect={handleLoadSession}
-          onDelete={history.deleteSession}
-          onNew={handleNewSession}
-          isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen(o => !o)}
-        />
-        <div className={styles.main}>
-          <ChatHeader
-            title={title}
-            isConnected={!isStreaming}
-            endpointMode={endpointMode}
-            onEndpointChange={setEndpointMode}
-          />
-          <MessageList
-            messages={messages}
-            nodeBlocks={nodeBlocks}
-            finalAnswer={finalAnswer}
-            streamActive={isStreaming}
-            activitySeq={sseActivitySeq}
-            onRemediationRespond={handleRemediationRespond}
-            onRequestRepair={() => sendMessage('请根据刚才的诊断，为其中异常 Pod 制定修复方案并提交人工审查；先核实当前状态并参考 Runbook。')}
-          />
-          <MessageInput
-            onSend={sendMessage}
-            onStop={handleStop}
-            isStreaming={isStreaming}
-            placeholder={effectivePlaceholder}
-            endpointMode={endpointMode}
-          />
-        </div>
-      </div>
+  const listed = new Map(history.sessions.map(session => [session.id, session]))
+  for (const session of Object.values(runningSessions)) listed.set(session.id, session)
+  // Keep live panels mounted so their SSE, approvals and local UI state survive navigation.
+  // Completed inactive panels can unmount; their snapshots live in the existing history schema.
+  const mountedIds = [...new Set([...Object.keys(runningSessions), history.activeId])]
+
+  return <div className={styles.widget}>
+    <div className={styles.body}>
+      <Sidebar sessions={[...listed.values()]} activeId={history.activeId}
+        onSelect={handleLoadSession} onDelete={handleDeleteSession} onNew={history.newSession}
+        isOpen={sidebarOpen} onToggle={() => setSidebarOpen(open => !open)}
+        runningIds={Object.keys(runningSessions)} />
+      {mountedIds.map(id => <ChatSessionPanel key={id}
+        sessionId={id} initialSession={listed.get(id)} initialDraft={drafts.current.get(id) || ''}
+        initialMode={modes.current.get(id)}
+        active={id === history.activeId} apiBase={apiBase} title={title} maxMessages={maxMessages}
+        onStart={handleStart} onFinish={handleFinish} onSave={history.saveSession}
+        onDraftChange={handleDraftChange} onModeChange={handleModeChange} />)}
     </div>
-  )
+  </div>
 }

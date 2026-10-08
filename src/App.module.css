@@ -1,20 +1,72 @@
-.container {
-  max-width: 1200px;
-  height: 100vh;
-  margin: 0 auto;
-  padding: 0 16px;
-  display: flex;
-  flex-direction: column;
+:global(:root) {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --bg: #ffffff;
+  --sidebar: #f7f7fa;
+  --surface: #ffffff;
+  --surface-subtle: #f7f8fa;
+  --hover: #eeeff4;
+  --text: #242631;
+  --muted: #676d7e;
+  --faint: #6f7586;
+  --border: #e5e6ed;
+  --accent: #535fd7;
+  --accent-soft: #f0f1ff;
+  --accent-border: #cfd3f7;
+  --success: #26704e;
+  --success-soft: #edf7f1;
+  --warning: #93601c;
+  --warning-soft: #fff7e8;
+  --warning-border: #e8c991;
+  --danger: #bf3d46;
+  --danger-soft: #fff0f1;
+  --code-bg: #f8f9fc;
+  --code-text: #333a52;
+  --shadow: 0 8px 28px #2023350a;
+  color-scheme: light;
 }
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+:global(:root[data-theme='dark']) {
+  --bg: #15161c;
+  --sidebar: #111217;
+  --surface: #191b22;
+  --surface-subtle: #1e2029;
+  --hover: #282b36;
+  --text: #edeef3;
+  --muted: #a7abba;
+  --faint: #9298ab;
+  --border: #30333f;
+  --accent: #a0aaff;
+  --accent-soft: #262a45;
+  --accent-border: #444d7d;
+  --success: #80caa6;
+  --success-soft: #1c3029;
+  --warning: #e5ba74;
+  --warning-soft: #33291d;
+  --warning-border: #695338;
+  --danger: #f59299;
+  --danger-soft: #352127;
+  --code-bg: #12141b;
+  --code-text: #d8dceb;
+  --shadow: 0 8px 28px #0002;
+  color-scheme: dark;
 }
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: #f5f5f5;
-  color: #1a1a1a;
+:global(*) { box-sizing: border-box; }
+:global(body) { margin: 0; background: var(--bg); color: var(--text); font-size: 14px; -webkit-font-smoothing: antialiased; }
+:global(button), :global(textarea), :global(input) { font: inherit; }
+:global(button) { -webkit-tap-highlight-color: transparent; }
+:global(button:not(:disabled)), :global(summary) { cursor: pointer; }
+:global(button:disabled) { cursor: not-allowed; }
+:global(button), :global(a), :global(summary) { touch-action: manipulation; }
+:global(svg) { flex-shrink: 0; vertical-align: middle; }
+:global(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 3px; }
+:global(::selection) { background: var(--accent-border); color: var(--text); }
+:global(*) { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+:global(p), :global(h1), :global(h2), :global(h3), :global(h4) { margin: 0; }
+.container { height: 100vh; height: 100dvh; width: 100%; overflow: hidden; }
+:global(.hljs-keyword), :global(.hljs-selector-tag), :global(.hljs-literal) { color: var(--accent); }
+:global(.hljs-string), :global(.hljs-attr), :global(.hljs-addition) { color: var(--success); }
+:global(.hljs-number), :global(.hljs-built_in), :global(.hljs-variable) { color: var(--warning); }
+:global(.hljs-comment), :global(.hljs-meta) { color: var(--muted); }
+@media (prefers-reduced-motion: reduce) {
+  :global(*), :global(*::before), :global(*::after) { animation: none !important; scroll-behavior: auto !important; transition: none !important; }
 }

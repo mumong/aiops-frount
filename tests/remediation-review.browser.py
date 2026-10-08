@@ -54,12 +54,12 @@ with sync_playwright() as driver:
     page.locator('pre').filter(has_text='kubectl set resources').first.wait_for()
     page.get_by_text('滚动更新期间可能短暂不可用', exact=True).wait_for()
     page.get_by_text('审批已过期，未授权执行。', exact=True).wait_for(timeout=10000)
-    assert page.get_by_role('button', name='✅ 同意', exact=True).is_disabled()
+    assert page.get_by_role('button', name='同意', exact=True).is_disabled()
     assert page.evaluate('window.approvals.length') == 0
     approval('approved', 30)
-    page.get_by_role('button', name='✅ 同意', exact=True).last.click()
+    page.get_by_role('button', name='同意', exact=True).last.click()
     page.wait_for_function('window.approvals.length === 1')
-    page.get_by_text('✅ 已同意', exact=True).wait_for()
+    page.get_by_text('已同意', exact=True).wait_for()
     assert 'approval_id=approved' in page.evaluate('window.approvals[0]')
     for group in ['g1', 'g2']:
         emit('remediation_tool_start', {'run_id':'repair-browser', 'group_id':group,
@@ -93,6 +93,10 @@ with sync_playwright() as driver:
     repair_button.scroll_into_view_if_needed()
     page.screenshot(path='/tmp/aiops-repair-entry.png', full_page=True)
     repair_button.click()
+    assert page.evaluate('window.questions.length') == 2
+    assert '根据刚才的诊断' in page.locator('textarea').input_value()
+    assert page.locator('textarea').evaluate('(el) => el === document.activeElement')
+    page.locator('textarea').press('Enter')
     page.wait_for_function('window.questions.length === 3')
     assert page.evaluate('window.approvals.length') == 1
     questions = page.evaluate('window.questions')

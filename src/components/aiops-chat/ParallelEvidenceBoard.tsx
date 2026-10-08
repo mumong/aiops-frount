@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useId } from 'react'
+import { ChevronDown, ChevronRight, CircleAlert, CheckCircle2 } from 'lucide-react'
+import CodeBlock from './CodeBlock'
 import type {
   EvidenceDimension,
   ParallelEvidenceGroup,
@@ -49,8 +51,6 @@ export default function ParallelEvidenceBoard({
         </span>
       </div>
 
-      {state.status === 'running' && <div className={styles.streamBar} aria-hidden="true" />}
-
       <div className={styles.totals} aria-label="采集统计">
         <span><strong>{allResults.length}</strong>已返回</span>
         <span><strong>{state.pendingTools.length}</strong>{state.status === 'running' ? '执行中' : '未返回'}</span>
@@ -86,7 +86,7 @@ export default function ParallelEvidenceBoard({
 
       {state.unassignedResults.length > 0 && (
         <section className={styles.unassigned} aria-label="未归属证据">
-          <div className={styles.noticeTitle}>⚠ {state.unassignedResults.length} 条未归属结果</div>
+          <div className={styles.noticeTitle}><CircleAlert size={15} />{state.unassignedResults.length} 条未归属结果</div>
           <p>返回内容没有唯一的 namespace/Pod 标识，原始证据已保留，未进行推测归组。</p>
           <div className={styles.resultList}>
             {state.unassignedResults.map(result => <ResultItem key={result.id} result={result} />)}
@@ -108,7 +108,7 @@ function GroupCard({
 }) {
   const counts = dimensionCounts(group)
   const failedCount = group.results.filter(result => result.status === 'error').length
-  const contentId = `parallel-evidence-${group.groupId.replace(/[^a-zA-Z0-9_-]/g, '-')}`
+  const contentId = useId()
 
   return (
     <article className={`${styles.groupCard} ${expanded ? styles.groupExpanded : ''}`}>
@@ -122,7 +122,7 @@ function GroupCard({
         <span className={styles.groupTopline}>
           <span className={styles.groupId}>{group.groupId}</span>
           <span className={styles.groupType}>{group.abnormalType}</span>
-          <span className={styles.groupToggle} aria-hidden="true">{expanded ? '−' : '+'}</span>
+          <span className={styles.groupToggle} aria-hidden="true">{expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</span>
         </span>
         <span className={styles.entities}>
           {group.entities.map(entity => (
@@ -183,7 +183,7 @@ function ResultItem({ result }: { result: ParallelEvidenceResult }) {
   return (
     <article className={`${styles.resultItem} ${result.status === 'error' ? styles.resultError : ''}`}>
       <div className={styles.resultHeader}>
-        <span className={styles.resultStatus}>{result.status === 'success' ? '✓' : '!'}</span>
+        <span className={styles.resultStatus}>{result.status === 'success' ? <CheckCircle2 size={14} aria-label="成功" /> : <CircleAlert size={14} aria-label="失败" />}</span>
         <code className={styles.toolName}>{result.toolName}</code>
         <span className={styles.resultDimension}>{DIMENSION_LABELS[result.dimension]}</span>
         {result.sourceSystem && <span className={styles.sourceSystem}>{result.sourceSystem}</span>}
@@ -198,7 +198,7 @@ function ResultItem({ result }: { result: ParallelEvidenceResult }) {
       {result.resultData && (
         <details className={styles.rawDetails}>
           <summary>查看完整工具结果摘要</summary>
-          <pre><code>{result.resultData}</code></pre>
+          <CodeBlock text={result.resultData} label={result.toolName} />
         </details>
       )}
       {(result.rawRef || result.structuredRef || result.summaryRef) && (

@@ -40,8 +40,9 @@ export function useChatHistory() {
     setActiveId(newChatSessionId())
   }, [])
 
-  /** Save the current chat state as a session (called when streaming completes) */
-  const saveCurrentSession = useCallback((
+  /** Save by request owner; background completion must never change navigation. */
+  const saveSession = useCallback((
+    sessionId: string,
     messages: ChatMessage[],
     nodeBlocks: NodeBlock[],
     finalAnswer: string,
@@ -56,7 +57,7 @@ export function useChatHistory() {
 
     const now = Date.now()
     const updatedSession: ChatSession = {
-      id: activeId,
+      id: sessionId,
       title,
       messages,
       nodeBlocks,
@@ -76,8 +77,7 @@ export function useChatHistory() {
       }
       return [...prev, updatedSession]
     })
-    setActiveId(updatedSession.id)
-  }, [activeId])
+  }, [])
 
   /** Load a session into active view */
   const loadSession = useCallback((id: string) => {
@@ -105,7 +105,7 @@ export function useChatHistory() {
     sessions,
     activeId,
     newSession,
-    saveCurrentSession,
+    saveSession,
     loadSession,
     deleteSession,
     getActiveSession,

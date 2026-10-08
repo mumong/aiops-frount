@@ -49,6 +49,8 @@ with sync_playwright() as p:
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.add_init_script('localStorage.setItem("aiops_chat_sessions", ' + json.dumps(json.dumps([session])) + ')')
         page.goto(args.url)
+        if width <= 640:
+            page.get_by_role('button', name='展开侧栏', exact=True).click()
         page.get_by_text('诊断展示回放', exact=True).click()
         toggle = page.get_by_title('收起', exact=True)
         if toggle.count():
@@ -128,7 +130,7 @@ with sync_playwright() as p:
         assert panel.evaluate('(e) => e.clientHeight') > 320
         assert page.get_by_label('运行状态').count() == 1
         assert '等待模型' in page.get_by_label('运行状态').inner_text()
-        page.locator('[class*="list_"]').first.evaluate('(e) => { e.scrollTop = 0; e.dispatchEvent(new Event("scroll")); }')
+        page.get_by_label('对话内容', exact=True).evaluate('(e) => { e.scrollTop = 0; e.dispatchEvent(new Event("scroll")); }')
         page.get_by_role('button', name='↓ 回到最新内容').click()
         page.clock.run_for(31000)
         assert '暂无新进展' in page.get_by_label('运行状态').inner_text()

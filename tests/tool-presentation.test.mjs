@@ -32,3 +32,42 @@ test('semantic rejection overrides transport success', () => {
   assert.match(result.preview, /失败或查询被拒绝/)
   assert.match(result.detail, /missing_pod_scope/)
 })
+
+test('native Prometheus point displays value, labels and time without guessing unit', () => {
+  const result = presentToolEvent({ tool_args: { query: 'arbitrary_expression' }, tool_display: {
+    coverage: 'present', parse_status: 'parsed', series_count: 1,
+    measurements: [{ value: '22.6439', unit: 'unknown', labels: {}, observed_at: '2026-10-08T09:11:23Z' }],
+  } })
+  assert.match(result.preview, /22.6439/)
+  assert.doesNotMatch(result.preview, /%/)
+  assert.match(result.detail, /09:11:23/)
+  assert.doesNotMatch(result.detail, /未返回可展示|查询目的：见查询参数/)
+  assert.equal(result.detail.split('arbitrary_expression').length - 1, 1)
+})
+
+test('unsupported and partial results are not described as absent', () => {
+  const result = presentToolEvent({ tool_display: { parse_status: 'unsupported', coverage: 'unknown' } })
+  assert.match(result.preview, /暂未解析/)
+  assert.doesNotMatch(result.preview, /无匹配数据/)
+  const partial = presentToolEvent({ tool_display: { parse_status: 'partial', coverage: 'present',
+    measurements: [{ value: '0' }], unparsed_series: 2, warnings: ['source warning'] } })
+  assert.match(partial.preview, /部分结果未解析/)
+  assert.match(partial.detail, /未解析的序列数：2/)
+  assert.match(partial.detail, /source warning/)
+})
+
+test('matrix latest samples and bounded rows are explicitly labeled', () => {
+  const result = presentToolEvent({ tool_display: { coverage: 'present', result_type: 'matrix',
+    measurements: [{ value: '8', sample_count: 20, point_policy: 'latest_per_series' }], measurements_omitted: 5 } })
+  assert.match(result.detail, /最新采样点/)
+  assert.match(result.detail, /不是整个区间的平均值/)
+  assert.match(result.detail, /未展开的条目数：5/)
+})
+
+test('backend error coverage takes precedence and text is not a numeric metric', () => {
+  assert.match(presentToolEvent({ tool_display: { coverage: 'error' } }).preview, /调用失败/)
+  const result = presentToolEvent({ tool_display: { coverage: 'present',
+    measurements: [{ name: 'prometheus_text', value: 'OK', value_kind: 'text' }] } })
+  assert.match(result.preview, /OK/)
+  assert.doesNotMatch(result.preview, /单位/)
+})

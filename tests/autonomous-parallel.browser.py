@@ -1,5 +1,6 @@
 """Replay parallel SSE boundaries against a built/deployed frontend."""
 import argparse
+from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 p = argparse.ArgumentParser()
@@ -64,5 +65,18 @@ with sync_playwright() as driver:
     assert '部分完成' in page.get_by_label('并发证据采集总览').inner_text()
     assert not errors, errors
     page.screenshot(path=args.screenshot, full_page=True)
+    # Keyboard access and original per-group details survive the visual refresh.
+    board = page.get_by_label('并发证据采集总览')
+    group = board.get_by_role('button').filter(has_text='g1').first
+    group.focus()
+    group.press('Enter')
+    page.get_by_text('provider timeout', exact=True).wait_for()
+    board.get_by_text('查看完整工具结果摘要', exact=True).click()
+    assert board.locator('pre').filter(has_text='raw-1').count() == 1
+    page.get_by_role('button', name='切换深色主题').click()
+    screenshot = Path(args.screenshot)
+    page.screenshot(path=str(screenshot.with_name(screenshot.stem + '-dark' + screenshot.suffix)), animations='disabled')
+    assert page.locator('body').evaluate('(e) => e.scrollWidth <= window.innerWidth')
+    assert not errors, errors
     print('PASS: two lanes, out-of-order events, partial failure, route and history persistence')
     browser.close()

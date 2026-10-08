@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { ChatSession } from './types'
+import { Drawer, Popconfirm } from 'antd'
+import { Box, PanelLeftClose, PanelLeftOpen, Plus, MessageSquare, Trash2, Search, Info, ChevronDown, HardDrive } from 'lucide-react'
+import type { ChatSession } from './types'
 import styles from './Sidebar.module.css'
 
 interface SidebarProps {
@@ -10,128 +12,70 @@ interface SidebarProps {
   onNew: () => void
   isOpen: boolean
   onToggle: () => void
+  runningIds?: string[]
 }
 
-export default function Sidebar({ sessions, activeId, onSelect, onDelete, onNew, isOpen, onToggle }: SidebarProps) {
+export default function Sidebar({ sessions, activeId, onSelect, onDelete, onNew, isOpen, onToggle, runningIds = [] }: SidebarProps) {
   const [aboutExpanded, setAboutExpanded] = useState(false)
-
-  // 无历史会话时自动展开介绍
+  const [search, setSearch] = useState('')
+  const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 640px)').matches)
   useEffect(() => {
-    if (sessions.length === 0) setAboutExpanded(true)
-  }, [sessions.length])
-
-  if (!isOpen) {
-    return (
-      <div className={styles.collapsed}>
-        <button className={styles.toggleBtn} onClick={onToggle} title="展开侧栏">
-          ☰
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div className={styles.sidebar}>
-      {/* ── 项目介绍面板 ── */}
-      <div className={styles.aboutPanel}>
-        <div
-          className={styles.aboutHeader}
-          onClick={() => setAboutExpanded(e => !e)}
-        >
-          <span className={styles.aboutTitle}>🤖 k8s aiops 简介说明</span>
-          <span className={styles.aboutToggle}>{aboutExpanded ? '▾' : '▸'}</span>
-        </div>
-        {aboutExpanded && (
-          <div className={styles.aboutBody}>
-            <p className={styles.aboutDesc}>
-              Kubernetes 集群智能运维助手，支持自然语言交互式查询与诊断。
-            </p>
-
-            <div className={styles.aboutSection}>
-              <div className={styles.aboutSectionTitle}>📊 查询模式</div>
-              <p className={styles.aboutSectionText}>
-                以问答方式支持基于prometheus的基础查询，
-                如cpu使用率，memory内存使用率等。
-              </p>
-            </div>
-
-            <div className={styles.aboutSection}>
-              <div className={styles.aboutSectionTitle}>🔍 诊断模式</div>
-              <p className={styles.aboutSectionText}>
-                针对常见 Pod 异常状态进行诊断分析，
-                Agent 采集 Pod 日志与 K8s 资源信息以及调用bash等其他工具，
-                推理分析可能的根因并产出诊断报告以供参考。
-                可以分析的异常状态局限于pod异常，如常见的imagepullbackoff、pending、Terminating等。
-              </p>
-              <p className={styles.aboutExample}>
-                例：我的集群 pod 有什么异常？
-              </p>
-            </div>
-
-            <div className={styles.aboutSection}>
-              <div className={styles.aboutSectionTitle}>⚡ 适用范围</div>
-              <p className={styles.aboutSectionText}>
-                面向 Kubernetes 集群运维场景，
-                依赖 Prometheus 指标采集，
-                聚焦 Pod 级别异常排查。
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── 分隔线 ── */}
-      <div className={styles.divider} />
-
-      {/* ── 历史会话 ── */}
-      <div className={styles.header}>
-        <span className={styles.title}>历史会话</span>
-        <div className={styles.headerBtns}>
-          <button className={styles.newBtn} onClick={onNew} title="新建会话">
-            ＋
-          </button>
-          <button className={styles.toggleBtn} onClick={onToggle} title="收起">
-            ✕
-          </button>
-        </div>
-      </div>
-      <div className={styles.list}>
-        {sessions.length === 0 && (
-          <div className={styles.empty}>暂无历史会话</div>
-        )}
-        {[...sessions].reverse().map(s => (
-          <div
-            key={s.id}
-            className={`${styles.item} ${s.id === activeId ? styles.active : ''}`}
-            onClick={() => onSelect(s.id)}
-          >
-            <div className={styles.itemTitle}>{s.title}</div>
-            <div className={styles.itemMeta}>
-              <span className={styles.itemDate}>{fmtDate(s.updatedAt)}</span>
-              <button
-                className={styles.deleteBtn}
-                onClick={e => {
-                  e.stopPropagation()
-                  onDelete(s.id)
-                }}
-                title="删除会话"
-              >
-                🗑
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+    const media = window.matchMedia('(max-width: 640px)')
+    const update = () => setMobile(media.matches)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+  const visibleSessions = [...sessions].reverse().filter(session => session.title.toLowerCase().includes(search.toLowerCase()))
+  const content = <>
+    <div className={styles.brand}>
+      <span className={styles.brandIcon}><Box size={21} strokeWidth={1.7} /></span>
+      <div><strong>AIOps Copilot</strong><span>Kubernetes 工作空间</span></div>
+      {!mobile && <button className={styles.iconButton} onClick={onToggle} title="收起" aria-label="收起侧栏"><PanelLeftClose size={17} /></button>}
     </div>
-  )
+    <button className={styles.newBtn} onClick={() => { onNew(); if (mobile) onToggle() }} title="新建会话"><Plus size={17} />新建会话</button>
+    <div className={styles.sectionLabel}><span>历史会话</span><span>{sessions.length}</span></div>
+    {sessions.length > 0 && <label className={styles.search}><Search size={14} /><input aria-label="搜索历史会话" placeholder="搜索会话" value={search} onChange={e => setSearch(e.target.value)} /></label>}
+    <nav className={styles.sessionList} aria-label="历史会话">
+      {sessions.length === 0 && <div className={styles.empty}><MessageSquare size={22} strokeWidth={1.5} /><p>暂无历史会话</p><span>从一个运维问题开始<br />对话将在结束后保存在这里</span></div>}
+      {sessions.length > 0 && visibleSessions.length === 0 && <div className={styles.empty}>没有匹配的会话</div>}
+      {visibleSessions.map(s => <div key={s.id} className={`${styles.item} ${s.id === activeId ? styles.active : ''}`}>
+        <button className={styles.selectSession} onClick={() => onSelect(s.id)} aria-current={s.id === activeId ? 'page' : undefined} title={s.title}>
+          <MessageSquare size={14} /><span><span className={styles.itemTitle}>{s.title}</span>{runningIds.includes(s.id)
+            ? <span className={styles.runningLabel}>进行中</span>
+            : <time className={styles.itemDate} dateTime={new Date(s.updatedAt).toISOString()}>{fmtDate(s.updatedAt)}</time>}</span>
+        </button>
+        <Popconfirm title="删除这段会话？" description="此浏览器保存的对话记录将被移除。" okText="删除" cancelText="取消" onConfirm={() => onDelete(s.id)}>
+          <button className={styles.deleteBtn} title="删除会话" aria-label={`删除会话：${s.title}`}><Trash2 size={14} /></button>
+        </Popconfirm>
+      </div>)}
+    </nav>
+    <div className={styles.footer}>
+      <button className={styles.aboutHeader} aria-expanded={aboutExpanded} onClick={() => setAboutExpanded(value => !value)}><Info size={15} />使用说明<ChevronDown size={14} style={{ transform: aboutExpanded ? 'rotate(180deg)' : undefined }} /></button>
+      {aboutExpanded && <div className={styles.aboutBody}>
+        <p>Kubernetes 集群智能运维助手，支持自然语言查询与诊断。</p>
+        <strong>查询模式</strong><p>基于 Prometheus 查询 CPU、内存等指标。</p>
+        <strong>诊断模式</strong><p>通过 Pod 日志、K8s 资源信息及 bash 等工具分析根因并生成报告。聚焦 Pod 异常，如 ImagePullBackOff、Pending、Terminating。</p>
+        <strong>适用范围</strong><p>面向 Kubernetes 集群，依赖 Prometheus 指标采集。修复方案需要人工审阅。</p>
+      </div>}
+      <div className={styles.storageNote}><HardDrive size={13} />会话保存在当前浏览器</div>
+    </div>
+  </>
+  return <>
+    {(!isOpen || mobile) && <div className={styles.collapsed}>
+      <button className={styles.iconButton} onClick={onToggle} title="展开侧栏" aria-label="展开侧栏"><PanelLeftOpen size={19} /></button>
+      <button className={styles.iconButton} onClick={onNew} title="新建会话" aria-label="新建会话"><Plus size={19} /></button>
+    </div>}
+    {mobile ? <Drawer title="工作空间" open={isOpen} onClose={onToggle} placement="left" size={280}
+      styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', background: 'var(--sidebar)' } }}>{content}</Drawer>
+      : isOpen && <aside className={styles.sidebar} aria-label="工作空间导航">{content}</aside>}
+  </>
 }
 
 function fmtDate(ts: number): string {
   const d = new Date(ts)
-  const now = new Date()
-  const diff = now.getTime() - d.getTime()
+  const diff = Date.now() - ts
   if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m 前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h 前`
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
   return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
 }

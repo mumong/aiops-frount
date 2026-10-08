@@ -40,6 +40,8 @@ test('Kubernetes manifest deploys a temporary NodePort frontend pod', () => {
   assert.match(version, /^\d+\.\d+\.\d+$/)
   assert.match(manifest, /kind: Deployment/)
   assert.match(manifest, /name: aiops-copilot-frontend/)
+  // Image belongs to the named container, not beside the containers list.
+  assert.match(manifest, /^ {8}- name: frontend\n {10}image: /m)
   assert.match(
     manifest,
     new RegExp(`image: xnet\\.registry\\.io:8443/xnet-cloud/aiops-copilot-frontend:${version.replaceAll('.', '\\.')}\\s`),
@@ -56,7 +58,8 @@ test('Makefile supports one-command release plus operations targets', () => {
     assert.match(makefile, new RegExp(`^${target}`, 'm'))
   }
   assert.match(makefile, /\.PHONY: .*release/)
-  assert.match(makefile, /release: build push deploy/)
+  assert.match(makefile, /release:\n\t\$\(MAKE\) build\n\t\$\(MAKE\) push\n\t\$\(MAKE\) deploy/)
+  assert.match(makefile, /check:\n\t\$\(MAKE\) test\n\t\$\(MAKE\) lint\n\t\$\(MAKE\) app-build/)
   assert.match(makefile, /IMAGE_NAME := aiops-copilot-frontend/)
   assert.match(makefile, /IMAGE_REPOSITORY := xnet\.registry\.io:8443/)
   assert.match(makefile, /NAMESPACE := aiops/)

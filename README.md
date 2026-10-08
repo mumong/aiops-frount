@@ -8,7 +8,7 @@ Kubernetes AIOps 智能对话助手前端组件。提供基于聊天界面的 Ku
 
 - **AI 对话式运维** — 通过自然语言与 K8s 集群交互，支持故障诊断、资源查询、日志分析
 - **Markdown 报告渲染** — AI 响应支持 Markdown 格式，包含代码块、表格、列表等富文本展示
-- **节点关系图** — 自动解析 K8s 资源关联关系并以可视化节点图呈现
+- **处理路径与阶段状态** — 展示后端选择的路由、诊断阶段、并发组及工具进度
 - **多轮对话** — 保留上下文，支持连续追问
 - **侧边栏会话管理** — 创建、切换、删除会话
 
@@ -20,7 +20,7 @@ Kubernetes AIOps 智能对话助手前端组件。提供基于聊天界面的 Ku
 | 构建工具 | Vite 6 |
 | 语言 | TypeScript 5 |
 | 过程展示 | Ant Design X ThoughtChain + Ant Design；路由、范围、阶段状态 |
-| 渲染 | react-markdown + rehype-highlight + remark-gfm |
+| 渲染 | react-markdown + remark-gfm |
 | 代理转发 | Vite dev server proxy |
 
 任务路由卡展示后端真实的 `request_contract`，不在前端重新分类。深度诊断不等于全量扫描，范围单独显示；展开处理路径可查看各阶段状态。已有的分析说明和工具列表默认展开，阶段结束及重新打开历史后也保持默认展开，可点击阶段标题手动折叠。工具原文和阶段交接详情仍按需展开。历史会话没有路由字段时不补猜结果；没有收到的分析内容不会由前端补造。
@@ -29,16 +29,14 @@ Kubernetes AIOps 智能对话助手前端组件。提供基于聊天界面的 Ku
 
 ### 前置要求
 
-- Node.js >= 18
-- pnpm（推荐）或 npm
+- Node.js 20.19+、22.13+ 或 24+（ESLint 10 的要求；推荐 Node.js 24 LTS）
+- npm（仓库使用 `package-lock.json`，可复现安装使用 `npm ci`）
 - 后端服务已启动，默认地址为 `http://10.2.0.48:30800`
 
 ### 安装依赖
 
 ```bash
-npm install
-# 或
-pnpm install
+npm ci
 ```
 
 ### 启动前端
@@ -66,6 +64,17 @@ npm run build
 
 构建产物输出到 `dist/` 目录。
 
+### 本地验证
+
+```bash
+make check      # 顺序执行 npm test、npm run lint、npm run build，不部署
+make help       # 查看命令；make build 仍是 Docker 镜像构建
+```
+
+测试使用 Node 内置测试运行器，覆盖事件状态转移、SSE 增量解析、纯展示模型和服务端渲染。
+浏览器回放独立于 `npm test`，需 Python Playwright 和 Chromium；运行方法与范围见
+[测试指南](docs/testing.md)。贡献和兼容性约束见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
 ### 预览构建结果
 
 ```bash
@@ -88,6 +97,8 @@ frountind/
 │   └── components/
 │       └── aiops-chat/        # 聊天组件
 │           ├── ChatWidget.tsx     # 主组件
+│           ├── ChatSessionPanel.tsx # 每个会话独立的运行状态与 SSE 连接
+│           ├── chatEventTransition.ts # 纯事件状态转移，不处理网络/持久化
 │           ├── ChatHeader.tsx     # 对话头部
 │           ├── ChatHeader.module.css
 │           ├── MessageList.tsx    # 消息列表
@@ -95,7 +106,11 @@ frountind/
 │           ├── MessageInput.tsx   # 输入框
 │           ├── MessageInput.module.css
 │           ├── UserMessage.tsx    # 用户消息渲染
-│           ├── BotMessage.tsx     # AI 响应渲染（含节点图）
+│           ├── BotMessage.tsx     # AI 响应与工作流阶段卡渲染
+│           ├── NodeBlockCard.tsx  # 阶段与工具详情展示
+│           ├── RunProgress.tsx    # 运行进度与等待计时
+│           ├── HandoffDisplay.tsx # 阶段交接展示
+│           ├── handoffParsing.ts # 旧版交接字段解析
 │           ├── MarkdownReport.tsx # Markdown 报告渲染
 │           ├── Sidebar.tsx        # 侧边栏会话管理
 │           ├── Sidebar.module.css
@@ -124,6 +139,9 @@ xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>
 ```
 
 版本来自仓库根目录的 `VERSION` 文件：
+
+`VERSION` 是部署镜像版本；`package.json` 中的 `0.1.0` 是私有应用包元数据，不是部署版本。
+纯代码重构不会自动更改二者；发布时单独更新镜像版本并验证部署。
 
 ```bash
 cat VERSION
@@ -280,4 +298,5 @@ make deploy
 
 ## License
 
-MIT
+项目自有代码采用 [Apache License 2.0](LICENSE)，允许商业使用。
+第三方代码与依赖保留各自的许可证及署名，不由本项目重新授权。
