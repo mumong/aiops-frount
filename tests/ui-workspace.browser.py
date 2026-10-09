@@ -121,11 +121,11 @@ with sync_playwright() as driver:
 
     # Shortcuts only populate an editable draft; all questions are submitted by the composer.
     for label, mode, question in (
-        ('简单查询', 'query', '查询我集群的 CPU 和内存使用率？'),
+        ('简单查询', 'query', '查询我各个节点的cpu和内存使用率'),
         ('深度诊断', 'ask', '我的集群有什么问题？'),
     ):
         page = page_for()
-        page.get_by_role('button', name='诊断' if mode == 'query' else '查询', exact=True).click()
+        expect(page.get_by_role('group', name='对话模式')).to_have_count(0)
         shortcut = page.get_by_role('button', name=label, exact=False)
         shortcut.click()
         draft = page.get_by_role('textbox', name='运维问题')
@@ -144,7 +144,7 @@ with sync_playwright() as driver:
             page.get_by_role('button', name='发送', exact=True).click()
         page.wait_for_function('window.requests.length === 1')
         request = page.evaluate('window.requests[0]')
-        assert urlparse(request['url']).path == '/api/' + mode
+        assert urlparse(request['url']).path == '/api/ask'
         assert parse_qs(urlparse(request['url']).query)['q'] == [question + ' 请只查看当前数据。']
         emit(page, 'final', {'answer':'已收到问题'})
         page.evaluate('window.finish()')
@@ -252,14 +252,13 @@ with sync_playwright() as driver:
     saved = page.evaluate("JSON.parse(localStorage.getItem('aiops_chat_sessions'))[0]")
     assert saved['id'] == session_id and saved['messages'][-1]['remediationApprovals'][0]['payload'] == payload
     assert set(saved) == {'id','title','messages','nodeBlocks','finalAnswer','endpointMode','createdAt','updatedAt'}
-    # Repeat question retains the session, changing UI mode changes only the existing endpoint policy.
-    page.get_by_role('button', name='查询', exact=True).click()
+    # Follow-up questions retain the session and use backend routing.
     textarea.fill('再查一下当前内存使用情况')
     textarea.press('Enter')
     page.wait_for_function('window.requests.length === 2')
     followup = parse_qs(urlparse(page.evaluate('window.requests[1].url')).query)
-    assert followup['session_id'] == [session_id] and 'remediate' not in followup
-    assert '/api/query?' in page.evaluate('window.requests[1].url')
+    assert followup['session_id'] == [session_id] and followup['remediate'] == ['true']
+    assert '/api/ask?' in page.evaluate('window.requests[1].url')
     page.get_by_role('button', name='停止', exact=True).click()
     expect(page.get_by_role('button', name='发送', exact=True)).to_be_visible()
     # Persisted session, search, cancel/confirm deletion, and accessible selection.

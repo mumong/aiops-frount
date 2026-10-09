@@ -10,7 +10,7 @@ Browser replay instructions and unverified boundaries are in [docs/testing.md](d
 
 ## Module boundaries
 
-- `ChatWidget.tsx` owns session navigation, the running-session list and per-session draft/mode caches. Navigation does not cancel background runs.
+- `ChatWidget.tsx` owns session navigation, the running-session list and per-session draft caches. Navigation does not cancel background runs.
 - `ChatSessionPanel.tsx` owns one session's React state, synchronous snapshots and SSE connection. Running panels remain mounted while hidden so approval UI state survives navigation. Stream closure saves by session ID before an inactive panel unmounts; final reports alone keep the panel mounted for later approvals; stale callbacks after stop/delete must be ignored.
 - `chatEventTransition.ts` takes explicit run state, an event and a timestamp; it returns new run state and ordered message updates. It must not fetch, persist, or read the clock.
 - `useSSE.ts` owns fetch and abort; `sseDecoder.ts` owns incremental framing, not JSON interpretation.

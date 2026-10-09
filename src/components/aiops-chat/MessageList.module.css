@@ -13,10 +13,12 @@
 .suggestion strong { display: block; color: var(--text); font-size: 13px; font-weight: 500; }
 .suggestion span span { display: block; color: var(--muted); font-size: 11px; line-height: 1.7; margin-top: 7px; }
 .suggestion > svg:last-child { color: var(--faint); }
-.suggestionPrimary { min-height: 152px; padding: 30px 22px; background: var(--accent-soft); border-color: var(--accent-border); }
-.suggestionPrimary strong { font-size: 16px; font-weight: 600; }
-.suggestionPrimary span span { margin-top: 14px; font-size: 13px; color: var(--text); }
-.commonBadge { display: inline-block; margin-left: 5px; padding: 2px 6px; color: var(--accent); background: var(--surface); border-radius: 4px; font-size: 10px; font-weight: 500; vertical-align: middle; }
+.suggestionPrimary { min-height: 152px; padding: 30px 22px; background: #173b75; border-color: #305b99; color: #dbeafe; }
+.suggestionPrimary:hover { background: #204b8d; border-color: #6092d5; }
+.suggestionPrimary > svg:last-child { color: #bfdbfe; }
+.suggestionPrimary strong { font-size: 16px; font-weight: 600; color: #fff; }
+.suggestionPrimary span span { margin-top: 14px; font-size: 13px; color: #dbeafe; }
+.commonBadge { display: inline-block; margin-left: 5px; padding: 2px 6px; color: #fff; background: #305b99; border-radius: 4px; font-size: 10px; font-weight: 500; vertical-align: middle; }
 .emptyNote { display: flex; align-items: center; gap: 7px; margin-top: 26px; color: var(--faint); font-size: 11px; }
 .userRow { display: flex; align-items: flex-start; justify-content: flex-end; gap: 10px; margin-bottom: 32px; }
 .userBubble { max-width: 85%; padding: 12px 18px; background: var(--surface-subtle); border: 1px solid var(--border); border-radius: 14px 14px 4px 14px; font-size: 14px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }

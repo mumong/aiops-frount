@@ -33,6 +33,28 @@ test('semantic rejection overrides transport success', () => {
   assert.match(result.detail, /missing_pod_scope/)
 })
 
+test('successful empty metric response keeps execution, coverage and parsing separate', () => {
+  for (const tool_name of ['execute_prometheus_instant_query', 'execute_prometheus_range_query', 'execute_pod_promql']) {
+    const result = presentToolEvent({ tool_name, status: 'success', transport_status: 'success',
+      semantic_success: true, tool_display: { coverage: 'empty', parse_status: 'parsed', measurements: [] } })
+    assert.match(result.preview, /请求成功.*无匹配数据/)
+    assert.doesNotMatch(result.preview, /失败/)
+    assert.match(result.detail, /执行状态：成功/)
+    assert.match(result.detail, /数据覆盖：无匹配数据/)
+    assert.match(result.detail, /解析状态：已解析/)
+  }
+})
+
+test('transport failure is not hidden by an empty payload; real zero remains data', () => {
+  assert.match(presentToolEvent({ transport_status: 'error',
+    tool_display: { coverage: 'empty' } }).preview, /调用失败/)
+  const zero = presentToolEvent({ status: 'success', tool_display: {
+    coverage: 'present', parse_status: 'parsed', measurements: [{ value: '0' }] } })
+  assert.match(zero.preview, /0/)
+  assert.doesNotMatch(zero.preview, /无匹配/)
+  assert.match(zero.detail, /数据覆盖：有数据/)
+})
+
 test('native Prometheus point displays value, labels and time without guessing unit', () => {
   const result = presentToolEvent({ tool_args: { query: 'arbitrary_expression' }, tool_display: {
     coverage: 'present', parse_status: 'parsed', series_count: 1,

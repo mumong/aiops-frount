@@ -88,7 +88,7 @@ with sync_playwright() as driver:
     emit('final', {'answer': '## 诊断\n需要进一步核实控制器再制定修复。', 'run_id': 'deep-browser'})
     emit('remediation_finished', {'run_id': 'deep-browser', 'status': 'skipped', 'reason': '无可执行方案'})
     page.evaluate('window.finish()')
-    repair_button = page.get_by_role('button', name='生成修复方案并审阅')
+    repair_button = page.get_by_role('button', name='申请修复方案')
     repair_button.wait_for()
     repair_button.scroll_into_view_if_needed()
     page.screenshot(path='/tmp/aiops-repair-entry.png', full_page=True)

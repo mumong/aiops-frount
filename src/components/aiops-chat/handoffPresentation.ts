@@ -5,7 +5,7 @@ export function isLegacyHandoff(text: string): boolean {
 }
 
 export function emptyNodeMessage(running: boolean): string {
-  return running ? '等待分析或工具事件...' : '本阶段已结束，未提供单独的分析说明。'
+  return running ? '等待分析或工具结果…' : '本阶段未返回分析说明。'
 }
 
 // Presentation only: keep original messages and tool payloads untouched.

@@ -95,6 +95,13 @@ export function useChatHistory() {
     })
   }, [activeId])
 
+  /** Clear this browser's history and start a fresh session. */
+  const clearSessions = useCallback(() => {
+    setSessions([])
+    setActiveId(newChatSessionId())
+    saveSessions([])
+  }, [])
+
   /** Get the currently active session data */
   const getActiveSession = useCallback((): ChatSession | null => {
     if (!activeId) return null
@@ -108,6 +115,7 @@ export function useChatHistory() {
     saveSession,
     loadSession,
     deleteSession,
+    clearSessions,
     getActiveSession,
   }
 }

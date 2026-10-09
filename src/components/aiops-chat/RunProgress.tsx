@@ -21,14 +21,14 @@ export default function RunProgress({ blocks }: { blocks: NodeBlock[] }) {
   const idle = Math.max(0, Math.floor((now - updated.current) / 1000))
   const elapsed = Math.max(0, Math.floor((now - started.current) / 1000))
   const phase = runtime?.text || (pending ? `正在等待 ${pending} 个工具返回`
-    : active.some(block => block.nodeId === 'request_router') ? '正在理解任务，等待模型返回路由'
-      : active.length ? '正在等待模型返回分析或下一步工具调用' : '请求已提交，正在等待后端事件')
+    : active.some(block => block.nodeId === 'request_router') ? '正在判断问题类型'
+      : active.length ? '等待分析结果' : '已提交，等待响应')
   return <div className={styles.runProgress} aria-label="运行状态">
     <div role="status" aria-live="polite"><span className={styles.progressDot} />{phase}</div>
-    <div className={styles.progressMeta}>已用 {elapsed} 秒 · 距上次进展 {idle} 秒</div>
+    <div className={styles.progressMeta}>已用 {elapsed} 秒 · 距上次更新 {idle} 秒</div>
     {idle >= 30 && <div className={styles.progressWarning} role="status">
-      暂无新进展，可能正在等待模型或服务响应；不表示操作已成功。可使用下方停止按钮结束等待，写操作中断后需核实是否生效。
+      暂未收到新内容。可点击“停止”结束接收；后台任务可能继续，已提交的操作需核实执行结果。
     </div>}
-    {!blocks.some(block => block.thinkingTokens) && <div className={styles.progressMeta}>尚未收到可展示的分析说明；收到后会自动显示。</div>}
+    {!blocks.some(block => block.thinkingTokens) && <div className={styles.progressMeta}>收到分析内容后将自动显示。</div>}
   </div>
 }

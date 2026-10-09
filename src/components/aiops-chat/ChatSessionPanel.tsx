@@ -49,7 +49,6 @@ interface ChatSessionPanelProps {
   sessionId: string
   initialSession?: ChatSession
   initialDraft: string
-  initialMode?: EndpointMode
   active: boolean
   apiBase: string
   title: string
@@ -58,18 +57,15 @@ interface ChatSessionPanelProps {
   onFinish: (id: string) => void
   onSave: (id: string, messages: ChatMessage[], blocks: NodeBlock[], answer: string, mode: EndpointMode) => void
   onDraftChange: (id: string, text: string) => void
-  onModeChange: (id: string, mode: EndpointMode) => void
 }
 
 /** One mounted panel owns one conversation and one transport, even while hidden. */
-export default function ChatSessionPanel({ sessionId, initialSession, initialDraft, initialMode, active,
-  apiBase, title, maxMessages, onStart, onFinish, onSave, onDraftChange, onModeChange }: ChatSessionPanelProps) {
+export default function ChatSessionPanel({ sessionId, initialSession, initialDraft, active,
+  apiBase, title, maxMessages, onStart, onFinish, onSave, onDraftChange }: ChatSessionPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => initialSession?.messages || [])
   const messagesRef = useRef(messages)
   const [isStreaming, setIsStreaming] = useState(false)
   const streamingRef = useRef(false)
-  const [endpointMode, setEndpointMode] = useState<EndpointMode>(() => initialMode || initialSession?.endpointMode || 'ask')
-  const endpointModeRef = useRef(endpointMode)
   const [inputDraft, setInputDraft] = useState<{ text: string } | null>(null)
   const [nodeBlocks, setNodeBlocks] = useState<NodeBlock[]>(() => initialSession?.nodeBlocks || [])
   const nodeBlocksRef = useRef(nodeBlocks)
@@ -105,13 +101,8 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
     finalAnswerRef.current = answer
     setFinalAnswer(answer)
   }, [])
-  const changeMode = useCallback((mode: EndpointMode) => {
-    endpointModeRef.current = mode
-    setEndpointMode(mode)
-    onModeChange(sessionId, mode)
-  }, [sessionId, onModeChange])
   const saveSnapshot = useCallback(() => {
-    onSave(sessionId, messagesRef.current, nodeBlocksRef.current, finalAnswerRef.current, endpointModeRef.current)
+    onSave(sessionId, messagesRef.current, nodeBlocksRef.current, finalAnswerRef.current, 'ask')
   }, [onSave, sessionId])
   const finishRun = useCallback((releasePanel = true) => {
     streamingRef.current = false
@@ -156,7 +147,8 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
     textStreamBufferRef.current = ''
     toolIdCounter.current = 0
     setSseActivitySeq(0)
-    const requestEndpointMode = endpointModeRef.current
+    // The backend router chooses the workflow, including for legacy query sessions.
+    const requestEndpointMode: EndpointMode = 'ask'
     const now = Date.now()
     const firstQuestion = messagesRef.current.find(message => message.role === 'user')?.content || question
     onStart({ id: sessionId, title: firstQuestion.slice(0, 40) + (firstQuestion.length > 40 ? '...' : ''),
@@ -198,13 +190,13 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
   const handleDraftChange = useCallback((text: string) => onDraftChange(sessionId, text), [sessionId, onDraftChange])
 
   return <div className={styles.main} hidden={!active} aria-label="会话面板">
-    <ChatHeader title={title} isConnected={!isStreaming} endpointMode={endpointMode} onEndpointChange={changeMode} />
+    <ChatHeader title={title} isConnected={!isStreaming} />
     <MessageList messages={messages} nodeBlocks={nodeBlocks} finalAnswer={finalAnswer}
       streamActive={isStreaming} activitySeq={sseActivitySeq} onRemediationRespond={handleRemediationRespond}
       onRequestRepair={() => setInputDraft({ text: '请根据刚才的诊断，为其中异常 Pod 制定修复方案并提交人工审查；先核实当前状态并参考 Runbook。' })}
-      onSuggestion={(question, mode) => { changeMode(mode); setInputDraft({ text: question }) }} />
+      onSuggestion={question => setInputDraft({ text: question })} />
     <MessageInput draft={inputDraft} initialText={initialDraft} onTextChange={handleDraftChange}
-      onSend={sendMessage} onStop={handleStop} isStreaming={isStreaming} endpointMode={endpointMode}
-      placeholder={endpointMode === 'ask' ? '我的集群pod有什么异常？' : '查询集群CPU和内存使用率'} />
+      onSend={sendMessage} onStop={handleStop} isStreaming={isStreaming}
+      placeholder="描述你的运维问题，例如查询节点资源使用率或排查 Pod 异常" />
   </div>
 }

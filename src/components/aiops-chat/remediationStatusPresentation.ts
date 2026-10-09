@@ -34,7 +34,7 @@ export function getRemediationStatusPresentation(
       icon: '⚠️',
       label: '未进入修复审批',
       tone: 'blocked',
-      detail: '修复计划未通过后端安全校验，未生成 approve/reject 审批。请按诊断报告中的人工处置建议处理。',
+      detail: '方案未通过安全检查，未提交审批。请查看报告中的人工处理建议。',
     }
   }
 
@@ -43,7 +43,7 @@ export function getRemediationStatusPresentation(
       icon: 'ℹ️',
       label: '未进入修复审批',
       tone: 'neutral',
-      detail: '当前报告没有可安全自动执行的修复动作，因此不会出现 approve/reject 审批。',
+      detail: '本次未生成可执行的修复方案，无需审批。',
     }
   }
 
@@ -59,7 +59,7 @@ export function getRemediationStatusPresentation(
   if (rawStatus === 'rejected') {
     return {
       icon: '⛔',
-      label: '修复流程已拒绝',
+      label: '已拒绝修复',
       tone: 'blocked',
       detail: reason || '用户拒绝当前修复计划或修复动作。',
     }

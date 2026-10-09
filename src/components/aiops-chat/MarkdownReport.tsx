@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkChineseStrong from './remarkChineseStrong'
 import { isValidElement } from 'react'
 import CodeBlock from './CodeBlock'
 import styles from './MessageList.module.css'
@@ -12,7 +13,7 @@ export default function MarkdownReport({ content }: MarkdownReportProps) {
   return (
     <div className={styles.markdownReport}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkChineseStrong]}
         components={{
           table: ({ children }) => (
             <div className={styles.tableWrapper}>

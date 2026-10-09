@@ -28,7 +28,7 @@ python3 tests/session-switch.browser.py --url http://127.0.0.1:5175 --chromium /
 ~~~
 
 These scripts inject fetch responses or localStorage fixtures, not real diagnosis/remediation calls. They cover out-of-order parallel results and history, approval controls after final reports, direct query rendering, desktop/mobile layout and raw result expansion.
-The workspace replay also verifies shortcut draft insertion without sending, editing/reselecting suggestions, Enter/Send submission and mode selection. The session-switch replay verifies overlapping streams, background completion without navigation, per-session drafts/modes and final snapshots, delayed approvals after final while another session is visible, preserved approval UI state, and scoped new/stop/delete behavior including late callbacks after cancellation.
+The workspace replay also verifies shortcut draft insertion without sending, editing/reselecting suggestions, Enter/Send submission through the unified /ask routing entry and absence of manual mode controls. The session-switch replay verifies overlapping streams, background completion without navigation, per-session drafts and final snapshots, delayed approvals after final while another session is visible, preserved approval UI state, and legacy query sessions submitting through /ask, and scoped new/stop/delete behavior including late callbacks after cancellation. Clear-all coverage includes confirmation/cancellation, filtered-out sessions, mobile use, disconnection of concurrent streams, rejection of late events, persisted empty history after reload, and new conversations after clearing.
 The live-parallel-replay.browser.py script additionally requires an existing sanitized JSONL capture via --events. It does not create a live capture or invoke the backend itself. Do not use or publish captured secrets.
 
 ## Refactor regression boundaries
@@ -39,3 +39,9 @@ Tests keep final reports distinct from stream closure; queued message updates an
 
 Builds currently warn about a minified JavaScript chunk exceeding 500 kB. SSR can warn that the browser Notification API is unavailable; neither warning is a passing browser acceptance test.
 Report exact commands and results, including skipped capture-based tests and existing selector drift, instead of claiming all frontend acceptance is complete.
+
+## Chinese Markdown and interface wording
+
+`markdown-report.test.mjs` checks Chinese punctuation next to bold markers in prose, lists and tables, standard Markdown and incomplete streamed labels. Inline/fenced code, escaped stars, URLs and raw HTML retain parser behavior. The compatibility plugin operates on parsed text nodes; stored messages and copied source remain unchanged. `direct-query.browser.py` also verifies bold rendering during streaming and after history reload, with exact persisted report text.
+
+Interface wording distinguishes stage results from final results, pending analysis from completed operations, and stopping reception from stopping backend execution. Repair requests still populate a draft; approval permissions and request payloads are unchanged. Backend-generated report wording is preserved.

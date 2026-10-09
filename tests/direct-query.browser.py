@@ -34,12 +34,13 @@ with sync_playwright() as driver:
     emit('node_complete', {'node': 'request_router', 'state_snapshot': {
         'request_route': 'focused', 'request_contract': {'scope': 'namespace', 'namespaces': ['xnet']}}})
     emit('node_start', {'node': 'query_collect'})
-    answer = '## Pod 状态\n\n| Pod | 状态 |\n|---|---|\n| example | Running |'
+    answer = '**简要结论：**发现异常，尚未确认根因。\n\n## Pod 状态\n\n| Pod | 状态 |\n|---|---|\n| example | Running |'
     raw = json.dumps({'intent': '查询', 'scope': 'xnet', 'status': 'answered', 'answer': answer,
                       'evidence_refs': [], 'runbooks': [], 'missing': []}, ensure_ascii=False)
     for index in range(0, len(raw), 11):
         emit('thinking', {'node': 'query_collect', 'thinking_type': 'ai_token', 'content': raw[index:index+11]})
     page.get_by_role('cell', name='Running').first.wait_for()
+    page.locator('strong').filter(has_text='简要结论：').first.wait_for()
     assert '"intent"' not in page.locator('body').inner_text()
     assert '"evidence_refs"' not in page.locator('body').inner_text()
     assert '查询结果整理' not in page.get_by_label('任务路由').inner_text()
@@ -58,6 +59,9 @@ with sync_playwright() as driver:
     page.get_by_text('列出 xnet Pod', exact=True).first.click()
     page.get_by_role('cell', name='Running').first.wait_for()
     page.get_by_text('分析过程', exact=True).wait_for()
+    page.locator('strong').filter(has_text='简要结论：').first.wait_for()
+    saved = page.evaluate('JSON.parse(localStorage.getItem("aiops_chat_sessions"))')
+    assert saved[0]['finalAnswer'] == answer
     page.evaluate('window.emit = undefined')
     page.locator('textarea').fill('其中哪个 Pod CPU 最高？')
     page.get_by_role('button', name='发送').click()

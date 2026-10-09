@@ -64,7 +64,7 @@ with sync_playwright() as p:
         measurements = panels.evaluate_all('(els) => els.map(e => ({height:e.clientHeight, scroll:e.scrollHeight, text:e.textContent.trim()}))')
         page.get_by_text('kubectl_describe', exact=True).click()
         assert page.locator('[class*="toolDetailBody"] code').inner_text() == raw
-        summaries = page.locator('summary').filter(has_text='阶段输出')
+        summaries = page.locator('summary').filter(has_text='阶段结果')
         for i in range(summaries.count()):
             summaries.nth(i).click()
         assert 'FAILURE_MODE=oom_growth' in page.locator('body').inner_text()
@@ -78,7 +78,7 @@ with sync_playwright() as p:
             assert len(measurements) == 1, measurements
             assert measurements[0]['scroll'] < 200, measurements
             assert not errors, errors
-            assert '等待分析或工具事件' not in page.locator('body').inner_text()
+            assert '等待分析或工具结果' not in page.locator('body').inner_text()
             assert page.locator('[class*="handoffKey"]').count() == 0
             assert page.locator('[class*="nodeHandoff"] pre code').inner_text() == 'resources:\n    memory: 64Mi\n\n\n'
         print(json.dumps({'width': width, 'analysis_panels': measurements, 'browser_errors': errors}, ensure_ascii=False))
@@ -129,16 +129,16 @@ with sync_playwright() as p:
         assert panel.evaluate('(e) => getComputedStyle(e).maxHeight') == 'none'
         assert panel.evaluate('(e) => e.clientHeight') > 320
         assert page.get_by_label('运行状态').count() == 1
-        assert '等待模型' in page.get_by_label('运行状态').inner_text()
+        assert '等待分析结果' in page.get_by_label('运行状态').inner_text()
         page.get_by_label('对话内容', exact=True).evaluate('(e) => { e.scrollTop = 0; e.dispatchEvent(new Event("scroll")); }')
         page.get_by_role('button', name='↓ 回到最新内容').click()
         page.clock.run_for(31000)
-        assert '暂无新进展' in page.get_by_label('运行状态').inner_text()
+        assert '暂未收到新内容' in page.get_by_label('运行状态').inner_text()
         emit('final', {'answer': report, 'run_id': 'stream-layout-replay'})
         page.evaluate('window.endTestStream()')
         page.get_by_text('根因与证据', exact=True).wait_for()
         assert page.get_by_label('运行状态').count() == 0
-        assert '等待分析或工具事件' not in page.locator('body').inner_text()
+        assert '等待分析或工具结果' not in page.locator('body').inner_text()
         page.screenshot(path=str(Path(args.screenshots) / 'stream-completed.png'))
         print('Streaming whitespace → analysis → final report: PASS')
         page.close()

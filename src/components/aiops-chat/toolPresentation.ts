@@ -13,7 +13,8 @@ export function presentToolEvent(data: Record<string, unknown>) {
       + (unit === 'bytes' && value && Number.isFinite(numeric) ? ` ≈ ${(numeric / 1048576).toFixed(2)} MiB` : '')
   }).join('；')
   const empty = ['empty', 'absent'].includes(String(display.coverage))
-  const failed = data.status === 'error' || data.semantic_success === false || display.coverage === 'error'
+  const failed = data.transport_status === 'error' || data.status === 'error'
+    || data.semantic_success === false || display.coverage === 'error'
   const unparsed = display.parse_status === 'unsupported'
   const partial = display.parse_status === 'partial'
   const outcome = failed ? '调用失败或查询被拒绝'
@@ -33,9 +34,20 @@ export function presentToolEvent(data: Record<string, unknown>) {
     ? '区间结果：每条序列展示最新采样点及采样数，不是整个区间的平均值；完整序列见原文。' : ''
   const notices = [...(Array.isArray(display.warnings) ? display.warnings : []),
     ...(Array.isArray(display.infos) ? display.infos : [])].map(String)
+  const execution = data.transport_status || data.status
+  const coverageLabels: Record<string, string> = {
+    present: '有数据', empty: '无匹配数据（不等于 0）', absent: '无匹配数据（不等于 0）',
+    partial: '部分覆盖', weak: '有限覆盖', unknown: '未知', error: '查询错误',
+  }
+  const parseLabels: Record<string, string> = {
+    parsed: '已解析', partial: '部分解析', unsupported: '暂不支持解析', error: '源端错误',
+  }
   const detail = [
     ...(args.purpose ? [`查询目的：${args.purpose}`] : []),
     `结果状态：${outcome}`,
+    `执行状态：${execution === 'success' ? '成功' : execution === 'error' ? '失败' : '未提供'}`,
+    `数据覆盖：${coverageLabels[String(display.coverage)] || '未提供'}`,
+    `解析状态：${parseLabels[String(display.parse_status)] || '未提供'}`,
     `查询参数\n${JSON.stringify(args, null, 2)}`,
     ...(JSON.stringify(query) !== JSON.stringify(args) ? [`查询口径\n${queryText}`] : []),
     ...(display.series_count != null ? [`结果条目/序列数：${display.series_count}`] : []),

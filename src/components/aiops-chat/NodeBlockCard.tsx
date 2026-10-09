@@ -94,7 +94,7 @@ export default function NodeBlockCard({ block, isLast }: { block: NodeBlock; isL
           {handoff && (
             <div className={styles.nodeSection}>
               <details>
-                <summary className={styles.nodeSectionTitle}><CornerDownRight size={13} />阶段输出（展开查看，最终结论见下方）</summary>
+                <summary className={styles.nodeSectionTitle}><CornerDownRight size={13} />阶段结果（非最终结论）</summary>
                 <HandoffDisplay text={handoff} />
               </details>
             </div>

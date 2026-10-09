@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
-import type { ChatSession, EndpointMode } from './types'
+import type { ChatSession } from './types'
 import { useChatHistory } from '../../hooks/useChatHistory'
 import Sidebar from './Sidebar'
 import ChatSessionPanel from './ChatSessionPanel'
@@ -17,7 +17,6 @@ export default function ChatWidget({ apiBase, title = 'k8s aiops', maxMessages =
   const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia('(max-width: 640px)').matches)
   const [runningSessions, setRunningSessions] = useState<Record<string, ChatSession>>({})
   const drafts = useRef(new Map<string, string>())
-  const modes = useRef(new Map<string, EndpointMode>())
 
   const handleStart = useCallback((session: ChatSession) => {
     setRunningSessions(previous => ({ ...previous, [session.id]: session }))
@@ -33,9 +32,6 @@ export default function ChatWidget({ apiBase, title = 'k8s aiops', maxMessages =
   const handleDraftChange = useCallback((id: string, text: string) => {
     drafts.current.set(id, text)
   }, [])
-  const handleModeChange = useCallback((id: string, mode: EndpointMode) => {
-    modes.current.set(id, mode)
-  }, [])
   const handleLoadSession = (id: string) => {
     history.loadSession(id)
     if (window.matchMedia('(max-width: 640px)').matches) setSidebarOpen(false)
@@ -44,8 +40,15 @@ export default function ChatWidget({ apiBase, title = 'k8s aiops', maxMessages =
     // Removing its panel also aborts only this session's transport.
     handleFinish(id)
     drafts.current.delete(id)
-    modes.current.delete(id)
     history.deleteSession(id)
+  }
+
+  const handleClearSessions = () => {
+    // Unmount every old panel to disconnect streams and invalidate late callbacks.
+    setRunningSessions({})
+    drafts.current.clear()
+    history.clearSessions()
+    if (window.matchMedia('(max-width: 640px)').matches) setSidebarOpen(false)
   }
 
   const listed = new Map(history.sessions.map(session => [session.id, session]))
@@ -57,15 +60,14 @@ export default function ChatWidget({ apiBase, title = 'k8s aiops', maxMessages =
   return <div className={styles.widget}>
     <div className={styles.body}>
       <Sidebar sessions={[...listed.values()]} activeId={history.activeId}
-        onSelect={handleLoadSession} onDelete={handleDeleteSession} onNew={history.newSession}
+        onSelect={handleLoadSession} onDelete={handleDeleteSession} onClear={handleClearSessions} onNew={history.newSession}
         isOpen={sidebarOpen} onToggle={() => setSidebarOpen(open => !open)}
         runningIds={Object.keys(runningSessions)} />
       {mountedIds.map(id => <ChatSessionPanel key={id}
         sessionId={id} initialSession={listed.get(id)} initialDraft={drafts.current.get(id) || ''}
-        initialMode={modes.current.get(id)}
         active={id === history.activeId} apiBase={apiBase} title={title} maxMessages={maxMessages}
         onStart={handleStart} onFinish={handleFinish} onSave={history.saveSession}
-        onDraftChange={handleDraftChange} onModeChange={handleModeChange} />)}
+        onDraftChange={handleDraftChange} />)}
     </div>
   </div>
 }

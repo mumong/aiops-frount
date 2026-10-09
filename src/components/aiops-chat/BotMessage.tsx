@@ -62,7 +62,7 @@ export default function BotMessage({
             <RouteCard blocks={nodeBlocks} terminal={!isStreaming} />
             {isStreaming && isLatest && <RunProgress blocks={nodeBlocks} />}
             {message.resultStatus === 'partial' && (
-              <div role="status" className={styles.partialNotice}><CircleAlert size={16} />本次仅部分完成；已取得的结果保留，未完成项见报告说明。</div>
+              <div role="status" className={styles.partialNotice}><CircleAlert size={16} />部分检查未完成，缺失项见下方结果。</div>
             )}
             {nodeBlocks.length > 0 && (
               <div className={styles.nodeBlocksArea}>
@@ -81,7 +81,7 @@ export default function BotMessage({
             {/* Final markdown report */}
             {displayedAnswer && (message.status === 'complete' || isStreaming) ? (
               <section className={styles.botBubble} ref={answerRef} aria-label="诊断结论">
-                <div className={styles.answerHeading}><span><FileText size={15} />{isStreaming ? '正在整理回答' : '分析报告'}</span><CopyButton text={displayedAnswer} label="复制报告" /></div>
+                <div className={styles.answerHeading}><span><FileText size={15} />{isStreaming ? '正在生成结果' : '检查结果'}</span><CopyButton text={displayedAnswer} label="复制报告" /></div>
                 <MarkdownReport content={displayedAnswer} />
               </section>
             ) : null}
@@ -123,9 +123,9 @@ export default function BotMessage({
               && !message.remediationApprovals?.length && !message.remediationResults?.length
               && onRequestRepair && (
                 <div className={styles.repairEntry}>
-                  <div><strong>下一步 · 修复评估</strong>
-                    <p>仅针对证据充分、具备明确操作的故障生成方案。先审阅命令，再决定是否执行。</p></div>
-                  <button className={styles.repairPrimary} type="button" onClick={onRequestRepair}><ShieldCheck size={16} />生成修复方案并审阅</button>
+                  <div><strong>修复建议</strong>
+                    <p>生成方案后，请检查命令、影响范围和回退方式，再决定是否批准。</p></div>
+                  <button className={styles.repairPrimary} type="button" onClick={onRequestRepair}><ShieldCheck size={16} />申请修复方案</button>
                 </div>
               )}
           </>
