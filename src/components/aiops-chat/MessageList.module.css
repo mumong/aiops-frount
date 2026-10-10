@@ -76,11 +76,11 @@ summary.nodeSectionTitle svg { margin-right: 5px; }
 .handoffValue { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.8 var(--font-mono); }
 .handoffExpand { display: block; padding: 4px 0; border: 0; background: transparent; color: var(--accent); font-size: 11px; }
 .toolCalls { display: flex; flex-direction: column; gap: 4px; }
-.toolCall { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); text-align: left; }
+.toolCall { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); text-align: left; }
 .toolCall:disabled { cursor: default; }
 .toolCallClickable:hover { background: var(--surface-subtle); border-color: var(--accent-border); }
-.toolCallName { max-width: 45%; flex-shrink: 0; font: 11px var(--font-mono); overflow-wrap: anywhere; }
-.toolCallPreview { flex: 1; color: var(--muted); font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.toolCallName { flex: 1; min-width: 0; font: 11px var(--font-mono); overflow-wrap: anywhere; }
+.toolCallPreview { order: 1; flex-basis: 100%; min-width: 0; color: var(--muted); font-size: 11px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .toolCallRunning { color: var(--accent); }
 .toolCallSuccess { color: var(--success); }
 .toolCallError { color: var(--danger); }
@@ -185,9 +185,6 @@ summary.nodeSectionTitle svg { margin-right: 5px; }
   .remediationBody, .remediationHeader, .remediationActions { padding: 14px 12px; }
   .remediationBtn { flex: 1; }
   .approvalBadge { font-size: 9px; }
-  .toolCall { flex-wrap: wrap; }
-  .toolCallName { max-width: calc(100% - 50px); }
-  .toolCallPreview { flex-basis: 80%; order: 2; }
   .handoffKvItem { flex-direction: column; }
   .handoffKvItem > div { width: 100%; }
   .botBubble { font-size: 13px; }

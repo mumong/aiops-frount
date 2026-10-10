@@ -1,3 +1,26 @@
+/** Preview priorities only: all original labels remain in the expanded detail. */
+const SEMANTIC_LABELS = ['reason', 'condition', 'status', 'phase', 'resource', 'mode', 'code', 'le', 'quantile']
+const IDENTITY_LABELS = ['pod', 'container', 'instance', 'endpoint', 'namespace', 'node', 'job', 'service']
+
+function labelPreview(row: Record<string, unknown>) {
+  const source = row.labels
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return ''
+  const labels = Object.fromEntries(Object.entries(source).filter(([key, value]) =>
+    key !== '__name__' && value !== undefined && value !== null && value !== ''))
+  const present = (keys: string[]) => keys.filter(key => Object.prototype.hasOwnProperty.call(labels, key))
+  const ordered = [...new Set([
+    ...present(SEMANTIC_LABELS).slice(0, 2), ...present(IDENTITY_LABELS).slice(0, 4),
+    ...present(SEMANTIC_LABELS), ...present(IDENTITY_LABELS), ...Object.keys(labels).sort(),
+  ])]
+  if (!ordered.length) return ''
+  const shown = ordered.slice(0, 6).map(key => {
+    const value = String(labels[key])
+    return `${key}=${JSON.stringify(value.length > 72 ? value.slice(0, 72) + '…' : value)}`
+  })
+  if (ordered.length > shown.length) shown.push(`另 ${ordered.length - shown.length} 个标签`)
+  return ` {${shown.join(', ')}}`
+}
+
 /** Present observations, never infer a diagnosis or an unknown metric unit. */
 export function presentToolEvent(data: Record<string, unknown>) {
   const args = (data.tool_args || {}) as Record<string, unknown>
@@ -7,12 +30,15 @@ export function presentToolEvent(data: Record<string, unknown>) {
   const rows = (display.measurements || []) as Record<string, unknown>[]
   const values = rows.slice(0, 3).map(row => {
     const value = String(row.value ?? '')
-    if (row.value_kind === 'text') return `${row.name || '文本结果'}: ${value}`
+    const name = String(row.name || (row.value_kind === 'text' ? '文本结果' : '指标'))
+    if (row.value_kind === 'text') return `${name}: ${value}${labelPreview(row)}`
     const unit = String(row.unit || 'unknown')
     const numeric = Number(value)
-    return `${row.name || '指标'}: ${value} ${unit === 'unknown' ? '(单位未标注，见表达式)' : unit}`
+    return `${name}: ${value} ${unit === 'unknown' ? '(单位未标注，见表达式)' : unit}`
       + (unit === 'bytes' && value && Number.isFinite(numeric) ? ` ≈ ${(numeric / 1048576).toFixed(2)} MiB` : '')
-  }).join('；')
+      + labelPreview(row)
+  }).join('\n')
+  const unpreviewed = Math.max(0, rows.length - 3) + (Number(display.measurements_omitted) || 0)
   const empty = ['empty', 'absent'].includes(String(display.coverage))
   const failed = data.transport_status === 'error' || data.status === 'error'
     || data.semantic_success === false || display.coverage === 'error'
@@ -21,7 +47,9 @@ export function presentToolEvent(data: Record<string, unknown>) {
   const outcome = failed ? '调用失败或查询被拒绝'
     : empty ? '请求成功 · 无匹配数据（不等于 0）'
       : unparsed ? '结果格式暂未解析，请查看原文（不等于无数据）'
-        : (values || '调用完成 · 详见原始返回') + (partial ? ' · 部分结果未解析' : '')
+        : (values || '调用完成 · 详见原始返回')
+          + (unpreviewed ? ` · 另有 ${unpreviewed} 条结果未在预览展示，详见展开内容及原文` : '')
+          + (partial ? ' · 部分结果未解析' : '')
   const scope = [args.namespace, args.pod || args.name].filter(Boolean).join('/')
   const preview = [outcome, scope].filter(Boolean).join(' · ')
   const query = display.query || args
@@ -53,6 +81,8 @@ export function presentToolEvent(data: Record<string, unknown>) {
     ...(JSON.stringify(query) !== JSON.stringify(args) ? [`查询口径\n${queryText}`] : []),
     ...(display.series_count != null ? [`结果条目/序列数：${display.series_count}`] : []),
     ...(rangeNote ? [rangeNote] : []),
+    ...(rows.some(row => row.value_kind !== 'text')
+      ? ['解读提示：数值需结合指标、标签、表达式及时间；0/1 不自动等于健康或故障。预览缩略不修改下方标签和原始返回。'] : []),
     `数值、时间及标签\n${measurements}`,
     ...(rows.length || display.measurements_omitted ? [`因展示上限未展开的条目数：${display.measurements_omitted || 0}`] : []),
     ...(display.unparsed_series ? [`未解析的序列数：${display.unparsed_series}`] : []),

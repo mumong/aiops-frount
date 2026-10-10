@@ -42,6 +42,12 @@ with sync_playwright() as driver:
         ('empty_query', {'coverage':'empty','parse_status':'parsed','measurements':[]}, '无匹配数据'),
         ('unsupported_query', {'coverage':'unknown','parse_status':'unsupported','measurements':[]}, '暂未解析'),
         ('failed_query', {'coverage':'error','measurements':[]}, '查询未成功'),
+        ('metric_state', {'coverage':'present', 'measurements':[
+         {'name':'last_terminated_reason','value':'1','unit':'unitless',
+          'labels':{'pod':'workload','container':'app','reason':'OOMKilled'}}]}, 'reason="OOMKilled"'),
+        ('metric_targets', {'coverage':'present', 'measurements':[
+         {'name':'up','value':'0','labels':{'pod':'p','instance':'a:80','endpoint':'http'}},
+         {'name':'up','value':'1','labels':{'pod':'p','instance':'a:81','endpoint':'admin'}}]}, 'endpoint="admin"'),
         ('record_groups', {'contract_version':'evidence-records.v1', 'parse_status':'parsed',
          'semantic_success':True, 'execution_status':'success', 'record_unit':'pod',
          'result_type':'groups', 'query':{'group_by':'node'}, 'input_rows':4, 'matched_rows':4,
@@ -67,6 +73,8 @@ with sync_playwright() as driver:
     for name, _, expected in samples:
         button = page.get_by_role('button', name=name, exact=False).first
         button.wait_for()
+        if name in {'metric_state', 'metric_targets'}:
+            assert expected in button.inner_text(), 'labels must be visible before expanding'
         button.click()
         assert expected in page.locator('body').inner_text(), expected
     text = page.locator('body').inner_text()
@@ -81,5 +89,29 @@ with sync_playwright() as driver:
     assert '22.6439' in page.locator('body').inner_text()
     page.get_by_role('button', name='record_groups', exact=False).first.click()
     assert 'node1: 4 Pod' in page.locator('body').inner_text()
+    assert 'reason="OOMKilled"' in page.get_by_role('button', name='metric_state', exact=False).first.inner_text()
+    assert 'endpoint="admin"' in page.get_by_role('button', name='metric_targets', exact=False).first.inner_text()
+    page.get_by_role('button', name='收起侧栏', exact=True).click()
+    for width in (1100, 390):
+        page.set_viewport_size({'width': width, 'height': 1000})
+        for name in ('metric_state', 'metric_targets'):
+            button = page.get_by_role('button', name=name, exact=False).first
+            button.scroll_into_view_if_needed()
+            preview = button.locator('[class*="toolCallPreview"]')
+            name_box = button.locator('[class*="toolCallName"]').bounding_box()
+            preview_box = preview.bounding_box()
+            assert name_box['width'] > 100, name_box
+            assert preview_box['y'] >= name_box['y'] + name_box['height'], (name_box, preview_box)
+            layout = preview.evaluate('''el => ({
+                whiteSpace: getComputedStyle(el).whiteSpace,
+                width: el.clientWidth, scrollWidth: el.scrollWidth,
+                height: el.clientHeight, scrollHeight: el.scrollHeight,
+            })''')
+            assert layout['whiteSpace'] != 'nowrap', layout
+            assert layout['width'] > 0 and layout['height'] > 0, layout
+            assert layout['scrollWidth'] <= layout['width'] + 1, layout
+            assert layout['scrollHeight'] <= layout['height'] + 1, layout
+            if args.screenshot and name == 'metric_targets':
+                button.screenshot(path=args.screenshot.replace('.png', f'-preview-{width}.png'))
     print('PASS: metrics and records, counts/units, partial/unknown, timestamps and history')
     browser.close()

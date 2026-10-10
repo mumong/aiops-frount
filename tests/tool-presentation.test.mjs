@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import ts from 'typescript'
 
 const source = readFileSync(new URL('../src/components/aiops-chat/toolPresentation.ts', import.meta.url), 'utf8')
-const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022 } }).outputText
+const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText
 const { presentToolEvent } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
 
 test('empty is not zero; parameters and truncation remain visible', () => {
@@ -109,6 +109,61 @@ test('record groups retain unit, source coverage and counts without metric guess
   assert.match(shown.detail, /2026-10-09/)
   assert.match(shown.detail, /next/)
   assert.doesNotMatch(shown.detail, /未提取结构化数值|单位未标注/)
+})
+
+test('state metric previews retain reason and target without inferring health from one', () => {
+  const data = { tool_display: { coverage: 'present', measurements: [{
+    name: 'kube_pod_container_status_last_terminated_reason', value: '1', unit: 'unitless',
+    labels: { namespace: 'demo', pod: 'workload', container: 'app', reason: 'OOMKilled' },
+    observed_at: '2026-10-10T02:04:24Z',
+  }] } }
+  const before = structuredClone(data)
+  const result = presentToolEvent(data)
+  assert.match(result.preview, /reason="OOMKilled"/)
+  assert.match(result.preview, /pod="workload"/)
+  assert.match(result.preview, /container="app"/)
+  assert.match(result.preview, /: 1 unitless/)
+  assert.doesNotMatch(result.preview, /健康|异常|故障/)
+  assert.match(result.detail, /02:04:24/)
+  assert.deepEqual(data, before)
+})
+
+test('same metric at distinct endpoints preserves zero and one as separate observations', () => {
+  const result = presentToolEvent({ tool_display: { coverage: 'present', measurements: [
+    { name: 'up', value: '0', labels: { pod: 'p', instance: 'a:80', endpoint: 'http' } },
+    { name: 'up', value: '1', labels: { pod: 'p', instance: 'a:81', endpoint: 'admin' } },
+  ] } })
+  assert.match(result.preview, /up: 0.*instance="a:80".*endpoint="http"/)
+  assert.match(result.preview, /up: 1.*instance="a:81".*endpoint="admin"/)
+  assert.doesNotMatch(result.preview, /无匹配|健康|故障/)
+})
+
+test('info and custom labels are visible without a metric-name-specific template', () => {
+  for (const name of ['kube_pod_info', 'custom_metric']) {
+    const result = presentToolEvent({ tool_display: { coverage: 'present', measurements: [{
+      name, value: '1', labels: { node: 'node2', custom_label: 'east', shard: 0, enabled: false },
+    }] } })
+    for (const label of ['node="node2"', 'custom_label="east"', 'shard="0"', 'enabled="false"']) {
+      assert.ok(result.preview.includes(label), label)
+    }
+    assert.doesNotMatch(result.preview, /健康|故障/)
+  }
+})
+
+test('bounded preview discloses hidden rows and labels but retains complete detail', () => {
+  const longValue = 'x'.repeat(150)
+  const result = presentToolEvent({ tool_display: { coverage: 'present', measurements_omitted: 2,
+    measurements: Array.from({ length: 4 }, (_, i) => ({ name: 'sample', value: i, labels: {
+      reason: 'R', condition: 'Ready', pod: 'p', container: 'c', instance: longValue,
+      endpoint: 'e', custom: 'retained', zone: 'east',
+    } })),
+  } })
+  assert.match(result.preview, /另 2 个标签/)
+  assert.match(result.preview, /另有 3 条结果未在预览展示/)
+  assert.ok(!result.preview.includes(longValue))
+  assert.ok(result.detail.includes(longValue))
+  assert.match(result.detail, /"custom": "retained"/)
+  assert.match(result.detail, /未展开的条目数：2/)
 })
 
 test('zero matching records with unknown predicates is success, not proof of absence', () => {
