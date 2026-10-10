@@ -3,6 +3,7 @@ export function presentToolEvent(data: Record<string, unknown>) {
   const args = (data.tool_args || {}) as Record<string, unknown>
   const display = data.tool_display as Record<string, unknown> | undefined
   if (!display) return { preview: String(data.result_preview || ''), detail: JSON.stringify(data, null, 2) }
+  if (display.contract_version === 'evidence-records.v1') return presentRecords(data, display, args)
   const rows = (display.measurements || []) as Record<string, unknown>[]
   const values = rows.slice(0, 3).map(row => {
     const value = String(row.value ?? '')
@@ -59,5 +60,43 @@ export function presentToolEvent(data: Record<string, unknown>) {
     `工具返回${display.result_excerpt_truncated ? '（仅前 12000 字符，已截断；不是完整原文）' : '（本次传递内容）'}\n${display.result_excerpt || ''}`,
     `完整原文归档引用：${display.raw_ref || '未提供'}`,
   ].join('\n\n')
+  return { preview, detail }
+}
+
+/** Record counts are not metric samples; source coverage is not selection coverage. */
+function presentRecords(data: Record<string, unknown>, display: Record<string, unknown>, args: Record<string, unknown>) {
+  const source = (display.source_metadata || {}) as Record<string, unknown>
+  const failed = data.transport_status === 'error' || data.status === 'error'
+    || data.semantic_success === false || display.semantic_success === false || display.execution_status === 'error'
+  const parsed = display.parse_status === 'parsed'
+  const unit = display.record_unit === 'container' ? '容器' : display.record_unit === 'pod' ? 'Pod' : '记录'
+  const count = display.matched_rows ?? '未知'
+  const unknown = display.unknown_filter_rows ?? '未知'
+  const records = Array.isArray(display.records) ? display.records as Record<string, unknown>[] : []
+  const groups = display.result_type === 'groups'
+  const query = (display.query || args) as Record<string, unknown>
+  const groupField = String(query.group_by || '')
+  const sample = groups && groupField ? records.slice(0, 3).map(row =>
+    `${row[groupField] === null ? '未知' : String(row[groupField])}: ${row.count} ${unit}`).join('；') : ''
+  const outcome = failed ? '查询未成功' : !parsed ? '结果暂未解析'
+    : `匹配 ${count} 条${unit}记录 · 条件未知 ${unknown} 条`
+  const coverage = source.coverage === 'partial' ? '部分页；不能代表完整范围'
+    : source.coverage === 'empty' ? '源端返回空页' : source.coverage === 'present' ? '本次收到的页'
+      : '未知'
+  const preview = [outcome, sample, source.coverage === 'partial' ? '部分覆盖' : ''].filter(Boolean).join(' · ')
+  const detail = [
+    `结果状态：${outcome}`, `查询参数\n${JSON.stringify(query, null, 2)}`,
+    `数据范围：${coverage}`, `观测时间：${source.observed_at || '未知'}`,
+    ...(failed ? [`错误：${display.error || '见原始返回'}`] : [
+      `输入记录：${display.input_rows ?? '未知'}；匹配：${count}；条件未知：${unknown}；计数单位：${unit}`,
+      unknown !== 0 ? '条件未知的记录不能当作已确认不匹配。' : '',
+      `${groups ? '分组计数' : '记录内容'}\n${JSON.stringify(records, null, 2)}`,
+      `因展示上限未展开的条目数：${display.records_omitted ?? 0}`,
+    ]),
+    `源端信息\n${JSON.stringify(source, null, 2)}`,
+    '计数仅针对收到的数据；容器数不等于 Pod 数。生命周期累计重启数不等于时间窗口内次数。',
+    `工具返回${display.result_excerpt_truncated ? '（仅前 12000 字符，已截断）' : '（本次传递内容）'}\n${display.result_excerpt || ''}`,
+    `完整本次工具返回归档：${display.raw_ref || '未提供'}（不代表底层所有资源字段）`,
+  ].filter(Boolean).join('\n\n')
   return { preview, detail }
 }

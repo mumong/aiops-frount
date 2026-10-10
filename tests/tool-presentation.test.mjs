@@ -93,3 +93,44 @@ test('backend error coverage takes precedence and text is not a numeric metric',
   assert.match(result.preview, /OK/)
   assert.doesNotMatch(result.preview, /单位/)
 })
+
+test('record groups retain unit, source coverage and counts without metric guesses', () => {
+  const shown = presentToolEvent({ status: 'success', semantic_success: true, tool_display: {
+    contract_version: 'evidence-records.v1', parse_status: 'parsed', semantic_success: true,
+    execution_status: 'success', record_unit: 'pod', result_type: 'groups',
+    input_rows: 3, matched_rows: 3, unknown_filter_rows: 0,
+    query: { record_type: 'pod', group_by: 'node' }, records: [{ node: 'node1', count: 3 }],
+    source_metadata: { coverage: 'partial', observed_at: '2026-10-09T00:00:00Z', next_continue_token: 'next' },
+    records_omitted: 0, raw_ref: '/records/raw',
+  } })
+  assert.match(shown.preview, /node1: 3 Pod/)
+  assert.match(shown.preview, /部分覆盖/)
+  assert.match(shown.detail, /不能代表完整范围/)
+  assert.match(shown.detail, /2026-10-09/)
+  assert.match(shown.detail, /next/)
+  assert.doesNotMatch(shown.detail, /未提取结构化数值|单位未标注/)
+})
+
+test('zero matching records with unknown predicates is success, not proof of absence', () => {
+  const shown = presentToolEvent({ status: 'success', tool_display: {
+    contract_version: 'evidence-records.v1', parse_status: 'parsed', semantic_success: true,
+    record_unit: 'container', result_type: 'records', input_rows: 5, matched_rows: 0,
+    unknown_filter_rows: 3, records: [], source_metadata: { coverage: 'present' },
+  } })
+  assert.match(shown.preview, /匹配 0 条容器记录.*条件未知 3/)
+  assert.doesNotMatch(shown.preview, /失败/)
+  assert.match(shown.detail, /不能当作已确认不匹配/)
+})
+
+test('record failure and display omission remain explicit', () => {
+  const common = { contract_version: 'evidence-records.v1', source_metadata: {} }
+  const failed = presentToolEvent({ transport_status: 'error', tool_display: common })
+  assert.match(failed.preview, /查询未成功/)
+  const bounded = presentToolEvent({ tool_display: { ...common, parse_status: 'parsed', record_unit: 'pod',
+    matched_rows: 21, input_rows: 21, unknown_filter_rows: 0, records_omitted: 1,
+    records: [{ ready: false, value: 0 }], result_excerpt_truncated: true } })
+  assert.match(bounded.detail, /未展开的条目数：1/)
+  assert.match(bounded.detail, /"ready": false/)
+  assert.match(bounded.detail, /"value": 0/)
+  assert.match(bounded.detail, /已截断/)
+})

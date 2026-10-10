@@ -42,6 +42,19 @@ with sync_playwright() as driver:
         ('empty_query', {'coverage':'empty','parse_status':'parsed','measurements':[]}, '无匹配数据'),
         ('unsupported_query', {'coverage':'unknown','parse_status':'unsupported','measurements':[]}, '暂未解析'),
         ('failed_query', {'coverage':'error','measurements':[]}, '查询未成功'),
+        ('record_groups', {'contract_version':'evidence-records.v1', 'parse_status':'parsed',
+         'semantic_success':True, 'execution_status':'success', 'record_unit':'pod',
+         'result_type':'groups', 'query':{'group_by':'node'}, 'input_rows':4, 'matched_rows':4,
+         'unknown_filter_rows':0, 'records':[{'node':'node1','count':4}], 'records_omitted':0,
+         'source_metadata':{'coverage':'partial','scope':{'namespace':'xnet'},
+                            'observed_at':'2026-10-09T10:00:00Z','next_continue_token':'next'}},
+         '部分页；不能代表完整范围'),
+        ('record_selection', {'contract_version':'evidence-records.v1', 'parse_status':'parsed',
+         'semantic_success':True, 'execution_status':'success', 'record_unit':'container',
+         'result_type':'records', 'input_rows':4, 'matched_rows':0, 'unknown_filter_rows':2,
+         'records':[], 'records_omitted':0, 'source_metadata':{'coverage':'present',
+         'scope':{'namespace':'xnet'},'observed_at':'2026-10-09T10:00:00Z'}},
+         '条件未知的记录不能当作已确认不匹配'),
     ]
     for i, (name, display, _) in enumerate(samples):
         base = {'node':'query_collect', 'tool_name':name,'tool_call_id':f'call-{i}', 'tool_args':{'query':'example'}}
@@ -66,5 +79,7 @@ with sync_playwright() as driver:
     page.get_by_text('验证两类指标工具展示', exact=True).first.click()
     page.get_by_role('button', name='execute_prometheus_instant_query', exact=False).first.click()
     assert '22.6439' in page.locator('body').inner_text()
-    print('PASS: native/Pod values, matrix policy, empty/error/unsupported, timestamps and history')
+    page.get_by_role('button', name='record_groups', exact=False).first.click()
+    assert 'node1: 4 Pod' in page.locator('body').inner_text()
+    print('PASS: metrics and records, counts/units, partial/unknown, timestamps and history')
     browser.close()
