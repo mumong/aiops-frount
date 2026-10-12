@@ -13,6 +13,13 @@ test('query and ask share the conversation session identity', async () => {
   assert.equal(buildChatRequestParams('diagnose', 'ask', id).get('session_id'), id)
 })
 
+test('repair and revision bind explicit immutable records, normal chat does not', async () => {
+  const { buildChatRequestParams } = await loadPolicyModule()
+  assert.equal(buildChatRequestParams('fix', 'ask', 's', {diagnosisRunId: 'd1'}).get('diagnosis_run_id'), 'd1')
+  assert.equal(buildChatRequestParams('change', 'ask', 's', {planRunId: 'p1'}).get('plan_run_id'), 'p1')
+  assert.equal(buildChatRequestParams('query', 'ask', 's').has('plan_run_id'), false)
+})
+
 async function loadPolicyModule() {
   const source = readFileSync(
     new URL('../src/components/aiops-chat/chatRequestPolicy.ts', import.meta.url),

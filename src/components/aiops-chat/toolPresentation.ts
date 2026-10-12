@@ -96,6 +96,8 @@ export function presentToolEvent(data: Record<string, unknown>) {
 /** Record counts are not metric samples; source coverage is not selection coverage. */
 function presentRecords(data: Record<string, unknown>, display: Record<string, unknown>, args: Record<string, unknown>) {
   const source = (display.source_metadata || {}) as Record<string, unknown>
+  const page = display.pagination as Record<string, unknown> | undefined
+  const partial = display.coverage === 'partial' || source.coverage === 'partial'
   const failed = data.transport_status === 'error' || data.status === 'error'
     || data.semantic_success === false || display.semantic_success === false || display.execution_status === 'error'
   const parsed = display.parse_status === 'parsed'
@@ -109,14 +111,17 @@ function presentRecords(data: Record<string, unknown>, display: Record<string, u
   const sample = groups && groupField ? records.slice(0, 3).map(row =>
     `${row[groupField] === null ? '未知' : String(row[groupField])}: ${row.count} ${unit}`).join('；') : ''
   const outcome = failed ? '查询未成功' : !parsed ? '结果暂未解析'
+    : page ? `已返回 ${page.returned_rows} 条${groups ? '分组' : unit}记录${page.next_continue_token ? ' · 仍有后续数据，可继续读取' : ' · 已无后续数据'}`
     : `匹配 ${count} 条${unit}记录 · 条件未知 ${unknown} 条`
-  const coverage = source.coverage === 'partial' ? '部分页；不能代表完整范围'
+  const coverage = partial ? '部分结果；不能代表完整范围'
     : source.coverage === 'empty' ? '源端返回空页' : source.coverage === 'present' ? '本次收到的页'
       : '未知'
-  const preview = [outcome, sample, source.coverage === 'partial' ? '部分覆盖' : ''].filter(Boolean).join(' · ')
+  const preview = [outcome, sample, partial ? '部分覆盖' : ''].filter(Boolean).join(' · ')
   const detail = [
     `结果状态：${outcome}`, `查询参数\n${JSON.stringify(query, null, 2)}`,
     `数据范围：${coverage}`, `观测时间：${source.observed_at || '未知'}`,
+    ...(page ? [`本源页共有 ${page.total_rows} 条${groups ? '分组' : '匹配记录'}；本次返回 ${page.returned_rows} 条；本源页尚余 ${page.remaining_rows} 条。`,
+      page.next_continue_token ? `续读游标（保持原查询参数）\n${page.next_continue_token}` : '本次源页无剩余记录。'] : []),
     ...(failed ? [`错误：${display.error || '见原始返回'}`] : [
       `输入记录：${display.input_rows ?? '未知'}；匹配：${count}；条件未知：${unknown}；计数单位：${unit}`,
       unknown !== 0 ? '条件未知的记录不能当作已确认不匹配。' : '',

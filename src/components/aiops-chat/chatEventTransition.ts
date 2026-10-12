@@ -313,6 +313,8 @@ export function transitionChatEvent(
           m.id === assistantId
             ? { ...m, content: answer, status: 'complete' as const,
                 resultStatus: data.status === 'partial' ? 'partial' as const : data.status === 'error' ? 'error' as const : 'success' as const,
+                repairRecord: data.repair_record as ChatMessage['repairRecord'],
+                repairPlan: data.repair_plan as ChatMessage['repairPlan'],
                 nodeBlocks: snapshot }
             : m
         )

@@ -5,6 +5,7 @@ import ChatHeader from './ChatHeader'
 import MessageList from './MessageList'
 import MessageInput from './MessageInput'
 import { buildChatRequestParams } from './chatRequestPolicy'
+import type { RepairSource } from './chatRequestPolicy'
 import { settleNodeBlocks } from './nodeBlockUpdates'
 import { transitionChatEvent } from './chatEventTransition'
 import styles from './ChatWidget.module.css'
@@ -80,6 +81,8 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
   }, 0))
   const textStreamBufferRef = useRef('')
   const requestSequence = useRef(0)
+  const repairSourceRef = useRef<RepairSource | undefined>(undefined)
+  const [editingPlan, setEditingPlan] = useState<string | null>(null)
   const { connect, disconnect } = useSSE()
 
   useEffect(() => () => {
@@ -131,7 +134,7 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
     else if (!streamingRef.current) saveSnapshot()
   }, [updateNodeBlocks, updateMessages, updateAnswer, finishRun, saveSnapshot])
 
-  const sendMessage = useCallback((question: string) => {
+  const sendMessage = useCallback((question: string, source?: RepairSource) => {
     if (!question.trim() || streamingRef.current) return
     const requestId = ++requestSequence.current
     const newMsg: ChatMessage = { id: `msg-${++messageIdCounter.current}`,
@@ -154,7 +157,9 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
     onStart({ id: sessionId, title: firstQuestion.slice(0, 40) + (firstQuestion.length > 40 ? '...' : ''),
       messages: messagesRef.current, nodeBlocks: [], finalAnswer: '', endpointMode: requestEndpointMode,
       createdAt: initialSession?.createdAt || now, updatedAt: now })
-    const params = buildChatRequestParams(question, requestEndpointMode, sessionId)
+    const params = buildChatRequestParams(question, requestEndpointMode, sessionId, source || repairSourceRef.current)
+    repairSourceRef.current = undefined
+    setEditingPlan(null)
     connect(`${apiBase}/${requestEndpointMode}`, { method: 'GET', body: params },
       msg => {
         if (requestId !== requestSequence.current) return
@@ -192,9 +197,27 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
   return <div className={styles.main} hidden={!active} aria-label="会话面板">
     <ChatHeader title={title} isConnected={!isStreaming} />
     <MessageList messages={messages} nodeBlocks={nodeBlocks} finalAnswer={finalAnswer}
+      apiBase={apiBase} onRepairBatchCreated={(messageId, batchId) => {
+        updateMessages(previous => previous.map(message => message.id === messageId
+          ? { ...message, repairBatchId: batchId } : message))
+        saveSnapshot()
+      }}
       streamActive={isStreaming} activitySeq={sseActivitySeq} onRemediationRespond={handleRemediationRespond}
-      onRequestRepair={() => setInputDraft({ text: '请根据刚才的诊断，为其中异常 Pod 制定修复方案并提交人工审查；先核实当前状态并参考 Runbook。' })}
+      onRequestRepair={runId => sendMessage('请基于这份诊断生成修复方案，按配置审批或自动执行；必要时自主核实当前状态和读取 Runbook。', { diagnosisRunId: runId })}
+      onReviseRepair={runId => {
+        if (streamingRef.current) handleStop()
+        repairSourceRef.current = { planRunId: runId }
+        setEditingPlan(runId)
+        setInputDraft({ text: '请修改这份修复方案：' })
+      }}
       onSuggestion={question => setInputDraft({ text: question })} />
+    {editingPlan && <div role="status">正在修改方案 {editingPlan}；新方案执行前按配置重新审批。
+      <button type="button" onClick={() => {
+        repairSourceRef.current = undefined
+        setEditingPlan(null)
+        setInputDraft({ text: '' })
+      }}>取消修改</button>
+    </div>}
     <MessageInput draft={inputDraft} initialText={initialDraft} onTextChange={handleDraftChange}
       onSend={sendMessage} onStop={handleStop} isStreaming={isStreaming}
       placeholder="描述你的运维问题，例如查询节点资源使用率或排查 Pod 异常" />

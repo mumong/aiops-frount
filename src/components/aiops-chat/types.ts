@@ -124,6 +124,15 @@ export interface SSEMessage {
 
 /** A single message in the chat */
 export interface ChatMessage {
+  repairBatchId?: string
+  repairRecord?: { run_id: string; kind: 'diagnosis' | 'plan'; source_run_id?: string | null }
+  repairPlan?: {
+    targets: Array<{ namespace: string; pod: string; group_id: string }>
+    actions: Array<{ id: string; group_id: string; description: string; execute_command: string;
+      dry_run_command?: string; verify_command?: string;
+      risk: string; configuration_change?: string; verification_conditions?: string[]; rollback_advice: string }>
+    assessments?: Array<{ group_id: string; status: string; reason: string; missing: string[] }>
+  }
   remediationResults?: Array<{ key: string; groupId: string; actionId: string; stage: string;
     command: string; status: string; result: string; truncated: boolean }>
   resultStatus?: 'success' | 'partial' | 'error'

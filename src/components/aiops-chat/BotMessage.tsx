@@ -11,19 +11,26 @@ import { useRef } from 'react'
 import { Box, ArrowDown, FileText, CircleAlert, CheckCircle2, ShieldCheck, Ban } from 'lucide-react'
 import CopyButton from './CopyButton'
 import CodeBlock from './CodeBlock'
+import RepairWorkspace from './RepairWorkspace'
+import RepairPlanContent from './RepairPlanContent'
 
 interface BotMessageProps {
+  apiBase?: string
+  onRepairBatchCreated?: (messageId: string, batchId: string) => void
   message: ChatMessage
   nodeBlocks: NodeBlock[]
   finalAnswer: string
   isLatest: boolean
   streamActive: boolean
   activitySeq: number
-  onRequestRepair?: () => void
+  onRequestRepair?: (runId: string) => void
+  onReviseRepair?: (runId: string) => void
   onRemediationRespond?: (runId: string, approvalId: string, approved: boolean, reason?: string) => Promise<unknown>
 }
 
 export default function BotMessage({
+  apiBase,
+  onRepairBatchCreated,
   message,
   nodeBlocks,
   finalAnswer,
@@ -32,6 +39,7 @@ export default function BotMessage({
   activitySeq,
   onRemediationRespond,
   onRequestRepair,
+  onReviseRepair,
 }: BotMessageProps) {
   const isStreaming = message.status === 'streaming'
   const isError = message.status === 'error'
@@ -82,7 +90,9 @@ export default function BotMessage({
             {displayedAnswer && (message.status === 'complete' || isStreaming) ? (
               <section className={styles.botBubble} ref={answerRef} aria-label="诊断结论">
                 <div className={styles.answerHeading}><span><FileText size={15} />{isStreaming ? '正在生成结果' : '检查结果'}</span><CopyButton text={displayedAnswer} label="复制报告" /></div>
-                <MarkdownReport content={displayedAnswer} />
+                {message.repairPlan ? <details><summary>查看完整规划说明</summary>
+                  <MarkdownReport content={displayedAnswer} />
+                </details> : <MarkdownReport content={displayedAnswer} />}
               </section>
             ) : null}
 
@@ -108,6 +118,20 @@ export default function BotMessage({
               </div>
             )}
 
+            {message.repairPlan && <section className={styles.repairEntry} aria-label="结构化修复方案">
+              <div><strong>修复方案</strong>
+                <RepairPlanContent plan={message.repairPlan} />
+                <details><summary>任务来源</summary>
+                  <p>运行 ID：{message.runId}</p>
+                  <p>诊断来源：{message.repairRecord?.source_run_id || '本次修复调查'}</p>
+                </details>
+                {message.repairRecord?.kind === 'plan' && onReviseRepair
+                  && (!streamActive || message.remediationApprovals?.some(a =>
+                    !message.remediationResults?.some(r => r.actionId === String(a.payload?.id || ''))))
+                  && <button type="button" className={styles.repairPrimary}
+                    onClick={() => onReviseRepair(message.repairRecord!.run_id)}>通过对话修改方案</button>}
+              </div>
+            </section>}
             {/* Remediation finished status */}
             {message.remediationResults?.map(result => (
               <details key={result.key} className={`${styles.remediationCard} ${styles.repairResult}`} open>
@@ -118,14 +142,18 @@ export default function BotMessage({
               </details>
             ))}
             {message.remediationStatus && <RemediationStatusCard status={message.remediationStatus} />}
-            {isLatest && !streamActive && message.status === 'complete' && displayedAnswer
-              && nodeBlocks.some(block => block.routeDecision?.route === 'full_diagnosis')
+            {apiBase && onRepairBatchCreated && message.repairRecord?.kind === 'diagnosis'
+              && message.status === 'complete' && <RepairWorkspace apiBase={apiBase}
+                diagnosisId={message.repairRecord.run_id} batchId={message.repairBatchId}
+                onCreated={id => onRepairBatchCreated(message.id, id)} onApprove={onRemediationRespond} />}
+            {!apiBase && !streamActive && message.status === 'complete' && displayedAnswer
+              && message.repairRecord?.kind === 'diagnosis'
               && !message.remediationApprovals?.length && !message.remediationResults?.length
               && onRequestRepair && (
                 <div className={styles.repairEntry}>
                   <div><strong>修复建议</strong>
-                    <p>生成方案后，请检查命令、影响范围和回退方式，再决定是否批准。</p></div>
-                  <button className={styles.repairPrimary} type="button" onClick={onRequestRepair}><ShieldCheck size={16} />申请修复方案</button>
+                    <p>基于此报告生成方案；执行前按配置等待人工审批或自动执行。</p></div>
+                  <button className={styles.repairPrimary} type="button" onClick={() => onRequestRepair(message.repairRecord!.run_id)}><ShieldCheck size={16} />生成自动修复方案</button>
                 </div>
               )}
           </>

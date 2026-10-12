@@ -111,6 +111,20 @@ test('record groups retain unit, source coverage and counts without metric guess
   assert.doesNotMatch(shown.detail, /未提取结构化数值|单位未标注/)
 })
 
+test('byte-paged records are partial success with a continuation, not a query failure', () => {
+  const shown = presentToolEvent({ status: 'success', tool_display: {
+    contract_version: 'evidence-records.v1', parse_status: 'parsed', semantic_success: true,
+    execution_status: 'success', record_unit: 'pod', result_type: 'records', coverage: 'partial',
+    matched_rows: 72, records: [], source_metadata: { coverage: 'present' },
+    pagination: { returned_rows: 12, remaining_rows: 60, total_rows: 72, next_continue_token: 'lr1.test.12' },
+  } })
+  assert.match(shown.preview, /已返回 12 条Pod记录/)
+  assert.match(shown.preview, /仍有后续数据/)
+  assert.doesNotMatch(shown.preview, /查询未成功/)
+  assert.match(shown.detail, /不能代表完整范围/)
+  assert.match(shown.detail, /lr1.test.12/)
+})
+
 test('state metric previews retain reason and target without inferring health from one', () => {
   const data = { tool_display: { coverage: 'present', measurements: [{
     name: 'kube_pod_container_status_last_terminated_reason', value: '1', unit: 'unitless',

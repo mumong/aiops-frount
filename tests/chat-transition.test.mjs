@@ -40,6 +40,16 @@ test('same-batch final snapshots include completed nodes and do not close approv
   assert.equal(finished.messages[0].remediationStatus.reason, 'no action')
 })
 
+test('final retains persisted repair source and structured actions for refresh', () => {
+  const replay = makeReplay()
+  const record = {run_id:'p1', kind:'plan', source_run_id:'d1'}
+  const plan = {targets:[], actions:[{id:'a1', execute_command:'kubectl patch deployment/x -n demo'}]}
+  const result = replay.event('final', {answer:'plan', repair_record:record, repair_plan:plan})
+  assert.deepEqual(result.messages[0].repairRecord, record)
+  assert.deepEqual(result.messages[0].repairPlan, plan)
+  assert.equal(result.streaming, true)
+})
+
 test('tool call identity, semantic failure, heartbeat and terminal error preserve existing transitions', () => {
   const replay = makeReplay()
   for (const id of ['one', 'two']) replay.event('thinking', {

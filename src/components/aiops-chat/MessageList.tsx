@@ -6,17 +6,22 @@ import BotMessage from './BotMessage'
 import styles from './MessageList.module.css'
 
 interface MessageListProps {
+  apiBase?: string
+  onRepairBatchCreated?: (messageId: string, batchId: string) => void
   messages: ChatMessage[]
   nodeBlocks: NodeBlock[]
   finalAnswer: string
   streamActive: boolean
   activitySeq: number
-  onRequestRepair?: () => void
+  onRequestRepair?: (runId: string) => void
+  onReviseRepair?: (runId: string) => void
   onSuggestion?: (question: string) => void
   onRemediationRespond?: (runId: string, approvalId: string, approved: boolean, reason?: string) => Promise<unknown>
 }
 
 export default function MessageList({
+  apiBase,
+  onRepairBatchCreated,
   messages,
   nodeBlocks,
   finalAnswer,
@@ -24,6 +29,7 @@ export default function MessageList({
   activitySeq,
   onRemediationRespond,
   onRequestRepair,
+  onReviseRepair,
   onSuggestion,
 }: MessageListProps) {
   const listRef = useRef<HTMLDivElement>(null)
@@ -75,6 +81,8 @@ export default function MessageList({
           ? <UserMessage key={msg.id} content={msg.content} />
           : (
             <BotMessage
+              apiBase={apiBase}
+              onRepairBatchCreated={onRepairBatchCreated}
               key={msg.id}
               message={msg}
               nodeBlocks={
@@ -92,6 +100,7 @@ export default function MessageList({
               activitySeq={activitySeq}
               onRemediationRespond={onRemediationRespond}
               onRequestRepair={onRequestRepair}
+              onReviseRepair={onReviseRepair}
             />
           )
       ))}

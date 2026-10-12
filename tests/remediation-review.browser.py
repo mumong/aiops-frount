@@ -85,18 +85,15 @@ with sync_playwright() as driver:
     emit('node_start', {'node': 'request_router'})
     emit('node_complete', {'node': 'request_router', 'state_snapshot': {
         'request_route': 'full_diagnosis', 'request_contract': {'scope': 'namespace', 'namespaces': ['demo']}}})
-    emit('final', {'answer': '## 诊断\n需要进一步核实控制器再制定修复。', 'run_id': 'deep-browser'})
+    emit('final', {'answer': '## 诊断\n需要进一步核实控制器再制定修复。', 'run_id': 'deep-browser',
+                   'repair_record': {'run_id': 'deep-browser', 'kind': 'diagnosis'}})
     emit('remediation_finished', {'run_id': 'deep-browser', 'status': 'skipped', 'reason': '无可执行方案'})
     page.evaluate('window.finish()')
-    repair_button = page.get_by_role('button', name='申请修复方案')
+    repair_button = page.get_by_role('button', name='生成自动修复方案')
     repair_button.wait_for()
     repair_button.scroll_into_view_if_needed()
     page.screenshot(path='/tmp/aiops-repair-entry.png', full_page=True)
     repair_button.click()
-    assert page.evaluate('window.questions.length') == 2
-    assert '根据刚才的诊断' in page.locator('textarea').input_value()
-    assert page.locator('textarea').evaluate('(el) => el === document.activeElement')
-    page.locator('textarea').press('Enter')
     page.wait_for_function('window.questions.length === 3')
     assert page.evaluate('window.approvals.length') == 1
     questions = page.evaluate('window.questions')
@@ -104,7 +101,7 @@ with sync_playwright() as driver:
     previous = parse_qs(urlparse(questions[1]).query)
     followup = parse_qs(urlparse(questions[2]).query)
     assert previous['session_id'] == followup['session_id']
-    assert '根据刚才的诊断' in followup['q'][0]
+    assert followup['diagnosis_run_id'] == ['deep-browser']
     page.evaluate('window.finish()')
     page.screenshot(path='/tmp/aiops-remediation-review.png', full_page=True)
     assert not errors, errors
