@@ -69,8 +69,8 @@ export default function MessageList({
             <button type="button" className={`${styles.suggestion} ${styles.suggestionPrimary}`} onClick={() => onSuggestion?.('查询我各个节点的cpu和内存使用率')}>
               <Search size={22} /><span><strong>简单查询 <small className={styles.commonBadge}>常用</small></strong><span>查询我各个节点的cpu和内存使用率</span></span><ArrowUpRight size={17} />
             </button>
-            <button type="button" className={styles.suggestion} onClick={() => onSuggestion?.('我的集群有什么问题？')}>
-              <Activity size={18} /><span><strong>深度诊断</strong><span>我的集群有什么问题？</span></span><ArrowUpRight size={15} />
+            <button type="button" className={styles.suggestion} onClick={() => onSuggestion?.('我的集群pod有什么问题？')}>
+              <Activity size={18} /><span><strong>深度诊断</strong><span>我的集群pod有什么问题？</span></span><ArrowUpRight size={15} />
             </button>
           </div>
           <div className={styles.emptyNote}><ShieldCheck size={14} />修复操作须经你审批后执行</div>

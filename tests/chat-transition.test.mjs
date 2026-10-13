@@ -40,6 +40,27 @@ test('same-batch final snapshots include completed nodes and do not close approv
   assert.equal(finished.messages[0].remediationStatus.reason, 'no action')
 })
 
+test('parallel model text stays isolated by group and stage without repeated completion', () => {
+  const replay = makeReplay()
+  replay.event('node_start', {node:'layer'})
+  replay.event('node_complete', {node:'layer', state_snapshot:{autonomous_groups:[
+    {group_id:'g1', entities:[{kind:'Pod', namespace:'ns', name:'a'}]},
+    {group_id:'g2', entities:[{kind:'Pod', namespace:'ns', name:'b'}]},
+  ]}})
+  replay.event('node_start', {node:'parallel_evidence'})
+  for (const [group, stage, kind, content] of [
+    ['g1','evidence','ai_token','检查 A'], ['g2','evidence','ai_token','检查 B'],
+    ['g1','evidence','ai_message','检查 A'], ['g1','rca','ai_token','A 根因'],
+  ]) replay.event('thinking', {node:'parallel_evidence', parallel_group_id:group, lane_stage:stage, thinking_type:kind,content})
+  const state = replay.event('final', {answer:'报告'})
+  const board = state.blocks.find(b=>b.nodeId==='parallel_evidence').parallelEvidence
+  assert.equal(board.groups[0].analysisStreams.evidence.text, '检查 A')
+  assert.equal(board.groups[1].analysisStreams.evidence.text, '检查 B')
+  assert.equal(board.groups[0].analysisStreams.rca.text, 'A 根因')
+  assert.equal(state.blocks.find(b=>b.nodeId==='parallel_evidence').thinkingTokens, '')
+  assert.equal(state.messages[0].nodeBlocks.find(b=>b.nodeId==='parallel_evidence').parallelEvidence.groups[1].analysisStreams.evidence.text, '检查 B')
+})
+
 test('final retains persisted repair source and structured actions for refresh', () => {
   const replay = makeReplay()
   const record = {run_id:'p1', kind:'plan', source_run_id:'d1'}

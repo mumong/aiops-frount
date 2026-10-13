@@ -85,22 +85,24 @@ export function applyNodeThinkingEvent(
 ): NodeBlock[] {
   if (!content) return blocks
   return updateEventNode(blocks, nodeId, nodeName, block => {
-    if (kind === 'ai_token') {
-      const prefix = block.thinkingStreamStart === undefined && block.thinkingTokens
-        ? `${block.thinkingTokens}\n\n` : block.thinkingTokens
-      return { ...block, runtimeStatus: undefined, thinkingStreamStart: block.thinkingStreamStart ?? prefix.length,
-        thinkingTokens: prefix + content }
-    }
-    const start = block.thinkingStreamStart
-    const streamed = start === undefined ? '' : block.thinkingTokens.slice(start)
-    let text = block.thinkingTokens
-    if (streamed && (streamed.startsWith(content) || content.startsWith(streamed))) {
-      text = text.slice(0, start) + (streamed.length >= content.length ? streamed : content)
-    } else {
-      text += (text ? '\n\n' : '') + content
-    }
-    return { ...block, runtimeStatus: undefined, thinkingTokens: text, thinkingStreamStart: undefined }
+    const next = mergeAnalysisStream({ text: block.thinkingTokens, streamStart: block.thinkingStreamStart }, kind, content)
+    return { ...block, runtimeStatus: undefined, thinkingTokens: next.text, thinkingStreamStart: next.streamStart }
   })
+}
+
+export function mergeAnalysisStream(previous: { text: string; streamStart?: number } | undefined,
+  kind: 'ai_token' | 'ai_message', content: string): { text: string; streamStart?: number } {
+  const { text = '', streamStart } = previous || {}
+  if (!content) return { text, streamStart }
+  if (kind === 'ai_token') {
+    const prefix = streamStart === undefined && text ? `${text}\n\n` : text
+    return { text: prefix + content, streamStart: streamStart ?? prefix.length }
+  }
+  const streamed = streamStart === undefined ? '' : text.slice(streamStart)
+  if (streamed && (streamed.startsWith(content) || content.startsWith(streamed))) {
+    return { text: text.slice(0, streamStart) + (streamed.length >= content.length ? streamed : content) }
+  }
+  return { text: text + (text ? '\n\n' : '') + content }
 }
 
 export function startNodeToolCall(

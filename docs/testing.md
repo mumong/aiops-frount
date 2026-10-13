@@ -42,6 +42,8 @@ Report exact commands and results, including skipped capture-based tests and exi
 
 ## Structured streaming display (2026-10-13)
 
+Version 0.1.53 also tests provider think wrappers, root-level readable analysis and independent per-group/per-stage model streams. Completion confirmations do not duplicate streamed text. `live-visible-stream.browser.py --live --url <url> --chromium <path>` is explicitly opt-in and sends a real read-only AIOps request; it checks text is visible before the first tool and before final output. SSE event names are read from the `event:` line, not assumed present inside JSON data. `--question` can select a bounded read-only deep diagnosis. It does not create faults or approve repair execution.
+
 `structured-presentation.test.mjs` checks mixed JSON/prose, nested structures, incomplete streamed input, Markdown code fences and exact source preservation. `structured-stream.browser.py` replays real SSE handling using a mocked API at 1100px and 390px: visible incremental text, lazy expandable JSON, initially collapsed tools and unchanged persisted content. `direct-query.browser.py` remains the regression for streamed QueryAnswer and history restoration. No backend/model or cluster writes are performed by these replays. Frontend 0.1.52 changes presentation only; the existing bottom-follow behavior and backend remain unchanged.
 
 ## Repair approval experience (2026-10-12)

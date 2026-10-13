@@ -73,7 +73,7 @@ export default function NodeBlockCard({ block, isLast }: { block: NodeBlock; isL
           {thinking && (
             <div className={styles.nodeSection}>
               <div className={styles.nodeSectionTitle}><ScanText size={13} />分析过程{isRunning ? ' · 实时更新' : ''}</div>
-              <div className={styles.nodeAnalysis}><StructuredContent text={thinking} /></div>
+              <div className={styles.nodeAnalysis}><StructuredContent text={thinking} analysis /></div>
             </div>
           )}
 

@@ -1,7 +1,7 @@
 import type { ChatMessage, NodeBlock, SSEMessage, RemediationApproval, EndpointMode, ParallelEvidenceGroup } from './types'
 import { parseRemediationApprovalText, toRemediationApproval } from './remediationParsing'
 import { shouldProcessRemediation } from './chatRequestPolicy'
-import { applyNodeThinkingEvent, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
+import { applyNodeThinkingEvent, mergeAnalysisStream, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
 import { presentToolEvent } from './toolPresentation'
 import { presentRoute } from './routePresentation'
 import {
@@ -179,12 +179,20 @@ export function transitionChatEvent(
           updateNodeBlocks(prev => setNodeRuntimeStatus(prev, nodeId, nodeName,
             String(data.content || ''), String(data.status || 'running'), now))
         }
-      } else if (thinkType === 'ai_token') {
-        const content = String(data.content || '')
-        updateNodeBlocks(prev => applyNodeThinkingEvent(prev, nodeId, nodeName, 'ai_token', content))
-      } else if (thinkType === 'ai_message') {
-        const content = String(data.full_content || data.content || '')
-        updateNodeBlocks(prev => applyNodeThinkingEvent(prev, nodeId, nodeName, 'ai_message', content))
+      } else if (thinkType === 'ai_token' || thinkType === 'ai_message') {
+        const content = String((thinkType === 'ai_message' && data.full_content) || data.content || '')
+        const groupId = String(data.parallel_group_id || '')
+        const stage = String(data.lane_stage || 'evidence')
+        if (groupId) {
+          updateNodeBlocks(prev => mirrorParallelEvidence(prev, board => ({ ...board,
+            groups: board.groups.map(group => group.groupId !== groupId ? group : { ...group,
+              analysisStreams: { ...group.analysisStreams,
+                [stage]: mergeAnalysisStream(group.analysisStreams?.[stage], thinkType, content) },
+            }),
+          })))
+        } else {
+          updateNodeBlocks(prev => applyNodeThinkingEvent(prev, nodeId, nodeName, thinkType, content))
+        }
       } else if (thinkType === 'tool_start') {
         const toolName = String(data.tool_name || '')
         const backendCallId = String(data.tool_call_id || '').trim()

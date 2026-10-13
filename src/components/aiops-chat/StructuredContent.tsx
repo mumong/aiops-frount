@@ -2,19 +2,21 @@ import { useMemo, useState } from 'react'
 import MarkdownReport from './MarkdownReport'
 import CodeBlock from './CodeBlock'
 import CopyButton from './CopyButton'
-import { splitStructuredContent } from './structuredPresentation'
+import { splitStructuredContent, visibleModelAnalysis, readableStructuredAnalysis } from './structuredPresentation'
 import styles from './StructuredContent.module.css'
 
-export default function StructuredContent({ text }: { text: string }) {
-  const parts = useMemo(() => splitStructuredContent(text), [text])
+export default function StructuredContent({ text, analysis = false }: { text: string; analysis?: boolean }) {
+  const parts = useMemo(() => splitStructuredContent(analysis ? visibleModelAnalysis(text) : text), [text, analysis])
   return <>{parts.map((part, index) => part.kind === 'text'
     ? <MarkdownReport key={index} content={part.raw} />
-    : <details key={index} className={styles.detail}>
+    : <div key={index}>
+      {analysis && part.kind === 'json' && <MarkdownReport content={readableStructuredAnalysis(part.value)} />}
+      <details className={styles.detail}>
       <summary>{part.kind === 'json' ? '结构化数据' : '内部上下文 / 未完整解析的数据'}</summary>
-      <CopyButton text={part.raw} label="复制原文" />
+      {part.kind === 'json' && <CopyButton text={part.raw} label="复制原文" />}
       {part.kind === 'json' ? <JsonBranch value={part.value} name="$" />
         : <CodeBlock text={part.raw} label="原始内容" />}
-    </details>)}</>
+    </details></div>)}</>
 }
 
 function JsonBranch({ value, name }: { value: unknown; name: string }) {

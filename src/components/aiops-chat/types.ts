@@ -215,6 +215,7 @@ export interface ParallelEvidenceResult {
 }
 
 export interface ParallelEvidenceGroup {
+  analysisStreams?: Record<string, { text: string; streamStart?: number }>
   runtimeStatus?: string
   terminalStatus?: 'completed' | 'partial'
   error?: string

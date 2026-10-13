@@ -1,5 +1,22 @@
 export type DisplayPart = { kind: 'text' | 'json' | 'internal'; raw: string; value?: unknown }
 
+// A provider may wrap each streamed delta separately. Render the text, not
+// raw HTML; ReactMarkdown intentionally hides raw <think> HTML blocks.
+export function visibleModelAnalysis(text: string): string {
+  return text.replace(/<\/think>\s*<think>/gi, '')
+    .replace(/<\/?think>/gi, '')
+    .replace(/<\/?(?:t|th|thi|thin|think)?$/i, '')
+}
+
+export function readableStructuredAnalysis(value: unknown): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+  const record = value as Record<string, unknown>
+  for (const key of ['analysis', 'summary', 'answer']) {
+    if (typeof record[key] === 'string' && record[key].trim()) return record[key]
+  }
+  return ''
+}
+
 // Presentation only. Preserve every character; never change persisted SSE content.
 export function splitStructuredContent(text: string): DisplayPart[] {
   if (/^\s*[\[{]/.test(text)) {

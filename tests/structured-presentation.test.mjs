@@ -5,6 +5,14 @@ import ts from 'typescript'
 const source = readFileSync(new URL('../src/components/aiops-chat/structuredPresentation.ts', import.meta.url), 'utf8')
 const compiled = ts.transpileModule(source, {compilerOptions: {module: ts.ModuleKind.ESNext}}).outputText
 const { splitStructuredContent: split } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
+const { visibleModelAnalysis, readableStructuredAnalysis } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
+
+test('provider think wrappers render as visible text, not hidden HTML', () => {
+  assert.equal(visibleModelAnalysis('<think>准备</think><think>查询</think>正文'), '准备查询正文')
+  assert.equal(visibleModelAnalysis('<think>准备查询</thi'), '准备查询')
+  assert.equal(readableStructuredAnalysis({summary:'已定位四个对象', targets:[]}), '已定位四个对象')
+  assert.equal(readableStructuredAnalysis({protected_handoff:{summary:'内部副本'}}), '')
+})
 
 test('mixed handoff and compaction preserve all original bytes', () => {
   const raw = '我的集群有什么问题？' + JSON.stringify({protected_handoff:{targets:[],summary:'含有 } 和 " 引号'}}) + '[working_context_summary] 旧摘要'

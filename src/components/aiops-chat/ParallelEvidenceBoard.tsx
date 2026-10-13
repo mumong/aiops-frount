@@ -1,6 +1,7 @@
 import { useState, useId } from 'react'
 import { ChevronDown, ChevronRight, CircleAlert, CheckCircle2 } from 'lucide-react'
 import CodeBlock from './CodeBlock'
+import StructuredContent from './StructuredContent'
 import type {
   EvidenceDimension,
   ParallelEvidenceGroup,
@@ -139,6 +140,13 @@ function GroupCard({
           <DimensionBadges counts={counts} />
         </span>
       </button>
+
+      {Object.entries(group.analysisStreams || {}).map(([stage, stream]) => stream.text && (
+        <section key={stage} className={styles.groupBody} aria-label={`${group.groupId} 模型分析`}>
+          <div className={styles.noticeTitle}>{stage === 'rca' ? '根因分析' : '取证分析'} · 模型输出</div>
+          <StructuredContent text={stream.text} analysis />
+        </section>
+      ))}
 
       {expanded && (
         <div className={styles.groupBody} id={contentId}>
