@@ -5,7 +5,7 @@ import styles from './RepairWorkspace.module.css'
 export default function RepairPlanContent({ plan }: { plan: NonNullable<ChatMessage['repairPlan']> }) {
   return <div className={styles.planContent}>
     {!plan.actions?.length && <article className={styles.action}>
-      <strong>{plan.assessments?.some(item => item.status === 'needs_input') ? '待补充依据' : '暂无执行命令'} · 尚未执行</strong>
+      <strong>{plan.planning_error ? '方案未生成' : plan.assessments?.some(item => item.status === 'needs_input') ? '待补充依据' : '暂无执行命令'} · 尚未执行</strong>
       {plan.targets?.map(target => <p key={target.group_id} className={styles.target}>
         {target.namespace}/{target.pod}
       </p>)}
@@ -13,7 +13,7 @@ export default function RepairPlanContent({ plan }: { plan: NonNullable<ChatMess
         <p>{item.missing?.length ? item.missing.join('；') : item.reason}</p>
         {!!item.missing?.length && <details><summary>查看判断依据</summary><p>{item.reason}</p></details>}
       </div>)}
-      {!plan.assessments?.length && <p>暂无执行命令，可补充信息后重新生成。</p>}
+      {!plan.assessments?.length && <p>{plan.planning_error?.message || plan.answer || '暂无执行命令，可补充信息后重新生成。'}</p>}
     </article>}
     {plan.actions?.map((action, index) => {
       const target = plan.targets?.find(item => item.group_id === action.group_id)

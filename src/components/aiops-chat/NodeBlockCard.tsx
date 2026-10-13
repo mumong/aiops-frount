@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import { NODE_LABELS, type NodeBlock } from './types'
-import MarkdownReport from './MarkdownReport'
+import StructuredContent from './StructuredContent'
 import ParallelEvidenceBoard from './ParallelEvidenceBoard'
 import HandoffDisplay from './HandoffDisplay'
 import { emptyNodeMessage, visibleNarrative, queryNarrative } from './handoffPresentation'
 import styles from './MessageList.module.css'
 import { LoaderCircle, CheckCircle2, CircleStop, CircleX, ChevronDown, ChevronRight, Wrench, ScanText, CornerDownRight } from 'lucide-react'
-import CodeBlock from './CodeBlock'
 
 /** Collapsible card for a single workflow node */
 export default function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean }) {
@@ -74,20 +73,20 @@ export default function NodeBlockCard({ block, isLast }: { block: NodeBlock; isL
           {thinking && (
             <div className={styles.nodeSection}>
               <div className={styles.nodeSectionTitle}><ScanText size={13} />分析过程{isRunning ? ' · 实时更新' : ''}</div>
-              <div className={styles.nodeAnalysis}><MarkdownReport content={thinking} /></div>
+              <div className={styles.nodeAnalysis}><StructuredContent text={thinking} /></div>
             </div>
           )}
 
           {/* Tool calls */}
           {block.toolCalls.length > 0 && (
-            <div className={styles.nodeSection}>
-              <div className={styles.nodeSectionTitle}><Wrench size={13} />工具调用 ({block.toolCalls.length})</div>
+            <details className={styles.nodeSection}>
+              <summary className={styles.nodeSectionTitle}><Wrench size={13} />工具调用 ({block.toolCalls.length}) · {pending ? `${pending} 个执行中` : '展开查看'}</summary>
               <div className={styles.toolCalls}>
                 {block.toolCalls.map(tc => (
                   <ToolCallItem key={tc.id} tc={tc} />
                 ))}
               </div>
-            </div>
+            </details>
           )}
 
           {/* Handoff summary */}
@@ -145,7 +144,7 @@ function ToolCallItem({ tc }: { tc: import('./types').ToolCall }) {
         )}
       </button>
       {detailOpen && hasDetail && (
-        <CodeBlock className={styles.toolDetailBody} text={tc.resultData} label={tc.toolName} />
+        <div className={styles.toolDetailBody}><StructuredContent text={tc.resultData || ''} /></div>
       )}
     </div>
   )

@@ -40,6 +40,14 @@ Tests keep final reports distinct from stream closure; queued message updates an
 Builds currently warn about a minified JavaScript chunk exceeding 500 kB. SSR can warn that the browser Notification API is unavailable; neither warning is a passing browser acceptance test.
 Report exact commands and results, including skipped capture-based tests and existing selector drift, instead of claiming all frontend acceptance is complete.
 
+## Structured streaming display (2026-10-13)
+
+`structured-presentation.test.mjs` checks mixed JSON/prose, nested structures, incomplete streamed input, Markdown code fences and exact source preservation. `structured-stream.browser.py` replays real SSE handling using a mocked API at 1100px and 390px: visible incremental text, lazy expandable JSON, initially collapsed tools and unchanged persisted content. `direct-query.browser.py` remains the regression for streamed QueryAnswer and history restoration. No backend/model or cluster writes are performed by these replays. Frontend 0.1.52 changes presentation only; the existing bottom-follow behavior and backend remain unchanged.
+
+## Repair approval experience (2026-10-12)
+
+`tests/repair-ux.browser.py --url <frontend-url> --chromium <executable>` runs Chromium with mocked repair APIs (no real approval or cluster mutation). It checks immediate submission feedback, 20 clicks producing one POST, a 10-second timeout followed by GET status reconciliation without resubmission, approval expiry, and an explicit planning-failure/replan view. `tests/repair-transport.test.mjs` covers bounded waits and no automatic retries. The browser replay passed against deployed frontend 0.1.51; grouped-repair replay also covers group isolation and mobile layout. These checks do not prove live model or repair execution success.
+
 ## Chinese Markdown and interface wording
 
 `markdown-report.test.mjs` checks Chinese punctuation next to bold markers in prose, lists and tables, standard Markdown and incomplete streamed labels. Inline/fenced code, escaped stars, URLs and raw HTML retain parser behavior. The compatibility plugin operates on parsed text nodes; stored messages and copied source remain unchanged. `direct-query.browser.py` also verifies bold rendering during streaming and after history reload, with exact persisted report text.

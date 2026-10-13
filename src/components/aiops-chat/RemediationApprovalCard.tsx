@@ -29,6 +29,8 @@ export default function RemediationApprovalCard({
   onRespond,
 }: RemediationApprovalCardProps) {
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
+  const [uncertain, setUncertain] = useState(false)
   const [done, setDone] = useState<'approved' | 'rejected' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [continuationStatus, setContinuationStatus] = useState<ApprovalContinuationStatus>('idle')
@@ -36,7 +38,7 @@ export default function RemediationApprovalCard({
   const continuationTimerRef = useRef<number | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const remainingSeconds = approval.expiresAt == null ? null : Math.max(0, Math.ceil((approval.expiresAt - now) / 1000))
-  const unavailable = !isCurrent || !streamActive || remainingSeconds === 0
+  const unavailable = !isCurrent || !streamActive || remainingSeconds === 0 || uncertain
 
   useEffect(() => {
     if (done || approval.expiresAt == null) return
@@ -65,7 +67,8 @@ export default function RemediationApprovalCard({
   useEffect(() => clearContinuationTimer, [])
 
   const handleAction = async (approved: boolean) => {
-    if (submitting || done || unavailable) return
+    if (submittingRef.current || done || unavailable) return
+    submittingRef.current = true
     setSubmitting(true)
     setError(null)
     try {
@@ -89,8 +92,10 @@ export default function RemediationApprovalCard({
         }, APPROVAL_CONTINUATION_TIMEOUT_MS)
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '审批请求失败')
+      setUncertain(true)
+      setError(`${err instanceof Error ? err.message : '审批响应未确认'}；请核对后续状态，不要重复批准。`)
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }

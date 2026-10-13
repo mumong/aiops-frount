@@ -1,4 +1,5 @@
 import type { ChatMessage } from './types'
+import { repairJson } from './repairTransport'
 
 export interface RepairGroup {
   job_id: string
@@ -17,12 +18,15 @@ export interface RepairHistory {
   plan?: ChatMessage['repairPlan'] & { answer?: string }
 }
 export interface RepairJob extends RepairGroup {
+  created_at?: number
+  status_started_at?: number
+  server_time?: number
   feedback?: RepairFeedback
   history?: RepairHistory[]
   plan?: ChatMessage['repairPlan'] & { answer?: string }
   error?: string
   result?: { reason?: string }
-  approval?: { approval_id: string; title: string; expires_at: number }
+  approval?: { approval_id: string; title: string; expires_at: number; decision_status?: string }
   events?: Array<{ type: string; action_id: string; stage: string; command: string;
     status: string; result_preview?: string; result_truncated?: boolean }>
 }
@@ -36,12 +40,9 @@ export const repairStatus: Record<string, string> = {
 export const repairActive = (status: string) => ['queued', 'planning', 'planned', 'awaiting_approval', 'executing'].includes(status)
 
 export async function repairRequest<T>(base: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${base}${path}`, {
+  return repairJson<T>(`${base}${path}`, {
     method: body === undefined ? 'GET' : 'POST', credentials: 'include', signal,
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
-  const value = await response.json()
-  if (!response.ok) throw new Error(typeof value.detail === 'string' ? value.detail : `请求失败 (${response.status})`)
-  return value as T
 }

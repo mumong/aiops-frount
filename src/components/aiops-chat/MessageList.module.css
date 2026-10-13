@@ -67,7 +67,7 @@
 .nodeSectionTitle { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; color: var(--muted); font-size: 11px; font-weight: 500; line-height: 1.6; }
 summary.nodeSectionTitle { display: list-item; }
 summary.nodeSectionTitle svg { margin-right: 5px; }
-.nodeAnalysis { font-size: 13px; line-height: 1.8; overflow: visible; overflow-wrap: anywhere; }
+.nodeAnalysis { font-size: 13px; line-height: 1.8; overflow: visible; overflow-wrap: anywhere; padding: 12px 14px; border: 1px solid #8b95a533; border-radius: 8px; background: #8b95a508; }
 .nodeHandoff { padding: 12px 14px; background: var(--surface-subtle); border-radius: 8px; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
 .handoffKvList { display: flex; flex-direction: column; gap: 10px; }
 .handoffKvItem { display: flex; align-items: flex-start; gap: 8px; min-width: 0; font-size: 12px; }

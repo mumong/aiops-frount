@@ -9,6 +9,7 @@ import type { RepairSource } from './chatRequestPolicy'
 import { settleNodeBlocks } from './nodeBlockUpdates'
 import { transitionChatEvent } from './chatEventTransition'
 import styles from './ChatWidget.module.css'
+import { repairJson } from './repairTransport'
 
 /**
  * POST to the remediation approval endpoint.
@@ -30,16 +31,12 @@ async function submitRemediationApproval(
   if (reason) {
     body.set('reason', reason)
   }
-  const res = await fetch(`${apiBase}/remediation/approve`, {
+  const json = await repairJson<{ success: boolean; error?: string }>(`${apiBase}/remediation/approve`, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`审批请求失败 (HTTP ${res.status}): ${text.slice(0, 200)}`)
-  }
-  const json = await res.json()
   if (json.success !== true) {
     throw new Error(json.error || '审批请求被拒绝')
   }

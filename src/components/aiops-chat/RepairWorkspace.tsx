@@ -21,6 +21,10 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
+  const [pendingText, setPendingText] = useState('')
+  const [decisions, setDecisions] = useState<Record<string, string>>({})
+  const [now, setNow] = useState(Date.now)
+  const clockOffset = useRef(0)
   const busy = useRef(false)
   const mounted = useRef(true)
   useEffect(() => {
@@ -31,6 +35,17 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
   const current = batch?.groups.find(g => g.group_id === selected) || batch?.groups[0]
   const jobId = current?.job_id
   const shown = job?.job_id === jobId ? job : undefined
+  const approvalKey = shown?.approval ? `${shown.job_id}:${shown.approval.approval_id}` : ''
+  const serverDecision = shown?.approval?.decision_status
+  const decisionText = serverDecision === 'approved' ? '已批准，等待后端执行。'
+    : serverDecision === 'rejected' ? '已拒绝，等待状态更新。'
+    : decisions[approvalKey]
+  const remaining = shown?.approval ? Math.max(0, Math.ceil((shown.approval.expires_at * 1000 - now - clockOffset.current) / 1000)) : null
+  useEffect(() => {
+    if (!jobId || !shown?.status || !repairActive(shown.status)) return
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [jobId, shown?.status])
 
   useEffect(() => {
     if (!batchId) return
@@ -61,7 +76,10 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
       try {
         const result = await repairRequest<RepairJob>(apiBase, `/repair/jobs/${jobId}`, undefined, controller.signal)
         keepPolling = repairActive(result.status)
-        if (!controller.signal.aborted) setJob(result)
+        if (!controller.signal.aborted) {
+          if (result.server_time) clockOffset.current = result.server_time * 1000 - Date.now()
+          setJob(result)
+        }
       } catch (e) {
         if (!controller.signal.aborted) setError(String(e))
       } finally {
@@ -72,14 +90,15 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
     return () => { controller.abort(); clearTimeout(timer) }
   }, [apiBase, jobId, refresh])
 
-  async function act(action: () => Promise<unknown>) {
+  async function act(action: () => Promise<unknown>, label = '正在提交…') {
     if (busy.current) return
     busy.current = true
     setPending(true)
+    setPendingText(label)
     setError('')
-    try { await action(); setRefresh(v => v + 1) }
+    try { await action() }
     catch (e) { setError(String(e)) }
-    finally { busy.current = false; setPending(false) }
+    finally { busy.current = false; setPending(false); setPendingText(''); setRefresh(v => v + 1) }
   }
 
   return <section className={styles.workspace} aria-label="分组修复方案">
@@ -92,6 +111,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
       onCreated(result.batch_id)
     })}>{pending ? '正在创建…' : '生成自动修复方案'}</button>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
+    {pending && <p role="status" aria-live="polite">{pendingText}</p>}
     {batchId && !batch && <p role="status">正在读取修复任务…</p>}
     {batch && <>
       {batch.groups.length > 1 && <div className={styles.cards} role="group" aria-label="选择修复组">
@@ -116,18 +136,27 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
           {shown.plan?.answer && <MarkdownReport content={shown.plan.answer} />}
         </details>
         <h4 className={styles.aiHeading}>{batch.groups.length > 1 ? `${current?.target?.label || shown.group_id} · ` : ''}AI 修复方案 · v{shown.version}</h4>
-        <p>{shown.status === 'planning' && shown.feedback ? '正在根据你的意见更新…' : repairStatus[shown.status] || shown.status}{shown.mode === 'auto' ? ' · 自动执行' : shown.mode === 'review' ? ' · 执行前需批准' : ''}</p>
-        {shown.error && <p role="alert">{shown.error}</p>}
+        <p>{shown.plan?.planning_error ? '规划未完成' : shown.status === 'planning' && shown.feedback ? '正在根据你的意见更新…' : repairStatus[shown.status] || shown.status}{shown.plan?.actions?.length ? shown.mode === 'auto' ? ' · 自动执行' : shown.mode === 'review' ? ' · 执行前需批准' : '' : ''}</p>
+        {repairActive(shown.status) && shown.status_started_at && <small>
+          本阶段已等待 {Math.max(0, Math.floor((now + clockOffset.current) / 1000 - shown.status_started_at))} 秒
+          {['queued', 'planning'].includes(shown.status) ? ' · 正在处理，无需重复提交' : ''}
+        </small>}
+        {shown.error && shown.error !== shown.plan?.planning_error?.message && <p role="alert">{shown.error}</p>}
         {shown.plan && <RepairPlanContent plan={shown.plan} />}
         {shown.approval && shown.status === 'awaiting_approval' && <div className={styles.action}>
           <strong>等待批准</strong>
-          <small> · 有效期至 {new Date(shown.approval.expires_at * 1000).toLocaleTimeString()}</small>
+          <small> · {remaining === 0 ? '审批已到期，正在核对状态' : `剩余 ${remaining} 秒`} · 截止 {new Date(shown.approval.expires_at * 1000).toLocaleTimeString()}</small>
+          {decisionText && <p role="status" aria-live="polite">{decisionText}</p>}
           <div className={styles.buttons}>{[true, false].map(approved => <button key={String(approved)} type="button"
-            disabled={pending || !onApprove || shown.approval!.expires_at * 1000 <= Date.now()}
+            disabled={pending || !!decisionText || !onApprove || remaining === 0 || serverDecision === 'expired' || serverDecision === 'unavailable'}
             onClick={() => void act(async () => {
-              await onApprove!(shown.job_id, shown.approval!.approval_id, approved)
-              setJob(previous => previous?.job_id === shown.job_id ? { ...previous, approval: undefined } : previous)
-            })}>{approved ? '批准此动作' : '拒绝此动作'}</button>)}</div>
+              try {
+                await onApprove!(shown.job_id, shown.approval!.approval_id, approved)
+                setDecisions(previous => ({ ...previous, [approvalKey]: approved ? '已批准，等待后端执行。' : '已拒绝，等待状态更新。' }))
+              } catch {
+                setDecisions(previous => ({ ...previous, [approvalKey]: '提交结果待确认，正在核对后端状态；不会重复提交。' }))
+              }
+            }, approved ? '正在提交批准，请勿重复点击…' : '正在提交拒绝…')}>{approved ? '批准此动作' : '拒绝此动作'}</button>)}</div>
         </div>}
         {shown.events?.filter(e => e.type === 'remediation_tool_result').map((e, i) => <details key={i}>
           <summary>{e.action_id} · {e.stage} · {e.status === 'success' ? '命令成功' : '执行失败'}</summary>
@@ -152,6 +181,15 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
             onChange={e => setDrafts(previous => ({ ...previous, [shown.job_id]: e.target.value }))} />
         </label>
         <div className={styles.buttons}>
+          {shown.plan?.planning_error && <button type="button" disabled={pending}
+            onClick={() => void act(async () => {
+              const next = await repairRequest<Pick<RepairJob, 'job_id' | 'group_id' | 'version'>>(apiBase,
+                `/repair/jobs/${shown.job_id}/feedback`, { version: shown.version,
+                  feedback: '请重新生成本组修复方案，复用已有诊断并按需核实最新状态。' })
+              setBatch(previous => previous && ({ ...previous, groups: previous.groups.map(group =>
+                group.job_id === shown.job_id ? { ...group, ...next, status: 'queued' } : group) }))
+              setJob(undefined)
+            }, '正在重新生成本组方案…')}>重新生成本组方案</button>}
           <button type="button" disabled={pending || !drafts[shown.job_id]?.trim()
             || ['queued', 'planning', 'executing', 'superseded'].includes(shown.status)}
             onClick={() => void act(async () => {

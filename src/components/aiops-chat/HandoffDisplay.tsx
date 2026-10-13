@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import MarkdownReport from './MarkdownReport'
+import StructuredContent from './StructuredContent'
 import { isLegacyHandoff } from './handoffPresentation'
 import { parseHandoff, type HandoffKV } from './handoffParsing'
 import styles from './MessageList.module.css'
@@ -7,7 +7,7 @@ import CodeBlock from './CodeBlock'
 
 export default function HandoffDisplay({ text }: { text: string }) {
   if (!isLegacyHandoff(text)) {
-    return <div className={styles.nodeHandoff}><MarkdownReport content={text} /></div>
+    return <div className={styles.nodeHandoff}><StructuredContent text={text} /></div>
   }
   const pairs = parseHandoff(text)
   if (pairs.length === 0) {

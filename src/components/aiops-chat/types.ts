@@ -127,6 +127,8 @@ export interface ChatMessage {
   repairBatchId?: string
   repairRecord?: { run_id: string; kind: 'diagnosis' | 'plan'; source_run_id?: string | null }
   repairPlan?: {
+    planning_error?: { code: string; message: string }
+    answer?: string
     targets: Array<{ namespace: string; pod: string; group_id: string }>
     actions: Array<{ id: string; group_id: string; description: string; execute_command: string;
       dry_run_command?: string; verify_command?: string;

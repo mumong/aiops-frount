@@ -1,0 +1,7 @@
+.detail { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--border-color, #d9dfe8); border-radius: 8px; max-width: 100%; overflow: auto; }
+.detail summary, .branch summary { cursor: pointer; padding: 4px 0; }
+.branch, .leaf { font: 12px/1.8 ui-monospace, monospace; overflow-wrap: anywhere; }
+.children { padding-left: 14px; border-left: 1px solid #8b95a544; }
+.key { color: #648ad1; }
+.string { color: #399879; white-space: pre-wrap; }
+.literal { color: #ac79ce; }
