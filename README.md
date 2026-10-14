@@ -54,7 +54,7 @@ http://<当前机器IP>:5173/
 
 API 请求通过 Vite proxy 转发到后端，默认目标是 `http://10.2.0.48:30800`。
 
-如需修改 API 后端地址，编辑 `vite.config.ts` 中 `server.proxy` 的 `target` 字段。
+如需修改 API 后端地址，设置环境变量 `VITE_PROXY_TARGET`（或写入 `.env.local`），例如 `VITE_PROXY_TARGET=http://127.0.0.1:8000 npm run dev`。
 
 ### 生产构建
 
