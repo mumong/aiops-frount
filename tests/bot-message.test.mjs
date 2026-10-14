@@ -36,3 +36,19 @@ test('completed stage remains expanded and tool and handoff raw details remain i
   assert.doesNotMatch(html, /<details open/)
   assert.ok(html.indexOf('visible analysis') < html.indexOf('report'))
 })
+
+test('interrupted messages keep stopped stages and show a connection-lost alert', () => {
+  const props = {
+    nodeBlocks: [{nodeId: 'evidence', nodeName: 'Evidence', status: 'stopped', thinkingTokens: 'partial analysis', toolCalls: []}],
+    finalAnswer: '', isLatest: true, streamActive: false, activitySeq: 0,
+  }
+  const html = renderToStaticMarkup(React.createElement(BotMessage, {
+    ...props, message: {id: 'one', role: 'assistant', content: '', status: 'complete', interrupted: true},
+  }))
+  assert.match(html, /role="alert"[^>]*>.*连接中断/)
+  assert.match(html, /partial analysis/)
+  const stopped = renderToStaticMarkup(React.createElement(BotMessage, {
+    ...props, message: {id: 'one', role: 'assistant', content: '', status: 'complete'},
+  }))
+  assert.doesNotMatch(stopped, /连接中断/)
+})

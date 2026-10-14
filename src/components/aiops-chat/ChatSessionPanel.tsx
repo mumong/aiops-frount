@@ -7,7 +7,7 @@ import MessageInput from './MessageInput'
 import { buildChatRequestParams } from './chatRequestPolicy'
 import type { RepairSource } from './chatRequestPolicy'
 import { settleNodeBlocks } from './nodeBlockUpdates'
-import { transitionChatEvent } from './chatEventTransition'
+import { markStreamInterrupted, transitionChatEvent } from './chatEventTransition'
 import { createFrameBatcher } from './frameBatcher'
 import styles from './ChatWidget.module.css'
 import { repairJson } from './repairTransport'
@@ -189,9 +189,12 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
           ? { ...message, status: 'error', content: `❌ 错误: ${error.message}` } : message))
         finishRun()
       },
-      () => {
+      ({ eventStream }) => {
         if (requestId !== requestSequence.current) return
         updateNodeBlocks(previous => settleNodeBlocks(previous, 'stopped'))
+        if (eventStream) {
+          updateMessages(previous => markStreamInterrupted(previous, assistantMsg.id, nodeBlocksRef.current))
+        }
         finishRun()
       })
   }, [apiBase, sessionId, maxMessages, initialSession?.createdAt, onStart, connect,

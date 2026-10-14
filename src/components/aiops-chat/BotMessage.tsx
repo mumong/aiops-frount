@@ -70,6 +70,9 @@ function BotMessage({
             {/* Node blocks — collapsible sections */}
             <RouteCard blocks={nodeBlocks} terminal={!isStreaming} />
             {isStreaming && isLatest && <RunProgress blocks={nodeBlocks} />}
+            {message.interrupted && (
+              <div role="alert" className={styles.partialNotice}><CircleAlert size={16} />连接中断：未收到最终结果，以上为中断前的进度。请检查网络或服务状态后重新提问。</div>
+            )}
             {message.resultStatus === 'partial' && (
               <div role="status" className={styles.partialNotice}><CircleAlert size={16} />部分检查未完成，缺失项见下方结果。</div>
             )}

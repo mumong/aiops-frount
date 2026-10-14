@@ -34,6 +34,26 @@ export interface ChatEventTransition extends ChatEventState {
   terminal?: boolean
 }
 
+/**
+ * The SSE body ended while the reply was still streaming, i.e. without a
+ * final or error event. Keep the progress (node snapshot) and flag the
+ * message so the UI can say the connection was interrupted. User-initiated
+ * stops never reach this path.
+ */
+export function markStreamInterrupted(
+  messages: ChatMessage[],
+  assistantId: string,
+  nodeBlocks: NodeBlock[],
+): ChatMessage[] {
+  let changed = false
+  const next = messages.map(message => {
+    if (message.id !== assistantId || message.status !== 'streaming') return message
+    changed = true
+    return { ...message, status: 'complete' as const, interrupted: true, nodeBlocks }
+  })
+  return changed ? next : messages
+}
+
 function mirrorParallelEvidence(
   blocks: NodeBlock[],
   updater: (state: NonNullable<NodeBlock['parallelEvidence']>) => NonNullable<NodeBlock['parallelEvidence']>,

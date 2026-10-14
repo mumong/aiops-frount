@@ -179,3 +179,24 @@ test('final and error transitions are flagged terminal for immediate rendering; 
   assert.equal(transitionChatEvent(base, { event: 'final', data: '{"answer":"a"}' }, 'm', 'ask', 1).terminal, true)
   assert.equal(transitionChatEvent(base, { event: 'message', data: '{"type":"error","error":"e"}' }, 'm', 'ask', 1).terminal, true)
 })
+
+const { markStreamInterrupted } = await server.ssrLoadModule('/src/components/aiops-chat/chatEventTransition.ts')
+
+test('a stream that closes before final/error is marked interrupted with its node snapshot', () => {
+  const replay = makeReplay()
+  replay.event('node_start', { node: 'evidence' })
+  const running = replay.event('thinking', { node: 'evidence', thinking_type: 'ai_token', content: 'partial' })
+  const blocks = running.blocks.map(block => ({ ...block, status: 'stopped' }))
+  const interrupted = markStreamInterrupted(running.messages, 'msg-1', blocks)
+  assert.equal(interrupted[0].status, 'complete')
+  assert.equal(interrupted[0].interrupted, true)
+  assert.equal(interrupted[0].nodeBlocks, blocks)
+})
+
+test('closing after final or error is not an interruption', () => {
+  for (const [event, data] of [['final', { answer: 'done' }], ['error', { error: 'boom' }]]) {
+    const replay = makeReplay()
+    const ended = replay.event(event, data)
+    assert.equal(markStreamInterrupted(ended.messages, 'msg-1', []), ended.messages)
+  }
+})

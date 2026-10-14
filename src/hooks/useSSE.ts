@@ -15,7 +15,8 @@ export function useSSE() {
     query: URLSearchParams | undefined,
     onEvent: (msg: SSEMessage) => void,
     onError: (err: Error) => void,
-    onComplete: () => void,
+    /** Body ended. `eventStream` is false for plain-text responses, which have no final event. */
+    onComplete: (outcome: { eventStream: boolean }) => void,
   ): (() => void) => {
     // Abort any previous connection
     if (abortRef.current) {
@@ -63,7 +64,7 @@ export function useSSE() {
           if (tail) {
             onEvent({ event: 'text', data: tail })
           }
-          onComplete()
+          onComplete({ eventStream: false })
           return
         }
 
@@ -75,7 +76,7 @@ export function useSSE() {
         }
         events.finish()
 
-        onComplete()
+        onComplete({ eventStream: true })
       } catch (err: unknown) {
         if (err instanceof Error && err.name !== 'AbortError') {
           onError(err)

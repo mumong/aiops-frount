@@ -59,6 +59,8 @@ export interface ChatMessage {
   content: string
   timestamp: number
   status?: 'streaming' | 'complete' | 'error'
+  /** The event stream closed without a final/error event (connection lost). */
+  interrupted?: boolean
   /** Run ID from the backend — stored per-message so it survives refresh / multi-question sessions */
   runId?: string
   /** This message's own node blocks — each assistant message remembers its own */
