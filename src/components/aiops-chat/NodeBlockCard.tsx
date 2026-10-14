@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NODE_LABELS, type NodeBlock } from './types'
+import { NODE_ID } from './sseEvents'
 import StructuredContent from './StructuredContent'
 import ParallelEvidenceBoard from './ParallelEvidenceBoard'
 import HandoffDisplay from './HandoffDisplay'
@@ -14,7 +15,7 @@ export default function NodeBlockCard({ block, isLast }: { block: NodeBlock; isL
   const isRunning = block.status === 'running'
   const showBody = expanded
   const isComplete = block.status === 'complete'
-  const thinking = block.nodeId === 'query_collect'
+  const thinking = block.nodeId === NODE_ID.QUERY_COLLECT
     ? queryNarrative(block.thinkingTokens || '') : visibleNarrative(block.thinkingTokens || '')
   const handoff = visibleNarrative(block.handoffSummary || '')
   const hasContent = !!(block.parallelEvidence || thinking || handoff || block.toolCalls.length > 0)

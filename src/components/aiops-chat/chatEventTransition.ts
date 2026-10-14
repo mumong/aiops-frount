@@ -4,6 +4,7 @@ import { shouldProcessRemediation } from './chatRequestPolicy'
 import { applyNodeThinkingEvent, mergeAnalysisStream, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
 import { presentToolEvent } from './toolPresentation'
 import { presentRoute } from './routePresentation'
+import { NODE_ID, SSE_EVENT, THINKING_TYPE, TRANSPORT_EVENT, textField, trimmedField, type SSEPayload } from './sseEvents'
 import {
   completeParallelEvidence,
   applyParallelOutcomes,
@@ -35,7 +36,7 @@ function mirrorParallelEvidence(
 ): NodeBlock[] {
   let mirrored = false
   const next = blocks.map(block => {
-    if (block.nodeId !== 'parallel_evidence' || !block.parallelEvidence) return block
+    if (block.nodeId !== NODE_ID.PARALLEL_EVIDENCE || !block.parallelEvidence) return block
     mirrored = true
     return { ...block, parallelEvidence: updater(block.parallelEvidence) }
   })
@@ -118,12 +119,12 @@ export function transitionChatEvent(
     parseAndShowTextApproval(assistantId, nextContent, endpointMode)
   }
 
-  if (msg.event === 'text') {
+  if (msg.event === TRANSPORT_EVENT.TEXT) {
     appendTextStreamChunk(assistantId, msg.data, requestEndpointMode)
     return result()
   }
 
-  let data: Record<string, unknown>
+  let data: SSEPayload
   try {
     data = JSON.parse(msg.data)
   } catch {
@@ -131,25 +132,25 @@ export function transitionChatEvent(
     return result()
   }
 
-  const eventType = msg.event === 'message' && typeof data.type === 'string'
+  const eventType = msg.event === TRANSPORT_EVENT.MESSAGE && typeof data.type === 'string'
     ? data.type
     : msg.event
 
   switch (eventType) {
-    case 'run_start':
+    case SSE_EVENT.RUN_START:
       queueMessageUpdate(prev =>
         prev.map(m =>
-          m.id === assistantId ? { ...m, runId: String(data.run_id || '') } : m
+          m.id === assistantId ? { ...m, runId: textField(data, 'run_id') } : m
         )
       )
       break
 
-    case 'node_start': {
-      const nodeId = String(data.node || '')
-      const nodeName = String(data.node_name || data.node || '')
+    case SSE_EVENT.NODE_START: {
+      const nodeId = textField(data, 'node')
+      const nodeName = textField(data, ['node_name', 'node'])
       updateNodeBlocks(prev => {
         const started = startNodeBlock(prev, nodeId, nodeName)
-        if (nodeId !== 'parallel_evidence' || parallelGroups.length < 2) {
+        if (nodeId !== NODE_ID.PARALLEL_EVIDENCE || parallelGroups.length < 2) {
           return started
         }
         return started.map(block => (
@@ -161,28 +162,28 @@ export function transitionChatEvent(
       break
     }
 
-    case 'thinking': {
-      const thinkType = String(data.thinking_type || '')
-      const nodeId = String(data.node || '')
-      const nodeName = String(data.node_name || data.node || nodeId || '')
+    case SSE_EVENT.THINKING: {
+      const thinkType = textField(data, 'thinking_type')
+      const nodeId = textField(data, 'node')
+      const nodeName = textField(data, ['node_name', 'node'])
 
-      if (thinkType === 'runtime_status') {
-        const groupId = String(data.parallel_group_id || '')
+      if (thinkType === THINKING_TYPE.RUNTIME_STATUS) {
+        const groupId = textField(data, 'parallel_group_id')
         if (groupId) {
           updateNodeBlocks(prev => prev.map(block => !block.parallelEvidence ? block : {
             ...block, parallelEvidence: {...block.parallelEvidence,
               groups: block.parallelEvidence.groups.map(group => group.groupId !== groupId ? group : {
-                ...group, runtimeStatus: String(data.content || ''),
+                ...group, runtimeStatus: textField(data, 'content'),
               })},
           }))
         } else {
           updateNodeBlocks(prev => setNodeRuntimeStatus(prev, nodeId, nodeName,
-            String(data.content || ''), String(data.status || 'running'), now))
+            textField(data, 'content'), textField(data, 'status', 'running'), now))
         }
-      } else if (thinkType === 'ai_token' || thinkType === 'ai_message') {
-        const content = String((thinkType === 'ai_message' && data.full_content) || data.content || '')
-        const groupId = String(data.parallel_group_id || '')
-        const stage = String(data.lane_stage || 'evidence')
+      } else if (thinkType === THINKING_TYPE.AI_TOKEN || thinkType === THINKING_TYPE.AI_MESSAGE) {
+        const content = textField(data, thinkType === THINKING_TYPE.AI_MESSAGE ? ['full_content', 'content'] : 'content')
+        const groupId = textField(data, 'parallel_group_id')
+        const stage = textField(data, 'lane_stage', 'evidence')
         if (groupId) {
           updateNodeBlocks(prev => mirrorParallelEvidence(prev, board => ({ ...board,
             groups: board.groups.map(group => group.groupId !== groupId ? group : { ...group,
@@ -193,9 +194,9 @@ export function transitionChatEvent(
         } else {
           updateNodeBlocks(prev => applyNodeThinkingEvent(prev, nodeId, nodeName, thinkType, content))
         }
-      } else if (thinkType === 'tool_start') {
-        const toolName = String(data.tool_name || '')
-        const backendCallId = String(data.tool_call_id || '').trim()
+      } else if (thinkType === THINKING_TYPE.TOOL_START) {
+        const toolName = textField(data, 'tool_name')
+        const backendCallId = trimmedField(data, 'tool_call_id')
         const evidenceContext = parseParallelEvidenceStreamContext(data.evidence_context)
         const tool = {
           id: `tool-${++toolIdCounter}`,
@@ -206,7 +207,7 @@ export function transitionChatEvent(
         }
         updateNodeBlocks(prev => {
           const isGroupedEvidence = parallelGroups.length >= 2
-            && (nodeId === 'parallel_evidence' || nodeId === 'evidence')
+            && (nodeId === NODE_ID.PARALLEL_EVIDENCE || nodeId === NODE_ID.EVIDENCE)
           const mirrored = isGroupedEvidence
             ? mirrorParallelEvidence(prev, state => startParallelTool(state, tool))
             : prev
@@ -219,24 +220,24 @@ export function transitionChatEvent(
           }
           return startNodeToolCall(mirrored, nodeId, nodeName, tool)
         })
-      } else if (thinkType === 'tool_result') {
-        const toolName = String(data.tool_name || '')
-        const status = data.semantic_success === false ? 'error' : String(data.status || 'success')
+      } else if (thinkType === THINKING_TYPE.TOOL_RESULT) {
+        const toolName = textField(data, 'tool_name')
+        const status = data.semantic_success === false ? 'error' : textField(data, 'status', 'success')
         const presentation = presentToolEvent(data)
         const preview = presentation.preview
         const resultData = presentation.detail
         const parallelResultData = resolveParallelResultData(data)
-        const toolCallId = String(data.tool_call_id || '').trim()
+        const toolCallId = trimmedField(data, 'tool_call_id')
         const evidenceContext = parseParallelEvidenceStreamContext(data.evidence_context)
         const semanticSuccess = typeof data.semantic_success === 'boolean'
           ? data.semantic_success
           : undefined
-        const rawRef = String(data.raw_ref || '').trim()
-        const structuredRef = String(data.structured_ref || '').trim()
-        const summaryRef = String(data.summary_ref || '').trim()
+        const rawRef = trimmedField(data, 'raw_ref')
+        const structuredRef = trimmedField(data, 'structured_ref')
+        const summaryRef = trimmedField(data, 'summary_ref')
         updateNodeBlocks(prev => {
           const isGroupedEvidence = parallelGroups.length >= 2
-            && (nodeId === 'parallel_evidence' || nodeId === 'evidence')
+            && (nodeId === NODE_ID.PARALLEL_EVIDENCE || nodeId === NODE_ID.EVIDENCE)
           const fallbackId = `tool-result-${++toolIdCounter}`
           const mirrored = isGroupedEvidence
             ? mirrorParallelEvidence(prev, state => finishParallelTool(
@@ -269,14 +270,14 @@ export function transitionChatEvent(
       break
     }
 
-    case 'heartbeat':
+    case SSE_EVENT.HEARTBEAT:
       break
 
-    case 'node_complete': {
-      const nodeId = String(data.node || '')
+    case SSE_EVENT.NODE_COMPLETE: {
+      const nodeId = textField(data, 'node')
       const duration = Number(data.duration_seconds || 0)
-      const handoff = String(data.handoff_summary || '')
-      if (nodeId === 'layer') {
+      const handoff = textField(data, 'handoff_summary')
+      if (nodeId === NODE_ID.LAYER) {
         parallelGroups = extractParallelEvidenceGroups(
           data.state_snapshot as Record<string, unknown> | undefined,
         )
@@ -289,7 +290,7 @@ export function transitionChatEvent(
             runtimeStatus: undefined,
             durationSeconds: duration,
             handoffSummary: handoff || n.handoffSummary,
-            ...(nodeId === 'request_router'
+            ...(nodeId === NODE_ID.REQUEST_ROUTER
               ? { routeDecision: presentRoute(data.state_snapshot) } : {}),
             ...(n.parallelEvidence
               ? { parallelEvidence: applyParallelOutcomes(completeParallelEvidence(n.parallelEvidence), data.state_snapshot) }
@@ -297,7 +298,7 @@ export function transitionChatEvent(
           }
         }
         if (
-          nodeId === 'evidence'
+          nodeId === NODE_ID.EVIDENCE
           && parallelGroups.length >= 2
           && n.parallelEvidence
         ) {
@@ -308,9 +309,9 @@ export function transitionChatEvent(
       break
     }
 
-    case 'final': {
+    case SSE_EVENT.FINAL: {
       updateNodeBlocks(prev => settleNodeBlocks(prev, 'complete'))
-      const answer = String(data.answer || '')
+      const answer = textField(data, 'answer')
       setFinalAnswer(answer)
       textBuffer = answer
       // Take a snapshot of current nodeBlocks and store them on the message
@@ -334,9 +335,9 @@ export function transitionChatEvent(
       break
     }
 
-    case 'error': {
+    case SSE_EVENT.ERROR: {
       updateNodeBlocks(prev => settleNodeBlocks(prev, 'stopped'))
-      const errorMsg = String(data.error || '未知错误')
+      const errorMsg = textField(data, 'error', '未知错误')
       setFinalAnswer(`❌ ${errorMsg}`)
       queueMessageUpdate(prev =>
         prev.map(m =>
@@ -349,14 +350,14 @@ export function transitionChatEvent(
       break
     }
 
-    case 'remediation_approval_required': {
+    case SSE_EVENT.REMEDIATION_APPROVAL_REQUIRED: {
       if (!shouldProcessRemediation(requestEndpointMode)) break
       const approval: RemediationApproval = {
-        type: String(data.approval_kind || 'plan') as 'plan' | 'action',
-        approvalId: String(data.approval_id || ''),
-        runId: String(data.run_id || ''),
-        title: String(data.title || '修复审批'),
-        description: String(data.description || ''),
+        type: textField(data, 'approval_kind', 'plan') as RemediationApproval['type'],
+        approvalId: textField(data, 'approval_id'),
+        runId: textField(data, 'run_id'),
+        title: textField(data, 'title', '修复审批'),
+        description: textField(data, 'description'),
         payload: data.payload as Record<string, unknown> | undefined,
         requestedAt: now,
         expiresAt: typeof data.expires_at === 'number' && typeof data.server_time === 'number'
@@ -366,13 +367,13 @@ export function transitionChatEvent(
       break
     }
 
-    case 'remediation_tool_start':
-    case 'remediation_tool_result': {
+    case SSE_EVENT.REMEDIATION_TOOL_START:
+    case SSE_EVENT.REMEDIATION_TOOL_RESULT: {
       const result = {
         key: [data.run_id, data.group_id, data.action_id, data.stage].join(':'),
-        groupId: String(data.group_id || ''), actionId: String(data.action_id || ''),
-        stage: String(data.stage || ''), command: String(data.command || ''),
-        status: String(data.status || ''), result: String(data.result_preview || ''),
+        groupId: textField(data, 'group_id'), actionId: textField(data, 'action_id'),
+        stage: textField(data, 'stage'), command: textField(data, 'command'),
+        status: textField(data, 'status'), result: textField(data, 'result_preview'),
         truncated: data.result_truncated === true,
       }
       queueMessageUpdate(prev => prev.map(m => m.id === assistantId ? {
@@ -381,11 +382,11 @@ export function transitionChatEvent(
       break
     }
 
-    case 'remediation_finished': {
+    case SSE_EVENT.REMEDIATION_FINISHED: {
       if (!shouldProcessRemediation(requestEndpointMode)) break
-      const finRunId = String(data.run_id || '')
-      const finStatus = String(data.status || 'completed')
-      const finReason = String(data.reason || '')
+      const finRunId = textField(data, 'run_id')
+      const finStatus = textField(data, 'status', 'completed')
+      const finReason = textField(data, 'reason')
       queueMessageUpdate(prev =>
         prev.map(m =>
           m.id === assistantId

@@ -18,7 +18,7 @@ interface RemediationApprovalCardProps {
   /** Monotonic marker incremented when an SSE event arrives */
   activitySeq: number
   /** Called when user clicks approve or reject */
-  onRespond: (approvalId: string, approved: boolean, reason?: string) => void
+  onRespond: (approvalId: string, approved: boolean, reason?: string) => Promise<void>
 }
 
 export default function RemediationApprovalCard({

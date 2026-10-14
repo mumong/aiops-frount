@@ -110,7 +110,7 @@ export default function BotMessage({
                     onRespond={(approvalId, approved, reason) => {
                       const runId = ra.runId || message.runId
                       if (onRemediationRespond && runId) {
-                        return onRemediationRespond(runId, approvalId, approved, reason)
+                        return onRemediationRespond(runId, approvalId, approved, reason).then(() => undefined)
                       }
                       return Promise.reject(new Error('runId或审批回调未就绪'))
                     }}

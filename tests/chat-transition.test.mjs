@@ -6,6 +6,7 @@ const server = await createServer({ configFile: false, appType: 'custom', logLev
 after(() => server.close())
 
 const { transitionChatEvent } = await server.ssrLoadModule('/src/components/aiops-chat/chatEventTransition.ts')
+const { textField, trimmedField } = await server.ssrLoadModule('/src/components/aiops-chat/sseEvents.ts')
 
 function makeReplay() {
   let state = { nodeBlocks: [], parallelGroups: [], textBuffer: '', toolIdCounter: 0 }
@@ -118,4 +119,15 @@ test('transition clocks and queued updates are deterministic and preserve unrela
   assert.equal(updated[1].content, 'report')
   assert.equal(updated[1].remediationApprovals[0].expiresAt, 10123)
   assert.deepEqual(approval.messageUpdates.reduce((value, update) => update(value), messages), updated)
+})
+
+test('typed payload accessors keep the String(a || b || fallback) coercion semantics', () => {
+  const data = { empty: '', zero: 0, flag: false, num: 3, name: 'n', id: '  x  ' }
+  assert.equal(textField(data, 'missing'), '')
+  assert.equal(textField(data, 'zero', 'fb'), 'fb')
+  assert.equal(textField(data, 'flag'), '')
+  assert.equal(textField(data, 'num'), '3')
+  assert.equal(textField(data, ['empty', 'name']), 'n')
+  assert.equal(textField(data, ['empty', 'zero'], 'running'), 'running')
+  assert.equal(trimmedField(data, 'id'), 'x')
 })

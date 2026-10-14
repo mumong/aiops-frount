@@ -1,99 +1,4 @@
-/** SSE events from the robusta backend */
-export type SSEEvent = 
-  | RunStartEvent
-  | NodeStartEvent
-  | ThinkingEvent
-  | HeartbeatEvent
-  | NodeCompleteEvent
-  | FinalEvent
-  | ErrorEvent
-  | RemediationApprovalEvent
-  | RemediationFinishedEvent
-
-export interface RunStartEvent {
-  type: 'run_start'
-  run_id: string
-}
-
-export interface NodeStartEvent {
-  type: 'node_start'
-  node: string
-  node_name: string
-}
-
-export interface ThinkingEvent {
-  type: 'thinking'
-  node: string
-  node_name?: string
-  thinking_type: 'ai_message' | 'ai_token' | 'tool_start' | 'tool_result' | 'iteration_end'
-  content?: string
-  tool_name?: string
-  status?: string
-  result_preview?: string
-  result?: string
-  tool_call_id?: string
-  tool_sequence?: number
-  semantic_success?: boolean
-  raw_ref?: string
-  structured_ref?: string
-  summary_ref?: string
-  evidence_context?: {
-    contract_version?: string
-    group_id: string
-    entity?: EvidenceEntity
-    dimension?: EvidenceDimension
-    source_system?: string
-  }
-  iteration?: number
-}
-
-export interface HeartbeatEvent {
-  type: 'heartbeat'
-  node: string
-}
-
-export interface NodeCompleteEvent {
-  type: 'node_complete'
-  node: string
-  node_name?: string
-  duration_seconds?: number
-  state_snapshot?: Record<string, unknown>
-  handoff_summary?: string
-}
-
-export interface FinalEvent {
-  type: 'final'
-  answer?: string
-  metrics?: Record<string, unknown>
-  elapsed_seconds?: number
-}
-
-export interface ErrorEvent {
-  type: 'error'
-  error: string
-}
-
-/** Remediation approval request (sent by backend when human approval is needed) */
-export interface RemediationApprovalEvent {
-  expires_at?: number
-  server_time?: number
-  type: 'remediation_approval_required'
-  approval_kind: 'plan' | 'action'
-  approval_id: string
-  run_id: string
-  title: string
-  description?: string
-  /** Optional payload describing the action to be taken (for approval_kind=action) */
-  payload?: Record<string, unknown>
-}
-
-/** Remediation workflow finished */
-export interface RemediationFinishedEvent {
-  type: 'remediation_finished'
-  run_id: string
-  status: string
-  reason?: string
-}
+import { NODE_ID, type NodeId } from './sseEvents'
 
 /** Remediation workflow terminal status stored per message */
 export interface RemediationStatus {
@@ -277,14 +182,11 @@ export interface NodeBlock {
 
 /** Per-node label mapping */
 export const NODE_LABELS: Record<string, string> = {
-  request_router: '任务理解',
-  query_collect: '自主查询与分析',
-  layer: '📍 问题定位',
-  evidence: '🔍 证据采集',
-  parallel_evidence: '⚡ 并发证据采集',
-  rca: '🎯 根因分析',
-  conclusion: '📋 汇总总结',
-}
-
-/** Node order for display */
-export const NODE_ORDER = ['layer', 'parallel_evidence', 'evidence', 'rca', 'conclusion']
+  [NODE_ID.REQUEST_ROUTER]: '任务理解',
+  [NODE_ID.QUERY_COLLECT]: '自主查询与分析',
+  [NODE_ID.LAYER]: '📍 问题定位',
+  [NODE_ID.EVIDENCE]: '🔍 证据采集',
+  [NODE_ID.PARALLEL_EVIDENCE]: '⚡ 并发证据采集',
+  [NODE_ID.RCA]: '🎯 根因分析',
+  [NODE_ID.CONCLUSION]: '📋 汇总总结',
+} satisfies Record<NodeId, string>
