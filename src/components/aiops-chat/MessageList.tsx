@@ -5,6 +5,8 @@ import UserMessage from './UserMessage'
 import BotMessage from './BotMessage'
 import styles from './MessageList.module.css'
 
+const NO_NODE_BLOCKS: NodeBlock[] = []
+
 interface MessageListProps {
   apiBase?: string
   onRepairBatchCreated?: (messageId: string, batchId: string) => void
@@ -76,8 +78,9 @@ export default function MessageList({
           <div className={styles.emptyNote}><ShieldCheck size={14} />修复操作须经你审批后执行</div>
         </div>
       )}
-      {messages.map((msg, idx) => (
-        msg.role === 'user'
+      {messages.map((msg, idx) => {
+        const isLatest = idx === messages.length - 1
+        return msg.role === 'user'
           ? <UserMessage key={msg.id} content={msg.content} />
           : (
             <BotMessage
@@ -85,25 +88,18 @@ export default function MessageList({
               onRepairBatchCreated={onRepairBatchCreated}
               key={msg.id}
               message={msg}
-              nodeBlocks={
-                idx === messages.length - 1
-                  ? nodeBlocks
-                  : msg.nodeBlocks ?? []
-              }
-              finalAnswer={
-                idx === messages.length - 1
-                  ? finalAnswer
-                  : msg.content
-              }
-              isLatest={idx === messages.length - 1}
+              nodeBlocks={isLatest ? nodeBlocks : msg.nodeBlocks ?? NO_NODE_BLOCKS}
+              finalAnswer={isLatest ? finalAnswer : msg.content}
+              isLatest={isLatest}
               streamActive={streamActive}
-              activitySeq={activitySeq}
+              // Only the latest message consumes stream activity; history stays memoized.
+              activitySeq={isLatest ? activitySeq : 0}
               onRemediationRespond={onRemediationRespond}
               onRequestRepair={onRequestRepair}
               onReviseRepair={onReviseRepair}
             />
           )
-      ))}
+      })}
       <div ref={bottomRef} />
       {showLatest && <button className={styles.jumpLatest} type="button" onClick={() => {
         isNearBottomRef.current = true

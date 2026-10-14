@@ -1,5 +1,5 @@
 import type { ChatMessage, NodeBlock, SSEMessage, RemediationApproval, EndpointMode, ParallelEvidenceGroup } from './types'
-import { parseRemediationApprovalText, toRemediationApproval } from './remediationParsing'
+import { chunkAddsRemediationMarker, hasRemediationApprovalMarker, parseRemediationApprovalText, toRemediationApproval } from './remediationParsing'
 import { shouldProcessRemediation } from './chatRequestPolicy'
 import { applyNodeThinkingEvent, mergeAnalysisStream, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
 import { presentToolEvent } from './toolPresentation'
@@ -22,12 +22,16 @@ export interface ChatEventState {
   parallelGroups: ParallelEvidenceGroup[]
   textBuffer: string
   toolIdCounter: number
+  /** textBuffer contains an approval marker; until then text chunks skip approval parsing. */
+  approvalMarkerSeen?: boolean
 }
 
 export interface ChatEventTransition extends ChatEventState {
   messageUpdates: Array<(messages: ChatMessage[]) => ChatMessage[]>
   finalAnswer?: string
   streaming?: boolean
+  /** A final/error event was applied: render immediately instead of waiting for a frame. */
+  terminal?: boolean
 }
 
 function mirrorParallelEvidence(
@@ -59,6 +63,8 @@ export function transitionChatEvent(
   let parallelGroups = state.parallelGroups
   let textBuffer = state.textBuffer
   let toolIdCounter = state.toolIdCounter
+  let approvalMarkerSeen = state.approvalMarkerSeen ?? false
+  let terminal = false
   const messageUpdates: ChatEventTransition['messageUpdates'] = []
   let finalAnswer: string | undefined
   let streaming: boolean | undefined
@@ -73,9 +79,11 @@ export function transitionChatEvent(
     parallelGroups,
     textBuffer,
     toolIdCounter,
+    approvalMarkerSeen,
     messageUpdates,
     ...(finalAnswer !== undefined ? { finalAnswer } : {}),
     ...(streaming !== undefined ? { streaming } : {}),
+    ...(terminal ? { terminal } : {}),
   })
 
   const upsertRemediationApproval = (assistantId: string, approval: RemediationApproval) => {
@@ -106,6 +114,9 @@ export function transitionChatEvent(
   }
 
   const appendTextStreamChunk = (assistantId: string, chunk: string, endpointMode: EndpointMode) => {
+    // The parser returns null without a marker, so skipping it until one has
+    // streamed in avoids re-scanning the whole growing text on every token.
+    approvalMarkerSeen ||= chunkAddsRemediationMarker(textBuffer, chunk)
     textBuffer += chunk
     const nextContent = textBuffer
     setFinalAnswer(nextContent)
@@ -116,7 +127,7 @@ export function transitionChatEvent(
           : m
       )
     )
-    parseAndShowTextApproval(assistantId, nextContent, endpointMode)
+    if (approvalMarkerSeen) parseAndShowTextApproval(assistantId, nextContent, endpointMode)
   }
 
   if (msg.event === TRANSPORT_EVENT.TEXT) {
@@ -314,6 +325,8 @@ export function transitionChatEvent(
       const answer = textField(data, 'answer')
       setFinalAnswer(answer)
       textBuffer = answer
+      approvalMarkerSeen = hasRemediationApprovalMarker(answer)
+      terminal = true
       // Take a snapshot of current nodeBlocks and store them on the message
       // so they survive when the next message is sent
       const snapshot = nodeBlocks
@@ -347,6 +360,7 @@ export function transitionChatEvent(
         )
       )
       setIsStreaming(false)
+      terminal = true
       break
     }
 

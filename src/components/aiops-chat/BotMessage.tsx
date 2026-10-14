@@ -7,7 +7,7 @@ import RunProgress from './RunProgress'
 import RouteCard from './RouteCard'
 import { visibleNarrative } from './handoffPresentation'
 import styles from './MessageList.module.css'
-import { useRef } from 'react'
+import { memo, useRef } from 'react'
 import { Box, ArrowDown, FileText, CircleAlert, CheckCircle2, ShieldCheck, Ban } from 'lucide-react'
 import CopyButton from './CopyButton'
 import CodeBlock from './CodeBlock'
@@ -29,7 +29,7 @@ interface BotMessageProps {
   onRemediationRespond?: (runId: string, approvalId: string, approved: boolean, reason?: string) => Promise<unknown>
 }
 
-export default function BotMessage({
+function BotMessage({
   apiBase,
   onRepairBatchCreated,
   message,
@@ -163,6 +163,9 @@ export default function BotMessage({
     </div>
   )
 }
+
+// History messages keep stable props while the latest one streams.
+export default memo(BotMessage)
 
 function RemediationStatusCard({ status }: { status: NonNullable<ChatMessage['remediationStatus']> }) {
   const presentation = getRemediationStatusPresentation(status)

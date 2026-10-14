@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { memo, useState, useEffect } from 'react'
 import { NODE_LABELS, type NodeBlock } from './types'
 import { NODE_ID } from './sseEvents'
 import StructuredContent from './StructuredContent'
@@ -9,7 +9,9 @@ import styles from './MessageList.module.css'
 import { LoaderCircle, CheckCircle2, CircleStop, CircleX, ChevronDown, ChevronRight, Wrench, ScanText, CornerDownRight } from 'lucide-react'
 
 /** Collapsible card for a single workflow node */
-export default function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean }) {
+export default memo(NodeBlockCard)
+
+function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean }) {
   const [expanded, setExpanded] = useState(true)
   const label = (NODE_LABELS[block.nodeId] || block.nodeName).replace(/^[^\p{L}\p{N}]+/u, '')
   const isRunning = block.status === 'running'

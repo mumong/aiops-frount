@@ -16,9 +16,23 @@ function cleanToken(value: string | undefined): string {
   return String(value || '').trim().replace(/[)"'，。]+$/g, '')
 }
 
+/** Text that must be present before an approval can be parsed from a report. */
+export const REMEDIATION_TEXT_MARKERS = ['修复审批中断', '/remediation/approve'] as const
+const MAX_MARKER_LENGTH = Math.max(...REMEDIATION_TEXT_MARKERS.map(marker => marker.length))
+
+export function hasRemediationApprovalMarker(text: string): boolean {
+  return REMEDIATION_TEXT_MARKERS.some(marker => text.includes(marker))
+}
+
+/** Whether appending `chunk` to `previous` introduced a marker, scanning only the seam. */
+export function chunkAddsRemediationMarker(previous: string, chunk: string): boolean {
+  const seam = previous.slice(Math.max(0, previous.length - MAX_MARKER_LENGTH + 1)) + chunk
+  return hasRemediationApprovalMarker(seam)
+}
+
 export function parseRemediationApprovalText(text: string): ParsedRemediationApproval | null {
   const value = String(text || '')
-  if (!value.includes('修复审批中断') && !value.includes('/remediation/approve')) {
+  if (!hasRemediationApprovalMarker(value)) {
     return null
   }
 

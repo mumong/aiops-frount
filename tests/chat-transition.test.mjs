@@ -131,3 +131,51 @@ test('typed payload accessors keep the String(a || b || fallback) coercion seman
   assert.equal(textField(data, ['empty', 'zero'], 'running'), 'running')
   assert.equal(trimmedField(data, 'id'), 'x')
 })
+
+const { parseRemediationApprovalText } = await server.ssrLoadModule('/src/components/aiops-chat/remediationParsing.ts')
+
+// Reference for the pre-optimisation behaviour: parse the whole buffer after every chunk.
+function legacyTextApprovals(chunks) {
+  let text = ''
+  let approvals = []
+  for (const chunk of chunks) {
+    text += chunk
+    const parsed = parseRemediationApprovalText(text)
+    if (!parsed) continue
+    const approval = { ...parsed, requestedAt: 1234 }
+    const index = approvals.findIndex(item => item.approvalId === approval.approvalId)
+    approvals = index >= 0 ? approvals.map((item, i) => i === index ? { ...item, ...approval } : item) : [...approvals, approval]
+  }
+  return approvals
+}
+
+test('gated text approval parsing yields the same approvals as parsing every chunk', () => {
+  const report = '诊断完成。\n修复审批中断\n审批类型：action\n标题：重启 Pod\n'
+    + 'curl -X POST http://h/remediation/approve -d run_id=run-1 -d approval_id=appr-1 -d approved=true\n尾部说明'
+  for (const size of [1, 2, 3, 5, 8, 13, 400]) {
+    const chunks = []
+    for (let i = 0; i < report.length; i += size) chunks.push(report.slice(i, i + size))
+    const replay = makeReplay()
+    let result
+    for (const chunk of chunks) result = replay.event('text', chunk)
+    assert.equal(result.answer, report)
+    assert.deepEqual(result.messages[0].remediationApprovals ?? [], legacyTextApprovals(chunks), `chunk size ${size}`)
+  }
+})
+
+test('text without an approval marker never parses or records approvals', () => {
+  let state = { nodeBlocks: [], parallelGroups: [], textBuffer: '', toolIdCounter: 0 }
+  for (const chunk of ['run_id=a ', 'approval_id=b ', '/remediation', '-other']) {
+    state = transitionChatEvent(state, { event: 'text', data: chunk }, 'msg-1', 'ask', 1)
+    assert.equal(state.approvalMarkerSeen, false)
+    assert.equal(state.messageUpdates.length, 1)
+  }
+})
+
+test('final and error transitions are flagged terminal for immediate rendering; streaming events are not', () => {
+  const base = { nodeBlocks: [], parallelGroups: [], textBuffer: '', toolIdCounter: 0 }
+  const token = transitionChatEvent(base, { event: 'thinking', data: JSON.stringify({ node: 'x', thinking_type: 'ai_token', content: 't' }) }, 'm', 'ask', 1)
+  assert.equal(token.terminal, undefined)
+  assert.equal(transitionChatEvent(base, { event: 'final', data: '{"answer":"a"}' }, 'm', 'ask', 1).terminal, true)
+  assert.equal(transitionChatEvent(base, { event: 'message', data: '{"type":"error","error":"e"}' }, 'm', 'ask', 1).terminal, true)
+})
