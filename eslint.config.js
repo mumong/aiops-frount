@@ -4,19 +4,13 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**'],
+    ignores: ['dist/**', 'node_modules/**', 'skills/**', 'agents/**', 'commands/**', 'hooks/**', 'artifacts/**'],
   },
   {
     ...eslint.configs.recommended,
     files: ['**/*.{js,mjs}'],
     languageOptions: {
       globals: globals.node,
-    },
-  },
-  {
-    files: ['skills/**/*.js'],
-    languageOptions: {
-      globals: globals.browser,
     },
   },
   ...tseslint.configs.recommended.map(config => ({

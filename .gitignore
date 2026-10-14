@@ -7,3 +7,12 @@ dist/
 .DS_Store
 .superpowers/
 .deepseek/
+
+# Local AI-tooling files (not part of the app)
+/skills/
+/agents/
+/commands/
+/hooks/
+/artifacts/
+/example.txt
+/CLAUDE.md
