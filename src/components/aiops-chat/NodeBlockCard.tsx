@@ -54,9 +54,11 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
         <span className={styles.nodeToggle}>{showBody ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</span>
       </button>
 
-      {isRunning && <div className={styles.nodeSection} role="status" aria-live="polite">
-        {phase}（本阶段已用 {waitSeconds} 秒）
-        {waitSeconds >= 15 && '。暂未收到下一阶段结果，不代表工具失败。'}
+      {/* Only phase changes are announced; the per-second counter stays outside live regions. */}
+      {isRunning && <div className={styles.nodeSection}>
+        <span role="status">{phase}</span>
+        <span>（本阶段已用 {waitSeconds} 秒）</span>
+        {waitSeconds >= 15 && <span role="status">。暂未收到下一阶段结果，不代表工具失败。</span>}
       </div>}
 
       {/* Expandable body */}

@@ -52,3 +52,14 @@ test('interrupted messages keep stopped stages and show a connection-lost alert'
   }))
   assert.doesNotMatch(stopped, /连接中断/)
 })
+
+test('running stage announces its phase but keeps the per-second timer out of live regions', () => {
+  const html = renderToStaticMarkup(React.createElement(BotMessage, {
+    message: {id: 'one', role: 'assistant', content: '', status: 'streaming'},
+    nodeBlocks: [{nodeId: 'evidence', nodeName: 'Evidence', status: 'running', thinkingTokens: '', toolCalls: [],
+      runtimeStatus: {text: '正在查询指标', status: 'running', at: 1}}],
+    finalAnswer: '', isLatest: true, streamActive: true, activitySeq: 0,
+  }))
+  assert.match(html, /<span role="status">正在查询指标<\/span><span>（本阶段已用 0 秒）<\/span>/)
+  assert.doesNotMatch(html, /aria-live="polite"[^>]*>[^<]*本阶段已用/)
+})
