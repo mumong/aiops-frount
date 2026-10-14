@@ -1,8 +1,10 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { ChatSession, ChatMessage, NodeBlock, EndpointMode } from '../components/aiops-chat/types'
 import { newChatSessionId } from '../components/aiops-chat/chatRequestPolicy'
 
 const STORAGE_KEY = 'aiops_chat_sessions'
+const MAX_PERSISTED_SESSIONS = 20
+const SAVE_DEBOUNCE_MS = 500
 
 function loadSessions(): ChatSession[] {
   try {
@@ -16,13 +18,23 @@ function loadSessions(): ChatSession[] {
   }
 }
 
-function saveSessions(sessions: ChatSession[]) {
+/** Keep the most recently updated sessions (ties favour later entries), preserving stored order. */
+export function selectPersistedSessions(sessions: ChatSession[], limit = MAX_PERSISTED_SESSIONS): ChatSession[] {
+  if (sessions.length <= limit) return sessions
+  const keep = new Set(sessions
+    .map((session, index) => ({ session, index }))
+    .sort((a, b) => (b.session.updatedAt - a.session.updatedAt) || (b.index - a.index))
+    .slice(0, limit)
+    .map(entry => entry.session))
+  return sessions.filter(session => keep.has(session))
+}
+
+export function saveSessions(sessions: ChatSession[]) {
   try {
-    // Only keep last 20 sessions to avoid localStorage limit
-    const trimmed = sessions.slice(-20)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
-  } catch {
-    // localStorage full or unavailable – silently skip
+    // Bounded to avoid the localStorage quota.
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(selectPersistedSessions(sessions)))
+  } catch (error) {
+    console.warn('[chat-history] 会话未能保存到 localStorage（可能超出配额）', error)
   }
 }
 
@@ -30,10 +42,35 @@ export function useChatHistory() {
   const [sessions, setSessions] = useState<ChatSession[]>(() => loadSessions())
   const [activeId, setActiveId] = useState<string>(() => newChatSessionId())
 
-  // Persist on change
+  // Streaming saves many snapshots per second: debounce writes, flush on leave/unmount.
+  const pendingSaveRef = useRef<ChatSession[] | null>(null)
+  const saveTimerRef = useRef<number | null>(null)
+  const cancelPendingSave = useCallback(() => {
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = null
+    pendingSaveRef.current = null
+  }, [])
+  const flushPendingSave = useCallback(() => {
+    const pending = pendingSaveRef.current
+    cancelPendingSave()
+    if (pending) saveSessions(pending)
+  }, [cancelPendingSave])
+
   useEffect(() => {
-    saveSessions(sessions)
-  }, [sessions])
+    pendingSaveRef.current = sessions
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = window.setTimeout(flushPendingSave, SAVE_DEBOUNCE_MS)
+  }, [sessions, flushPendingSave])
+
+  useEffect(() => {
+    window.addEventListener('beforeunload', flushPendingSave)
+    window.addEventListener('pagehide', flushPendingSave)
+    return () => {
+      window.removeEventListener('beforeunload', flushPendingSave)
+      window.removeEventListener('pagehide', flushPendingSave)
+      flushPendingSave()
+    }
+  }, [flushPendingSave])
 
   /** Start a brand-new blank session */
   const newSession = useCallback(() => {
@@ -86,27 +123,20 @@ export function useChatHistory() {
 
   /** Delete a session */
   const deleteSession = useCallback((id: string) => {
-    setSessions(prev => {
-      const filtered = prev.filter(s => s.id !== id)
-      if (activeId === id) {
-        setActiveId(filtered.length > 0 ? filtered[filtered.length - 1]!.id : newChatSessionId())
-      }
-      return filtered
-    })
-  }, [activeId])
+    setSessions(prev => prev.filter(s => s.id !== id))
+    if (activeId === id) {
+      const remaining = sessions.filter(s => s.id !== id)
+      setActiveId(remaining.length > 0 ? remaining[remaining.length - 1]!.id : newChatSessionId())
+    }
+  }, [activeId, sessions])
 
   /** Clear this browser's history and start a fresh session. */
   const clearSessions = useCallback(() => {
+    cancelPendingSave()
     setSessions([])
     setActiveId(newChatSessionId())
     saveSessions([])
-  }, [])
-
-  /** Get the currently active session data */
-  const getActiveSession = useCallback((): ChatSession | null => {
-    if (!activeId) return null
-    return sessions.find(s => s.id === activeId) || null
-  }, [activeId, sessions])
+  }, [cancelPendingSave])
 
   return {
     sessions,
@@ -116,6 +146,5 @@ export function useChatHistory() {
     loadSession,
     deleteSession,
     clearSessions,
-    getActiveSession,
   }
 }
