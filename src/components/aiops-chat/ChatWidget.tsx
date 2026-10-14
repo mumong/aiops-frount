@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import type { ChatSession } from './types'
 import { useChatHistory } from '../../hooks/useChatHistory'
 import Sidebar from './Sidebar'
@@ -16,7 +16,8 @@ export default function ChatWidget({ apiBase, title = 'k8s aiops', maxMessages =
   const history = useChatHistory()
   const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia('(max-width: 640px)').matches)
   const [runningSessions, setRunningSessions] = useState<Record<string, ChatSession>>({})
-  const drafts = useRef(new Map<string, string>())
+  // Mutable draft store shared with panels; not render state.
+  const [drafts] = useState(() => new Map<string, string>())
 
   const handleStart = useCallback((session: ChatSession) => {
     setRunningSessions(previous => ({ ...previous, [session.id]: session }))
@@ -30,8 +31,8 @@ export default function ChatWidget({ apiBase, title = 'k8s aiops', maxMessages =
     })
   }, [])
   const handleDraftChange = useCallback((id: string, text: string) => {
-    drafts.current.set(id, text)
-  }, [])
+    drafts.set(id, text)
+  }, [drafts])
   const handleLoadSession = (id: string) => {
     history.loadSession(id)
     if (window.matchMedia('(max-width: 640px)').matches) setSidebarOpen(false)
@@ -39,14 +40,14 @@ export default function ChatWidget({ apiBase, title = 'k8s aiops', maxMessages =
   const handleDeleteSession = (id: string) => {
     // Removing its panel also aborts only this session's transport.
     handleFinish(id)
-    drafts.current.delete(id)
+    drafts.delete(id)
     history.deleteSession(id)
   }
 
   const handleClearSessions = () => {
     // Unmount every old panel to disconnect streams and invalidate late callbacks.
     setRunningSessions({})
-    drafts.current.clear()
+    drafts.clear()
     history.clearSessions()
     if (window.matchMedia('(max-width: 640px)').matches) setSidebarOpen(false)
   }
@@ -64,7 +65,7 @@ export default function ChatWidget({ apiBase, title = 'k8s aiops', maxMessages =
         isOpen={sidebarOpen} onToggle={() => setSidebarOpen(open => !open)}
         runningIds={Object.keys(runningSessions)} />
       {mountedIds.map(id => <ChatSessionPanel key={id}
-        sessionId={id} initialSession={listed.get(id)} initialDraft={drafts.current.get(id) || ''}
+        sessionId={id} initialSession={listed.get(id)} initialDraft={drafts.get(id) || ''}
         active={id === history.activeId} apiBase={apiBase} title={title} maxMessages={maxMessages}
         onStart={handleStart} onFinish={handleFinish} onSave={history.saveSession}
         onDraftChange={handleDraftChange} />)}

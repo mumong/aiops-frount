@@ -13,13 +13,17 @@ interface MessageInputProps {
 }
 
 export default function MessageInput({ onSend, onStop, isStreaming, placeholder, draft, initialText = '', onTextChange }: MessageInputProps) {
-  const [text, setText] = useState(initialText)
+  const [text, setText] = useState(() => draft ? draft.text : initialText)
+  // A new draft object replaces the text (adjusting state during render, not in an effect).
+  const [appliedDraft, setAppliedDraft] = useState(draft)
+  if (draft !== appliedDraft) {
+    setAppliedDraft(draft)
+    if (draft) setText(draft.text)
+  }
   const inputRef = useRef<HTMLTextAreaElement>(null)
   useEffect(() => { onTextChange?.(text) }, [text, onTextChange])
   useLayoutEffect(() => {
-    if (!draft) return
-    setText(draft.text)
-    inputRef.current?.focus()
+    if (draft) inputRef.current?.focus()
   }, [draft])
   useLayoutEffect(() => {
     const input = inputRef.current

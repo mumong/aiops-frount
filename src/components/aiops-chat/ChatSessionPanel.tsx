@@ -86,18 +86,22 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
   const { connect, disconnect } = useSSE()
   // Stream events update the refs synchronously (snapshots and saves read them)
   // but render at most once per animation frame; terminal events flush at once.
-  const [frames] = useState(() => createFrameBatcher(() => {
-    setMessages(messagesRef.current)
-    setNodeBlocks(nodeBlocksRef.current)
-    setFinalAnswer(finalAnswerRef.current)
-    setSseActivitySeq(activitySeqRef.current)
-  }))
+  const framesRef = useRef<ReturnType<typeof createFrameBatcher> | null>(null)
+  const frames = useCallback(() => {
+    framesRef.current ??= createFrameBatcher(() => {
+      setMessages(messagesRef.current)
+      setNodeBlocks(nodeBlocksRef.current)
+      setFinalAnswer(finalAnswerRef.current)
+      setSseActivitySeq(activitySeqRef.current)
+    })
+    return framesRef.current
+  }, [])
 
   useEffect(() => () => {
     requestSequence.current += 1
-    frames.cancel()
+    framesRef.current?.cancel()
     disconnect()
-  }, [disconnect, frames])
+  }, [disconnect])
 
   const updateMessages = useCallback((update: (value: ChatMessage[]) => ChatMessage[]) => {
     const next = update(messagesRef.current)
@@ -117,7 +121,7 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
     onSave(sessionId, messagesRef.current, nodeBlocksRef.current, finalAnswerRef.current, 'ask')
   }, [onSave, sessionId])
   const finishRun = useCallback((releasePanel = true) => {
-    frames.flushNow()
+    frames().flushNow()
     streamingRef.current = false
     setIsStreaming(false)
     // Save synchronously by owner before an inactive panel is allowed to unmount.
@@ -141,8 +145,8 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
     approvalMarkerSeenRef.current = next.approvalMarkerSeen ?? false
     for (const update of next.messageUpdates) messagesRef.current = update(messagesRef.current)
     if (next.finalAnswer !== undefined) finalAnswerRef.current = next.finalAnswer
-    if (next.terminal) frames.flushNow()
-    else frames.request()
+    if (next.terminal) frames().flushNow()
+    else frames().request()
     // A final report can precede approval events; retain the panel until transport closes.
     if (next.streaming === false) finishRun(false)
     else if (!streamingRef.current) saveSnapshot()

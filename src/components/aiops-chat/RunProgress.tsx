@@ -3,23 +3,30 @@ import type { NodeBlock } from './types'
 import styles from './MessageList.module.css'
 
 export default function RunProgress({ blocks }: { blocks: NodeBlock[] }) {
-  const [now, setNow] = useState(() => Date.now())
-  const started = useRef(now)
-  const updated = useRef(now)
+  // Clock values are derived in the interval tick so render never reads refs.
+  const [clock, setClock] = useState({ idle: 0, elapsed: 0 })
+  const started = useRef(0)
+  const updated = useRef(0)
   // Heartbeats are not model progress. Only visible content/stage changes reset idle time.
   const signature = blocks.map(block => [block.nodeId, block.status, block.thinkingTokens,
     block.runtimeStatus?.text, block.handoffSummary,
     ...block.toolCalls.map(tool => `${tool.id}:${tool.status}`)].join('|')).join('\n')
   useEffect(() => { updated.current = Date.now() }, [signature])
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    started.current = Date.now()
+    const timer = window.setInterval(() => {
+      const now = Date.now()
+      setClock({
+        idle: Math.max(0, Math.floor((now - updated.current) / 1000)),
+        elapsed: Math.max(0, Math.floor((now - started.current) / 1000)),
+      })
+    }, 1000)
     return () => window.clearInterval(timer)
   }, [])
   const active = blocks.filter(block => block.status === 'running')
   const pending = active.reduce((count, block) => count + block.toolCalls.filter(tool => tool.status === 'running').length, 0)
   const runtime = active.find(block => block.runtimeStatus)?.runtimeStatus
-  const idle = Math.max(0, Math.floor((now - updated.current) / 1000))
-  const elapsed = Math.max(0, Math.floor((now - started.current) / 1000))
+  const { idle, elapsed } = clock
   const phase = runtime?.text || (pending ? `正在等待 ${pending} 个工具返回`
     : active.some(block => block.nodeId === 'request_router') ? '正在判断问题类型'
       : active.length ? '等待分析结果' : '已提交，等待响应')

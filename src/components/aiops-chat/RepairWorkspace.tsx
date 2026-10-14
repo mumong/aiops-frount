@@ -24,7 +24,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
   const [pendingText, setPendingText] = useState('')
   const [decisions, setDecisions] = useState<Record<string, string>>({})
   const [now, setNow] = useState(Date.now)
-  const clockOffset = useRef(0)
+  const [clockOffset, setClockOffset] = useState(0)
   const busy = useRef(false)
   const mounted = useRef(true)
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
   const decisionText = serverDecision === 'approved' ? '已批准，等待后端执行。'
     : serverDecision === 'rejected' ? '已拒绝，等待状态更新。'
     : decisions[approvalKey]
-  const remaining = shown?.approval ? Math.max(0, Math.ceil((shown.approval.expires_at * 1000 - now - clockOffset.current) / 1000)) : null
+  const remaining = shown?.approval ? Math.max(0, Math.ceil((shown.approval.expires_at * 1000 - now - clockOffset) / 1000)) : null
   useEffect(() => {
     if (!jobId || !shown?.status || !repairActive(shown.status)) return
     const timer = setInterval(() => setNow(Date.now()), 1000)
@@ -77,7 +77,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
         const result = await repairRequest<RepairJob>(apiBase, `/repair/jobs/${jobId}`, undefined, controller.signal)
         keepPolling = repairActive(result.status)
         if (!controller.signal.aborted) {
-          if (result.server_time) clockOffset.current = result.server_time * 1000 - Date.now()
+          if (result.server_time) setClockOffset(result.server_time * 1000 - Date.now())
           setJob(result)
         }
       } catch (e) {
@@ -138,7 +138,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
         <h4 className={styles.aiHeading}>{batch.groups.length > 1 ? `${current?.target?.label || shown.group_id} · ` : ''}AI 修复方案 · v{shown.version}</h4>
         <p>{shown.plan?.planning_error ? '规划未完成' : shown.status === 'planning' && shown.feedback ? '正在根据你的意见更新…' : repairStatus[shown.status] || shown.status}{shown.plan?.actions?.length ? shown.mode === 'auto' ? ' · 自动执行' : shown.mode === 'review' ? ' · 执行前需批准' : '' : ''}</p>
         {repairActive(shown.status) && shown.status_started_at && <small>
-          本阶段已等待 {Math.max(0, Math.floor((now + clockOffset.current) / 1000 - shown.status_started_at))} 秒
+          本阶段已等待 {Math.max(0, Math.floor((now + clockOffset) / 1000 - shown.status_started_at))} 秒
           {['queued', 'planning'].includes(shown.status) ? ' · 正在处理，无需重复提交' : ''}
         </small>}
         {shown.error && shown.error !== shown.plan?.planning_error?.message && <p role="alert">{shown.error}</p>}
