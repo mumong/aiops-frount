@@ -29,3 +29,17 @@ test('reads successful response; non-success does not count as approval', async 
     await assert.rejects(repairJson('/approve'), /expired/)
   } finally { global.fetch = original }
 })
+
+test('gateway HTML error pages yield a readable status error instead of a JSON parse error', async () => {
+  const original = global.fetch
+  try {
+    global.fetch = async () => new Response('<html><body>502 Bad Gateway</body></html>', {
+      status: 502, headers: { 'content-type': 'text/html' },
+    })
+    await assert.rejects(repairJson('/approve'), { message: '请求失败 (502)' })
+    global.fetch = async () => new Response('upstream timed out', { status: 504 })
+    await assert.rejects(repairJson('/approve'), { message: '请求失败 (504)' })
+    global.fetch = async () => new Response('<html>ok?</html>', { status: 200, headers: { 'content-type': 'text/html' } })
+    await assert.rejects(repairJson('/approve'), /响应格式无效 \(200\)/)
+  } finally { global.fetch = original }
+})
