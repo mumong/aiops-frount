@@ -25,16 +25,36 @@ test('SSE decoding preserves UTF-8 at every byte boundary and multiline data', (
   }
 })
 
-test('legacy SSE decoder ignores comments and fields without a space, including EOF event-only frames', () => {
-  assert.deepEqual(decode([new TextEncoder().encode(': comment\nevent: unused\n\ndata:no-space\n\ndata: value\n\nevent: tail')]), [
+test('comments, id and retry fields are ignored; data without a space is accepted; EOF event-only frames are dropped', () => {
+  assert.deepEqual(decode([new TextEncoder().encode(': comment\nid: 7\nretry: 1000\nevent: unused\n\ndata:no-space\n\ndata: value\n\nevent: tail')]), [
+    {event: 'message', data: 'no-space'},
     {event: 'message', data: 'value'},
   ])
 })
 
-test('legacy CRLF and incomplete UTF-8 behavior is retained rather than broadened during extraction', () => {
-  assert.deepEqual(decode([new TextEncoder().encode('event: tick\r\ndata: one\r\n\r\ndata: two\r\n\r\n')]), [
-    {event: 'tick', data: 'one\r\ntwo\r'},
+test('only a single leading space is stripped and field without colon is a bare name', () => {
+  assert.deepEqual(decode([new TextEncoder().encode('event:x\ndata:  two spaces\ndata\n\n')]), [
+    {event: 'x', data: ' two spaces\n'},
   ])
+})
+
+test('CRLF, CR and LF line endings are equivalent, including CRLF split across chunks', () => {
+  const expected = [{event: 'tick', data: 'one\ntwo'}, {event: 'message', data: 'three'}]
+  for (const eol of ['\n', '\r\n', '\r']) {
+    const bytes = new TextEncoder().encode(`event: tick${eol}data: one${eol}data: two${eol}${eol}data: three${eol}${eol}`)
+    for (let split = 0; split <= bytes.length; split++) {
+      assert.deepEqual(decode([bytes.slice(0, split), bytes.slice(split)]), expected, `eol=${JSON.stringify(eol)} split=${split}`)
+    }
+  }
+})
+
+test('an empty data buffer is not dispatched and the event type resets', () => {
+  assert.deepEqual(decode([new TextEncoder().encode('event: a\ndata:\n\ndata: b\n\n')]), [
+    {event: 'message', data: 'b'},
+  ])
+})
+
+test('incomplete UTF-8 at EOF is not flushed', () => {
   assert.deepEqual(decode([new Uint8Array([...new TextEncoder().encode('data: x'), 0xe4])]), [
     {event: 'message', data: 'x'},
   ])

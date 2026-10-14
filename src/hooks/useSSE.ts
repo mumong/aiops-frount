@@ -3,7 +3,8 @@ import { useRef, useCallback } from 'react'
 import { SSEMessage } from '../components/aiops-chat/types'
 
 /**
- * Consume a ReadableStream from fetch() as SSE events.
+ * GET `url?query` and consume the response body as SSE events
+ * (or as raw text chunks when the server does not reply with text/event-stream).
  * Returns an abort function.
  */
 export function useSSE() {
@@ -11,7 +12,7 @@ export function useSSE() {
 
   const connect = useCallback((
     url: string,
-    options: { method?: 'GET' | 'POST'; body?: URLSearchParams },
+    query: URLSearchParams | undefined,
     onEvent: (msg: SSEMessage) => void,
     onError: (err: Error) => void,
     onComplete: () => void,
@@ -24,10 +25,7 @@ export function useSSE() {
     const controller = new AbortController()
     abortRef.current = controller
 
-    const params = options.body
-      ? options.body.toString()
-      : undefined
-
+    const params = query?.toString()
     const fetchUrl = params ? `${url}?${params}` : url
 
     const run = async () => {

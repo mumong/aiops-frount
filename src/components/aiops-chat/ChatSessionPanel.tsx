@@ -157,7 +157,7 @@ export default function ChatSessionPanel({ sessionId, initialSession, initialDra
     const params = buildChatRequestParams(question, requestEndpointMode, sessionId, source || repairSourceRef.current)
     repairSourceRef.current = undefined
     setEditingPlan(null)
-    connect(`${apiBase}/${requestEndpointMode}`, { method: 'GET', body: params },
+    connect(`${apiBase}/${requestEndpointMode}`, params,
       msg => {
         if (requestId !== requestSequence.current) return
         handleSSEEvent(msg, assistantMsg.id, requestEndpointMode)
