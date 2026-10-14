@@ -194,6 +194,7 @@ test('same-name results returned out of order map to exact Pod groups', async ()
     'OBSERVABILITY_QUERY={"source_system":"prometheus","dimension":"metrics"}\n' +
       'ENTITY={"kind":"Pod","namespace":"aiops-case-03","name":"workload-5b5fc86c8c-qg8k6"}\nresult-two',
     '{"sequence":2}',
+    undefined, { evidenceContext: { groupId: groups[1].groupId, dimension: 'metrics', entity: groups[1].entities[0] } },
   )
   state = finishParallelTool(
     state,
@@ -202,6 +203,7 @@ test('same-name results returned out of order map to exact Pod groups', async ()
     'OBSERVABILITY_QUERY={"source_system":"prometheus","dimension":"metrics"}\n' +
       'ENTITY={"kind":"Pod","namespace":"aiops-case-01","name":"workload-68c557d875-q7xwh"}\nresult-one',
     '{"sequence":1}',
+    undefined, { evidenceContext: { groupId: groups[0].groupId, dimension: 'metrics', entity: groups[0].entities[0] } },
   )
 
   assert.equal(state.groups[0].results.length, 1)
@@ -537,6 +539,7 @@ test('failed unmatched result remains visible and does not replace group evidenc
       'ENTITY={"kind":"Pod","namespace":"aiops-case-06","name":"workload-7679bcf76-tbg7w"}',
     '{"success":true}',
     'result-success',
+    { evidenceContext: { groupId: groups[2].groupId, dimension: 'logging', entity: groups[2].entities[0] } },
   )
   state = finishParallelTool(
     state,
@@ -579,6 +582,7 @@ test('dimension counts remain independent and state is serializable', async () =
       'success',
       `OBSERVABILITY_QUERY={"dimension":"${dimension}"}\n${target}`,
       `{"dimension":"${dimension}"}`,
+      undefined, { evidenceContext: { groupId: groups[2].groupId, dimension, entity: groups[2].entities[0] } },
     )
   }
 
@@ -591,6 +595,15 @@ test('dimension counts remain independent and state is serializable', async () =
     other: 0,
   })
   assert.deepEqual(JSON.parse(JSON.stringify(state)), state)
+})
+
+test('unstructured Pod text cannot assign evidence to a group', async () => {
+  const {createParallelEvidenceState, extractParallelEvidenceGroups, finishParallelTool} = await loadModel()
+  const groups = extractParallelEvidenceGroups({layer_analysis:JSON.stringify({abnormal_groups:realGroups})})
+  const state = finishParallelTool(createParallelEvidenceState(groups), 'kubectl_describe', 'success',
+    `name: ${groups[0].entities[0].name}\nnamespace: ${groups[0].entities[0].namespace}`, '{}')
+  assert.equal(state.unassignedResults.length, 1)
+  assert.equal(state.groups[0].results.length, 0)
 })
 
 test('completion preserves unfinished tools instead of inventing success', async () => {

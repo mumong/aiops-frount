@@ -13,6 +13,7 @@ import CopyButton from './CopyButton'
 import CodeBlock from './CodeBlock'
 import RepairWorkspace from './RepairWorkspace'
 import RepairPlanContent from './RepairPlanContent'
+import DiagnosisResults from './DiagnosisResults'
 
 interface BotMessageProps {
   apiBase?: string
@@ -90,7 +91,7 @@ export default function BotMessage({
             {displayedAnswer && (message.status === 'complete' || isStreaming) ? (
               <section className={styles.botBubble} ref={answerRef} aria-label="诊断结论">
                 <div className={styles.answerHeading}><span><FileText size={15} />{isStreaming ? '正在生成结果' : '检查结果'}</span><CopyButton text={displayedAnswer} label="复制报告" /></div>
-                {message.repairPlan ? <details><summary>查看完整规划说明</summary>
+                {message.diagnosisCases?.length ? <DiagnosisResults message={message} /> : message.repairPlan ? <details><summary>查看完整规划说明</summary>
                   <MarkdownReport content={displayedAnswer} />
                 </details> : <MarkdownReport content={displayedAnswer} />}
               </section>

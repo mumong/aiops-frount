@@ -298,7 +298,7 @@ export function finishParallelTool(
   )
   const previewMetadata = parseParallelResultMetadata(toolName, resultPreview)
   const context = eventMetadata?.evidenceContext
-  const entity = context ? context.entity : previewMetadata.entity
+  const entity = context?.entity
   const dimension = context?.dimension || previewMetadata.dimension
   const sourceSystem = context?.sourceSystem || previewMetadata.sourceSystem
   let targetIndex = -1

@@ -19,6 +19,14 @@ async function loadStatusModule() {
   return import(`data:text/javascript;base64,${encoded}`)
 }
 
+test('error prose does not invent a safety rejection', async () => {
+  const { getRemediationStatusPresentation } = await loadStatusModule()
+  const result = getRemediationStatusPresentation({runId:'r', status:'failed',
+    reason:'invalid remediation plan: unsafe remediation command', finishedAt:1})
+  assert.equal(result.tone, 'failed')
+  assert.notEqual(result.label, '未进入修复审批')
+})
+
 test('unsafe remediation plan is presented as a blocked approval flow', async () => {
   const { getRemediationStatusPresentation } = await loadStatusModule()
 
@@ -27,6 +35,7 @@ test('unsafe remediation plan is presented as a blocked approval flow', async ()
       runId: 'run1',
       status: 'failed',
       reason: 'invalid remediation plan: unsafe remediation command: ssh root@node1 "iptables -L -n | grep ACCEPT"',
+      errorCode: 'invalid_remediation_plan',
       finishedAt: 1,
     }),
     {

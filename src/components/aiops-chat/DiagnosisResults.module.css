@@ -1,0 +1,11 @@
+.caseCard {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--border-color, #d9dee7);
+  border-radius: 8px;
+}
+.caseCard summary { cursor: pointer; }
+.caseCard summary span { margin-left: 12px; font-size: 12px; opacity: 0.75; }
+.caseCard summary p { margin: 8px 0 0; }
+.caseCard[open] summary p { display: none; }
+.caseCard[open] summary { padding-bottom: 10px; border-bottom: 1px solid var(--border-color, #d9dee7); }

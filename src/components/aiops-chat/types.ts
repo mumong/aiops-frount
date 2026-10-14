@@ -100,6 +100,7 @@ export interface RemediationStatus {
   runId: string
   status: string
   reason?: string
+  errorCode?: string
   finishedAt: number
 }
 
@@ -124,6 +125,16 @@ export interface SSEMessage {
 
 /** A single message in the chat */
 export interface ChatMessage {
+  diagnosisCases?: Array<{
+    group_id: string
+    execution_status: string
+    outcome?: string
+    summary: string
+    report: string
+    target?: { entities?: Array<{ namespace?: string; name: string; uid?: string }> }
+  }>
+  diagnosisOverview?: { text: string; failed: boolean; total: number; completed: number; partial: number }
+  diagnosisFooter?: string
   repairBatchId?: string
   repairRecord?: { run_id: string; kind: 'diagnosis' | 'plan'; source_run_id?: string | null }
   repairPlan?: {

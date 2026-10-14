@@ -9,10 +9,6 @@ export interface RemediationStatusPresentation {
   detail?: string
 }
 
-function isUnsafePlan(reason: string): boolean {
-  return reason.includes('invalid remediation plan') || reason.includes('unsafe remediation command')
-}
-
 export function getRemediationStatusPresentation(
   status: RemediationStatus,
 ): RemediationStatusPresentation {
@@ -29,7 +25,7 @@ export function getRemediationStatusPresentation(
     return { icon: '⚠️', label: '修复被安全检查阻止', tone: 'blocked', detail: reason }
   }
 
-  if (isUnsafePlan(reason)) {
+  if (status.errorCode === 'repair_command_denied' || status.errorCode === 'invalid_remediation_plan') {
     return {
       icon: '⚠️',
       label: '未进入修复审批',

@@ -323,6 +323,9 @@ export function transitionChatEvent(
                 resultStatus: data.status === 'partial' ? 'partial' as const : data.status === 'error' ? 'error' as const : 'success' as const,
                 repairRecord: data.repair_record as ChatMessage['repairRecord'],
                 repairPlan: data.repair_plan as ChatMessage['repairPlan'],
+                diagnosisCases: data.diagnosis_cases as ChatMessage['diagnosisCases'],
+                diagnosisOverview: data.diagnosis_overview as ChatMessage['diagnosisOverview'],
+                diagnosisFooter: data.diagnosis_footer as ChatMessage['diagnosisFooter'],
                 nodeBlocks: snapshot }
             : m
         )
@@ -393,6 +396,7 @@ export function transitionChatEvent(
                   runId: finRunId || m.runId || '',
                   status: finStatus,
                   reason: finReason,
+                  errorCode: typeof data.error_code === 'string' ? data.error_code : undefined,
                   finishedAt: now,
                 },
               }

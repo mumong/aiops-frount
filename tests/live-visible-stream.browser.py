@@ -1,12 +1,14 @@
 """Opt-in live read-only check. Does not create faults or approve repairs."""
 import argparse
 import json
+from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
 p = argparse.ArgumentParser()
 p.add_argument('--url', required=True)
 p.add_argument('--chromium', required=True)
 p.add_argument('--live', action='store_true', required=True)
+p.add_argument('--output-dir', type=Path)
 p.add_argument('--question', default='请只读检查 aiops 命名空间当前 Pod 是否就绪，并说明查询依据；不扩大范围，不进行修复或资源变更。')
 args = p.parse_args()
 with sync_playwright() as driver:
@@ -49,6 +51,10 @@ with sync_playwright() as driver:
     page.screenshot(path='/tmp/live-visible-stream-early.png', full_page=True)
     page.wait_for_function("window.capturedEvents.some(e=>['final','error'].includes(e.data.type))", timeout=240000)
     events = page.evaluate('window.capturedEvents')
+    if args.output_dir:
+        args.output_dir.mkdir(parents=True, exist_ok=True)
+        (args.output_dir / 'events.json').write_text(json.dumps(events, ensure_ascii=False))
+        (args.output_dir / 'early.json').write_text(json.dumps(early, ensure_ascii=False))
     kinds = [e['data'].get('type') for e in events]
     assert 'error' not in kinds, [e['data'] for e in events if e['data'].get('type')=='error']
     assert 'final' in kinds
