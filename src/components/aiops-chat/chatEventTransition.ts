@@ -4,7 +4,7 @@ import { shouldProcessRemediation } from './chatRequestPolicy'
 import { applyNodeThinkingEvent, mergeAnalysisStream, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
 import { presentToolEvent } from './toolPresentation'
 import { presentRoute } from './routePresentation'
-import { NODE_ID, SSE_EVENT, THINKING_TYPE, TRANSPORT_EVENT, textField, trimmedField, type SSEPayload } from './sseEvents'
+import { NODE_ID, SSE_EVENT, THINKING_TYPE, TRANSPORT_EVENT, isModelErrorCode, textField, trimmedField, type SSEPayload } from './sseEvents'
 import {
   completeParallelEvidence,
   applyParallelOutcomes,
@@ -371,14 +371,29 @@ export function transitionChatEvent(
     case SSE_EVENT.ERROR: {
       updateNodeBlocks(prev => settleNodeBlocks(prev, 'stopped'))
       const errorMsg = textField(data, 'error', '未知错误')
-      setFinalAnswer(`❌ ${errorMsg}`)
-      queueMessageUpdate(prev =>
-        prev.map(m =>
-          m.id === assistantId
-            ? { ...m, status: 'error' as const, content: `❌ ${errorMsg}` }
-            : m
+      const errorCode = textField(data, 'error_code')
+      if (isModelErrorCode(errorCode)) {
+        // The model/gateway failed, not the workflow: keep the progress visible
+        // and explain the failure instead of replacing the message with an error.
+        const blocks = nodeBlocks
+        setFinalAnswer('')
+        queueMessageUpdate(prev =>
+          prev.map(m =>
+            m.id === assistantId
+              ? { ...m, status: 'complete' as const, nodeBlocks: blocks, modelFailure: { code: errorCode, message: errorMsg } }
+              : m
+          )
         )
-      )
+      } else {
+        setFinalAnswer(`❌ ${errorMsg}`)
+        queueMessageUpdate(prev =>
+          prev.map(m =>
+            m.id === assistantId
+              ? { ...m, status: 'error' as const, content: `❌ ${errorMsg}` }
+              : m
+          )
+        )
+      }
       setIsStreaming(false)
       terminal = true
       break

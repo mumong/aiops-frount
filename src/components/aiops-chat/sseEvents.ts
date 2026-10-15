@@ -65,3 +65,20 @@ export function textField(data: SSEPayload, keys: string | readonly string[], fa
 export function trimmedField(data: SSEPayload, key: string): string {
   return textField(data, key).trim()
 }
+
+/** Backend `error_code` values for model/LLM-gateway failures (not workflow failures). */
+export const MODEL_ERROR_TITLES: Readonly<Record<string, string>> = {
+  model_stalled: '模型服务停滞',
+  model_timeout: '模型服务响应超时',
+  model_disconnected: '模型服务连接中断',
+}
+
+export function isModelErrorCode(code: string): boolean {
+  return code in MODEL_ERROR_TITLES
+}
+
+/** Banner text: the backend message, prefixed with the failure title unless it already says so. */
+export function modelFailureText(failure: { code: string; message: string }): string {
+  const title = MODEL_ERROR_TITLES[failure.code] ?? '模型服务异常'
+  return failure.message.startsWith(title) ? failure.message : `${title}：${failure.message}`
+}

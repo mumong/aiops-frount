@@ -200,3 +200,30 @@ test('closing after final or error is not an interruption', () => {
     assert.equal(markStreamInterrupted(ended.messages, 'msg-1', []), ended.messages)
   }
 })
+
+test('model stall errors keep the progress and are reported as a model failure', () => {
+  const replay = makeReplay()
+  replay.event('node_start', { node: 'query_collect' })
+  replay.event('thinking', { node: 'query_collect', thinking_type: 'tool_start', tool_name: 'get_series' })
+  const ended = replay.event('error', { error: '模型服务停滞：等待模型输出已超过 180 秒', error_code: 'model_stalled' })
+  const message = ended.messages[0]
+  assert.equal(message.status, 'complete')
+  assert.deepEqual(message.modelFailure, { code: 'model_stalled', message: '模型服务停滞：等待模型输出已超过 180 秒' })
+  assert.ok(message.nodeBlocks.length > 0)
+  assert.equal(ended.answer, '')
+  assert.equal(ended.streaming, false)
+})
+
+test('errors without a model error code keep the existing error bubble', () => {
+  const replay = makeReplay()
+  const ended = replay.event('error', { error: 'boom' })
+  assert.equal(ended.messages[0].status, 'error')
+  assert.equal(ended.messages[0].content, '❌ boom')
+  assert.equal(ended.messages[0].modelFailure, undefined)
+})
+
+test('model failure banner text does not repeat the title', async () => {
+  const { modelFailureText } = await server.ssrLoadModule('/src/components/aiops-chat/sseEvents.ts')
+  assert.equal(modelFailureText({ code: 'model_stalled', message: '模型服务停滞：超过 180 秒' }), '模型服务停滞：超过 180 秒')
+  assert.equal(modelFailureText({ code: 'model_timeout', message: 'LLM API 服务响应超时' }), '模型服务响应超时：LLM API 服务响应超时')
+})

@@ -6,6 +6,7 @@ import NodeBlockCard from './NodeBlockCard'
 import RunProgress from './RunProgress'
 import RouteCard from './RouteCard'
 import { visibleNarrative } from './handoffPresentation'
+import { modelFailureText } from './sseEvents'
 import styles from './MessageList.module.css'
 import { memo, useRef } from 'react'
 import { Box, ArrowDown, FileText, CircleAlert, CheckCircle2, ShieldCheck, Ban } from 'lucide-react'
@@ -70,6 +71,12 @@ function BotMessage({
             {/* Node blocks — collapsible sections */}
             <RouteCard blocks={nodeBlocks} terminal={!isStreaming} />
             {isStreaming && isLatest && <RunProgress blocks={nodeBlocks} />}
+            {message.modelFailure && (
+              <div role="alert" className={styles.partialNotice}>
+                <CircleAlert size={16} />
+                <span>{modelFailureText(message.modelFailure)}（以上为模型异常前已完成的进度）</span>
+              </div>
+            )}
             {message.interrupted && (
               <div role="alert" className={styles.partialNotice}><CircleAlert size={16} />连接中断：未收到最终结果，以上为中断前的进度。请检查网络或服务状态后重新提问。</div>
             )}

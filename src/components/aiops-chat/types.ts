@@ -61,6 +61,8 @@ export interface ChatMessage {
   status?: 'streaming' | 'complete' | 'error'
   /** The event stream closed without a final/error event (connection lost). */
   interrupted?: boolean
+  /** The backend reported a model/LLM-gateway failure (error_code model_*), not a workflow failure. */
+  modelFailure?: { code: string; message: string }
   /** Run ID from the backend — stored per-message so it survives refresh / multi-question sessions */
   runId?: string
   /** This message's own node blocks — each assistant message remembers its own */
