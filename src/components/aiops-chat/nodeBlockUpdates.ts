@@ -90,6 +90,15 @@ export function applyNodeThinkingEvent(
   })
 }
 
+export function applyNodeReasoning(
+  blocks: NodeBlock[], nodeId: string, nodeName: string, content: string,
+): NodeBlock[] {
+  if (!content) return blocks
+  return updateEventNode(blocks, nodeId, nodeName, block => ({
+    ...block, runtimeStatus: undefined, reasoningTokens: (block.reasoningTokens || '') + content,
+  }))
+}
+
 export function mergeAnalysisStream(previous: { text: string; streamStart?: number } | undefined,
   kind: 'ai_token' | 'ai_message', content: string): { text: string; streamStart?: number } {
   const { text = '', streamStart } = previous || {}

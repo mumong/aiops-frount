@@ -8,7 +8,7 @@ export default function RunProgress({ blocks }: { blocks: NodeBlock[] }) {
   const started = useRef(0)
   const updated = useRef(0)
   // Heartbeats are not model progress. Only visible content/stage changes reset idle time.
-  const signature = blocks.map(block => [block.nodeId, block.status, block.thinkingTokens,
+  const signature = blocks.map(block => [block.nodeId, block.status, block.thinkingTokens, block.reasoningTokens?.length,
     block.runtimeStatus?.text, block.handoffSummary,
     ...block.toolCalls.map(tool => `${tool.id}:${tool.status}`)].join('|')).join('\n')
   useEffect(() => { updated.current = Date.now() }, [signature])

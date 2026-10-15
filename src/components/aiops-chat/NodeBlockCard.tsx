@@ -4,6 +4,7 @@ import { NODE_ID } from './sseEvents'
 import StructuredContent from './StructuredContent'
 import ParallelEvidenceBoard from './ParallelEvidenceBoard'
 import HandoffDisplay from './HandoffDisplay'
+import ReasoningDetails from './ReasoningDetails'
 import { emptyNodeMessage, visibleNarrative, queryNarrative } from './handoffPresentation'
 import styles from './MessageList.module.css'
 import { LoaderCircle, CheckCircle2, CircleStop, CircleX, ChevronDown, ChevronRight, Wrench, ScanText, CornerDownRight } from 'lucide-react'
@@ -20,7 +21,8 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
   const thinking = block.nodeId === NODE_ID.QUERY_COLLECT
     ? queryNarrative(block.thinkingTokens || '') : visibleNarrative(block.thinkingTokens || '')
   const handoff = visibleNarrative(block.handoffSummary || '')
-  const hasContent = !!(block.parallelEvidence || thinking || handoff || block.toolCalls.length > 0)
+  const reasoning = (block.reasoningTokens || '').trim()
+  const hasContent = !!(block.parallelEvidence || thinking || reasoning || handoff || block.toolCalls.length > 0)
   const pending = block.toolCalls.filter(tool => tool.status === 'running').length
   const phase = block.runtimeStatus?.text || (pending
     ? `正在等待 ${pending} 个工具返回` : '等待模型返回分析或下一步工具调用')
@@ -74,6 +76,8 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
               <ParallelEvidenceBoard state={block.parallelEvidence} />
             </div>
           )}
+          {/* Raw model reasoning: its own channel, collapsed, never mixed into the analysis */}
+          {reasoning && <ReasoningDetails text={reasoning} live={isRunning} />}
           {/* Thinking tokens */}
           {thinking && (
             <div className={styles.nodeSection}>

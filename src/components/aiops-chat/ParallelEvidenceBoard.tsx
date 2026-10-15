@@ -1,4 +1,5 @@
 import { useState, useId } from 'react'
+import ReasoningDetails from './ReasoningDetails'
 import { ChevronDown, ChevronRight, CircleAlert, CheckCircle2 } from 'lucide-react'
 import CodeBlock from './CodeBlock'
 import StructuredContent from './StructuredContent'
@@ -141,6 +142,10 @@ function GroupCard({
         </span>
       </button>
 
+      {Object.entries(group.reasoningStreams || {}).map(([stage, text]) => text.trim() && (
+        <ReasoningDetails key={`reasoning-${stage}`} text={text.trim()}
+          label={`${stage === 'rca' ? '根因分析' : '取证分析'} · 模型思考过程`} />
+      ))}
       {Object.entries(group.analysisStreams || {}).map(([stage, stream]) => stream.text && (
         <section key={stage} className={styles.groupBody} aria-label={`${group.groupId} 模型分析`}>
           <div className={styles.noticeTitle}>{stage === 'rca' ? '根因分析' : '取证分析'} · 模型输出</div>

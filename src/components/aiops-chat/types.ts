@@ -136,6 +136,8 @@ export interface ParallelEvidenceResult {
 
 export interface ParallelEvidenceGroup {
   analysisStreams?: Record<string, { text: string; streamStart?: number }>
+  /** Raw model reasoning per stage; shown collapsed, separate from the analysis. */
+  reasoningStreams?: Record<string, string>
   runtimeStatus?: string
   terminalStatus?: 'completed' | 'partial'
   error?: string
@@ -174,6 +176,8 @@ export interface NodeBlock {
   /** AI thinking tokens streamed during this node */
   thinkingTokens: string
   thinkingStreamStart?: number
+  /** Raw model reasoning (ai_reasoning); shown collapsed, separate from the analysis. */
+  reasoningTokens?: string
   runtimeStatus?: { text: string; status: string; at: number }
   /** Tool calls that happened in this node */
   toolCalls: ToolCall[]

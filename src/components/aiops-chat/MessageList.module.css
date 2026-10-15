@@ -189,3 +189,16 @@ summary.nodeSectionTitle svg { margin-right: 5px; }
   .handoffKvItem > div { width: 100%; }
   .botBubble { font-size: 13px; }
 }
+
+.reasoningText {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-subtle);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

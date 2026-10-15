@@ -227,3 +227,29 @@ test('model failure banner text does not repeat the title', async () => {
   assert.equal(modelFailureText({ code: 'model_stalled', message: '模型服务停滞：超过 180 秒' }), '模型服务停滞：超过 180 秒')
   assert.equal(modelFailureText({ code: 'model_timeout', message: 'LLM API 服务响应超时' }), '模型服务响应超时：LLM API 服务响应超时')
 })
+
+test('reasoning streams on its own channel and never mixes into the analysis', () => {
+  const replay = makeReplay()
+  replay.event('node_start', { node: 'query_collect' })
+  replay.event('thinking', { node: 'query_collect', thinking_type: 'ai_reasoning', content: 'The user wants' })
+  replay.event('thinking', { node: 'query_collect', thinking_type: 'ai_reasoning', content: ' node CPU.' })
+  const after = replay.event('thinking', { node: 'query_collect', thinking_type: 'ai_token', content: '## 节点资源' })
+  const block = after.blocks.find(b => b.nodeId === 'query_collect')
+  assert.equal(block.reasoningTokens, 'The user wants node CPU.')
+  assert.equal(block.thinkingTokens, '## 节点资源')
+})
+
+test('lane reasoning is kept per stage, separate from lane analysis', () => {
+  const replay = makeReplay()
+  replay.event('node_complete', { node: 'layer', state_snapshot: { autonomous_groups: [
+    { group_id: 'g1', entities: [{ kind: 'Pod', namespace: 'a', name: 'p1' }] },
+    { group_id: 'g2', entities: [{ kind: 'Pod', namespace: 'a', name: 'p2' }] }] } })
+  replay.event('node_start', { node: 'parallel_evidence' })
+  const after = replay.event('thinking', { node: 'parallel_evidence', thinking_type: 'ai_reasoning',
+    content: 'check logs', parallel_group_id: 'g1', lane_stage: 'evidence' })
+  const board = after.blocks.find(b => b.parallelEvidence)?.parallelEvidence
+  assert.ok(board, 'parallel evidence board should exist for 2 groups')
+  const g1 = board.groups.find(g => g.groupId === 'g1')
+  assert.equal(g1.reasoningStreams.evidence, 'check logs')
+  assert.equal(g1.analysisStreams, undefined)
+})

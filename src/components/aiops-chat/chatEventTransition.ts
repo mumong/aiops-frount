@@ -1,7 +1,7 @@
 import type { ChatMessage, NodeBlock, SSEMessage, RemediationApproval, EndpointMode, ParallelEvidenceGroup } from './types'
 import { chunkAddsRemediationMarker, hasRemediationApprovalMarker, parseRemediationApprovalText, toRemediationApproval } from './remediationParsing'
 import { shouldProcessRemediation } from './chatRequestPolicy'
-import { applyNodeThinkingEvent, mergeAnalysisStream, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
+import { applyNodeReasoning, applyNodeThinkingEvent, mergeAnalysisStream, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
 import { presentToolEvent } from './toolPresentation'
 import { presentRoute } from './routePresentation'
 import { NODE_ID, SSE_EVENT, THINKING_TYPE, TRANSPORT_EVENT, isModelErrorCode, textField, trimmedField, type SSEPayload } from './sseEvents'
@@ -224,6 +224,20 @@ export function transitionChatEvent(
           })))
         } else {
           updateNodeBlocks(prev => applyNodeThinkingEvent(prev, nodeId, nodeName, thinkType, content))
+        }
+      } else if (thinkType === THINKING_TYPE.AI_REASONING) {
+        const content = textField(data, 'content')
+        const groupId = textField(data, 'parallel_group_id')
+        const stage = textField(data, 'lane_stage', 'evidence')
+        if (groupId) {
+          updateNodeBlocks(prev => mirrorParallelEvidence(prev, board => ({ ...board,
+            groups: board.groups.map(group => group.groupId !== groupId ? group : { ...group,
+              reasoningStreams: { ...group.reasoningStreams,
+                [stage]: (group.reasoningStreams?.[stage] || '') + content },
+            }),
+          })))
+        } else {
+          updateNodeBlocks(prev => applyNodeReasoning(prev, nodeId, nodeName, content))
         }
       } else if (thinkType === THINKING_TYPE.TOOL_START) {
         const toolName = textField(data, 'tool_name')

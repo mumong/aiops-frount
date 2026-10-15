@@ -28,6 +28,8 @@ export const THINKING_TYPE = {
   RUNTIME_STATUS: 'runtime_status',
   AI_TOKEN: 'ai_token',
   AI_MESSAGE: 'ai_message',
+  /** Provider reasoning, streamed separately from the answer (never part of it). */
+  AI_REASONING: 'ai_reasoning',
   TOOL_START: 'tool_start',
   TOOL_RESULT: 'tool_result',
   ITERATION_END: 'iteration_end',
