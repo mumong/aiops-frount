@@ -15,6 +15,12 @@ export function getRemediationStatusPresentation(
   const rawStatus = String(status.status || '').trim().toLowerCase()
   const reason = String(status.reason || '').trim()
 
+  if (rawStatus === 'recovered') {
+    return { icon: '✅', label: '命令已执行，目标已恢复', tone: 'success', detail: reason }
+  }
+  if (rawStatus === 'not_recovered') {
+    return { icon: '⏱', label: '命令已执行，超时未恢复', tone: 'failed', detail: reason }
+  }
   if (rawStatus === 'needs_followup') {
     return { icon: '🔎', label: '命令已执行，待复查恢复状态', tone: 'neutral', detail: reason }
   }

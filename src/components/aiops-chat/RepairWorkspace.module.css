@@ -54,3 +54,12 @@
 .switchForm label { display: flex; flex-direction: column; gap: 4px; }
 .switchForm input, .switchForm select { padding: 6px 8px; border: 1px solid #94a3b877; border-radius: 6px; background: transparent; color: inherit; font: inherit; }
 .detail details[data-denied="true"] > summary { color: #dc2626; }
+
+.cause { margin: 6px 0 10px; padding: 8px 10px; border-left: 3px solid #b45309; background: #b4530908; }
+.cause span { display: block; font-size: 12px; opacity: .75; margin-bottom: 2px; }
+.recoveryProgress { color: #b45309; }
+.recovery { margin: 12px 0; padding: 12px; border: 1px solid #94a3b855; border-radius: 8px; display: grid; gap: 8px; }
+.recovery[data-tone="success"] { border-color: #0d948888; background: #0d948808; }
+.recovery[data-tone="timeout"] { border-color: #dc262688; background: #dc262608; }
+.recovery table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.recovery th, .recovery td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #94a3b833; overflow-wrap: anywhere; }
