@@ -13,7 +13,7 @@ test('empty is not zero; parameters and truncation remain visible', () => {
   assert.match(result.preview, /无匹配数据/)
   assert.match(result.detail, /memory/)
   assert.match(result.detail, /已截断/)
-  assert.match(result.detail, /\/raw/)
+  assert.doesNotMatch(result.detail, /\/raw|归档|解析状态|数据覆盖|执行状态/)
 })
 
 test('bytes display with units and timestamp; unknown units never guessed', () => {
@@ -23,7 +23,7 @@ test('bytes display with units and timestamp; unknown units never guessed', () =
   ] } })
   assert.match(result.preview, /1.00 MiB/)
   assert.match(result.preview, /单位未标注/)
-  assert.match(result.detail, /2026-09-17/)
+  assert.match(result.detail, /返回结果/)
 })
 
 test('semantic rejection overrides transport success', () => {
@@ -39,9 +39,8 @@ test('successful empty metric response keeps execution, coverage and parsing sep
       semantic_success: true, tool_display: { coverage: 'empty', parse_status: 'parsed', measurements: [] } })
     assert.match(result.preview, /请求成功.*无匹配数据/)
     assert.doesNotMatch(result.preview, /失败/)
-    assert.match(result.detail, /执行状态：成功/)
-    assert.match(result.detail, /数据覆盖：无匹配数据/)
-    assert.match(result.detail, /解析状态：已解析/)
+    assert.match(result.detail, /说明.*没有匹配数据（不等于 0）/)
+    assert.doesNotMatch(result.detail, /执行状态|数据覆盖|解析状态/)
   }
 })
 
@@ -52,7 +51,7 @@ test('transport failure is not hidden by an empty payload; real zero remains dat
     coverage: 'present', parse_status: 'parsed', measurements: [{ value: '0' }] } })
   assert.match(zero.preview, /0/)
   assert.doesNotMatch(zero.preview, /无匹配/)
-  assert.match(zero.detail, /数据覆盖：有数据/)
+  assert.doesNotMatch(zero.detail, /说明/)
 })
 
 test('native Prometheus point displays value, labels and time without guessing unit', () => {
@@ -62,8 +61,7 @@ test('native Prometheus point displays value, labels and time without guessing u
   } })
   assert.match(result.preview, /22.6439/)
   assert.doesNotMatch(result.preview, /%/)
-  assert.match(result.detail, /09:11:23/)
-  assert.doesNotMatch(result.detail, /未返回可展示|查询目的：见查询参数/)
+  assert.match(result.detail, /调用参数[\s\S]*arbitrary_expression/)
   assert.equal(result.detail.split('arbitrary_expression').length - 1, 1)
 })
 
@@ -74,16 +72,16 @@ test('unsupported and partial results are not described as absent', () => {
   const partial = presentToolEvent({ tool_display: { parse_status: 'partial', coverage: 'present',
     measurements: [{ value: '0' }], unparsed_series: 2, warnings: ['source warning'] } })
   assert.match(partial.preview, /部分结果未解析/)
-  assert.match(partial.detail, /未解析的序列数：2/)
-  assert.match(partial.detail, /source warning/)
+  assert.match(partial.detail, /说明.*部分结果未解析/)
+  assert.match(partial.detail, /提示[\s\S]*source warning/)
 })
 
 test('matrix latest samples and bounded rows are explicitly labeled', () => {
   const result = presentToolEvent({ tool_display: { coverage: 'present', result_type: 'matrix',
     measurements: [{ value: '8', sample_count: 20, point_policy: 'latest_per_series' }], measurements_omitted: 5 } })
   assert.match(result.detail, /最新采样点/)
-  assert.match(result.detail, /不是整个区间的平均值/)
-  assert.match(result.detail, /未展开的条目数：5/)
+  assert.match(result.detail, /不是区间平均值/)
+  assert.doesNotMatch(result.detail, /未展开的条目数/)
 })
 
 test('backend error coverage takes precedence and text is not a numeric metric', () => {
@@ -106,9 +104,8 @@ test('record groups retain unit, source coverage and counts without metric guess
   assert.match(shown.preview, /node1: 3 Pod/)
   assert.match(shown.preview, /部分覆盖/)
   assert.match(shown.detail, /不能代表完整范围/)
-  assert.match(shown.detail, /2026-10-09/)
-  assert.match(shown.detail, /next/)
-  assert.doesNotMatch(shown.detail, /未提取结构化数值|单位未标注/)
+  assert.match(shown.detail, /调用参数[\s\S]*group_by/)
+  assert.doesNotMatch(shown.detail, /未提取结构化数值|单位未标注|源端信息|归档/)
 })
 
 test('byte-paged records are partial success with a continuation, not a query failure', () => {
@@ -177,7 +174,7 @@ test('bounded preview discloses hidden rows and labels but retains complete deta
   assert.ok(!result.preview.includes(longValue))
   assert.ok(result.detail.includes(longValue))
   assert.match(result.detail, /"custom": "retained"/)
-  assert.match(result.detail, /未展开的条目数：2/)
+  assert.match(result.detail, /另有 2 条未展开/)
 })
 
 test('zero matching records with unknown predicates is success, not proof of absence', () => {
@@ -198,7 +195,7 @@ test('record failure and display omission remain explicit', () => {
   const bounded = presentToolEvent({ tool_display: { ...common, parse_status: 'parsed', record_unit: 'pod',
     matched_rows: 21, input_rows: 21, unknown_filter_rows: 0, records_omitted: 1,
     records: [{ ready: false, value: 0 }], result_excerpt_truncated: true } })
-  assert.match(bounded.detail, /未展开的条目数：1/)
+  assert.match(bounded.detail, /另有 1 条未展开/)
   assert.match(bounded.detail, /"ready": false/)
   assert.match(bounded.detail, /"value": 0/)
   assert.match(bounded.detail, /已截断/)

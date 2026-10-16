@@ -51,46 +51,60 @@ export function presentToolEvent(data: Record<string, unknown>) {
           + (unpreviewed ? ` · 另有 ${unpreviewed} 条结果未在预览展示，详见展开内容及原文` : '')
           + (partial ? ' · 部分结果未解析' : '')
   const scope = [args.namespace, args.pod || args.name].filter(Boolean).join('/')
-  const preview = [outcome, scope].filter(Boolean).join(' · ')
-  const query = display.query || args
-  const queryText = JSON.stringify(query, null, 2)
-  const measurements = rows.length ? JSON.stringify(rows, null, 2)
-    : failed ? '查询未成功，不能将结果视为 0'
-      : empty ? '本次查询没有匹配数据，不代表数值为 0'
-        : '未提取结构化数值，请查看原始返回；不代表工具没有数据'
-  const rangeNote = display.result_type === 'matrix'
-    || rows.some(row => row.point_policy === 'latest_per_series' || Number(row.sample_count) > 1)
-    ? '区间结果：每条序列展示最新采样点及采样数，不是整个区间的平均值；完整序列见原文。' : ''
+  const excerpt = String(display.result_excerpt || '')
+  const headline = outcome.startsWith('调用完成') ? firstLine(excerpt) || outcome : outcome
+  const preview = [headline, scope].filter(Boolean).join(' · ')
   const notices = [...(Array.isArray(display.warnings) ? display.warnings : []),
     ...(Array.isArray(display.infos) ? display.infos : [])].map(String)
-  const execution = data.transport_status || data.status
-  const coverageLabels: Record<string, string> = {
-    present: '有数据', empty: '无匹配数据（不等于 0）', absent: '无匹配数据（不等于 0）',
-    partial: '部分覆盖', weak: '有限覆盖', unknown: '未知', error: '查询错误',
-  }
-  const parseLabels: Record<string, string> = {
-    parsed: '已解析', partial: '部分解析', unsupported: '暂不支持解析', error: '源端错误',
-  }
-  const detail = [
-    ...(args.purpose ? [`查询目的：${args.purpose}`] : []),
-    `结果状态：${outcome}`,
-    `执行状态：${execution === 'success' ? '成功' : execution === 'error' ? '失败' : '未提供'}`,
-    `数据覆盖：${coverageLabels[String(display.coverage)] || '未提供'}`,
-    `解析状态：${parseLabels[String(display.parse_status)] || '未提供'}`,
-    `查询参数\n${JSON.stringify(args, null, 2)}`,
-    ...(JSON.stringify(query) !== JSON.stringify(args) ? [`查询口径\n${queryText}`] : []),
-    ...(display.series_count != null ? [`结果条目/序列数：${display.series_count}`] : []),
-    ...(rangeNote ? [rangeNote] : []),
-    ...(rows.some(row => row.value_kind !== 'text')
-      ? ['解读提示：数值需结合指标、标签、表达式及时间；0/1 不自动等于健康或故障。预览缩略不修改下方标签和原始返回。'] : []),
-    `数值、时间及标签\n${measurements}`,
-    ...(rows.length || display.measurements_omitted ? [`因展示上限未展开的条目数：${display.measurements_omitted || 0}`] : []),
-    ...(display.unparsed_series ? [`未解析的序列数：${display.unparsed_series}`] : []),
-    ...(notices.length ? [`数据源提示\n${notices.join('\n')}`] : []),
-    `工具返回${display.result_excerpt_truncated ? '（仅前 12000 字符，已截断；不是完整原文）' : '（本次传递内容）'}\n${display.result_excerpt || ''}`,
-    `完整原文归档引用：${display.raw_ref || '未提供'}`,
-  ].join('\n\n')
+  const rangeNote = display.result_type === 'matrix'
+    || rows.some(row => row.point_policy === 'latest_per_series' || Number(row.sample_count) > 1)
+    ? '区间结果：每条序列只预览最新采样点，不是区间平均值。' : ''
+  const status = failed ? `查询未成功：${firstLine(excerpt) || '见返回结果'}（结果不能视为 0）`
+    : empty ? '请求成功，但没有匹配数据（不等于 0）'
+      : unparsed ? '结果格式暂未解析，请直接看返回结果'
+        : partial ? '部分结果未解析，请以返回结果为准' : ''
+  const detail = composeDetail({
+    args, status, excerpt, truncated: !!display.result_excerpt_truncated,
+    parsed: rows, omitted: Number(display.measurements_omitted) || 0,
+    notes: [rangeNote, ...notices].filter(Boolean),
+  })
   return { preview, detail }
+}
+
+function firstLine(text: string) {
+  const line = text.split('\n').map(part => part.trim()).find(Boolean) || ''
+  return line.length > 140 ? line.slice(0, 140) + '…' : line
+}
+
+function formatArgs(args: Record<string, unknown>) {
+  const entries = Object.entries(args).filter(([, value]) => value !== undefined && value !== null && value !== '')
+  if (!entries.length) return ''
+  return entries.map(([key, value]) => {
+    const text = typeof value === 'string' ? value : JSON.stringify(value)
+    return text.includes('\n') || text.length > 100
+      ? `- **${key}**:\n\n\`\`\`text\n${text}\n\`\`\``
+      : `- **${key}**: \`${text}\``
+  }).join('\n')
+}
+
+/** What a reader wants from a tool call: what was asked, what came back, and only the
+ *  caveats that change how to read it. Agent-side bookkeeping (archive refs, parse
+ *  flags, coverage enums) stays out of the expanded view. */
+function composeDetail(parts: { args: Record<string, unknown>; status: string; excerpt: string;
+  truncated: boolean; parsed: unknown[]; omitted: number; notes: string[] }) {
+  const sections: string[] = []
+  const args = formatArgs(parts.args)
+  if (args) sections.push(`**调用参数**\n${args}`)
+  if (parts.status) sections.push(`**说明**：${parts.status}`)
+  // The raw excerpt is the result; when the backend sent only parsed rows, show those.
+  const raw = parts.excerpt.trim()
+  const body = raw || (parts.parsed.length ? JSON.stringify(parts.parsed, null, 2) : '')
+  const fence = body.startsWith('{') || body.startsWith('[') ? 'json' : 'text'
+  const caveat = parts.truncated ? '（仅前 12000 字符，已截断）' : !raw && body ? '（已解析数据）' : ''
+  sections.push(`**返回结果**${caveat}\n\n\`\`\`${fence}\n${body || '（空）'}\n\`\`\``)
+  const notes = parts.omitted > 0 ? [`返回结果之外另有 ${parts.omitted} 条未展开。`, ...parts.notes] : parts.notes
+  if (notes.length) sections.push(`**提示**\n${notes.map(note => `- ${note}`).join('\n')}`)
+  return sections.join('\n\n')
 }
 
 /** Record counts are not metric samples; source coverage is not selection coverage. */
@@ -113,25 +127,16 @@ function presentRecords(data: Record<string, unknown>, display: Record<string, u
   const outcome = failed ? '查询未成功' : !parsed ? '结果暂未解析'
     : page ? `已返回 ${page.returned_rows} 条${groups ? '分组' : unit}记录${page.next_continue_token ? ' · 仍有后续数据，可继续读取' : ' · 已无后续数据'}`
     : `匹配 ${count} 条${unit}记录 · 条件未知 ${unknown} 条`
-  const coverage = partial ? '部分结果；不能代表完整范围'
-    : source.coverage === 'empty' ? '源端返回空页' : source.coverage === 'present' ? '本次收到的页'
-      : '未知'
   const preview = [outcome, sample, partial ? '部分覆盖' : ''].filter(Boolean).join(' · ')
-  const detail = [
-    `结果状态：${outcome}`, `查询参数\n${JSON.stringify(query, null, 2)}`,
-    `数据范围：${coverage}`, `观测时间：${source.observed_at || '未知'}`,
-    ...(page ? [`本源页共有 ${page.total_rows} 条${groups ? '分组' : '匹配记录'}；本次返回 ${page.returned_rows} 条；本源页尚余 ${page.remaining_rows} 条。`,
-      page.next_continue_token ? `续读游标（保持原查询参数）\n${page.next_continue_token}` : '本次源页无剩余记录。'] : []),
-    ...(failed ? [`错误：${display.error || '见原始返回'}`] : [
-      `输入记录：${display.input_rows ?? '未知'}；匹配：${count}；条件未知：${unknown}；计数单位：${unit}`,
-      unknown !== 0 ? '条件未知的记录不能当作已确认不匹配。' : '',
-      `${groups ? '分组计数' : '记录内容'}\n${JSON.stringify(records, null, 2)}`,
-      `因展示上限未展开的条目数：${display.records_omitted ?? 0}`,
-    ]),
-    `源端信息\n${JSON.stringify(source, null, 2)}`,
-    '计数仅针对收到的数据；容器数不等于 Pod 数。生命周期累计重启数不等于时间窗口内次数。',
-    `工具返回${display.result_excerpt_truncated ? '（仅前 12000 字符，已截断）' : '（本次传递内容）'}\n${display.result_excerpt || ''}`,
-    `完整本次工具返回归档：${display.raw_ref || '未提供'}（不代表底层所有资源字段）`,
-  ].filter(Boolean).join('\n\n')
+  const excerpt = String(display.result_excerpt || '')
+  const status = failed ? `查询未成功：${display.error || firstLine(excerpt) || '见返回结果'}`
+    : page?.next_continue_token
+      ? `本页 ${page.returned_rows} 条，仍有 ${page.remaining_rows} 条后续数据（部分结果，不能代表完整范围；续读令牌 ${page.next_continue_token}）`
+      : partial ? '部分结果，不能代表完整范围' : ''
+  const detail = composeDetail({
+    args: query, status, excerpt, truncated: !!display.result_excerpt_truncated,
+    parsed: records, omitted: Number(display.records_omitted) || 0,
+    notes: unknown !== 0 && unknown !== '未知' && !failed ? [`有 ${unknown} 条记录条件未知，不能当作已确认不匹配。`] : [],
+  })
   return { preview, detail }
 }
