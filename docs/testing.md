@@ -55,3 +55,17 @@ Version 0.1.53 also tests provider think wrappers, root-level readable analysis 
 `markdown-report.test.mjs` checks Chinese punctuation next to bold markers in prose, lists and tables, standard Markdown and incomplete streamed labels. Inline/fenced code, escaped stars, URLs and raw HTML retain parser behavior. The compatibility plugin operates on parsed text nodes; stored messages and copied source remain unchanged. `direct-query.browser.py` also verifies bold rendering during streaming and after history reload, with exact persisted report text.
 
 Interface wording distinguishes stage results from final results, pending analysis from completed operations, and stopping reception from stopping backend execution. Repair requests still populate a draft; approval permissions and request payloads are unchanged. Backend-generated report wording is preserved.
+
+## 真实浏览器端到端（会真实修复目标命名空间）
+
+`tests/live-repair-e2e.browser.py` 用真实 Chromium 操作已部署的前端与后端：在聊天框发起诊断 → 安全面板（执行方式徽标、拦截规则、命令安全检查、管理员切换与恢复）→ 生成修复方案（对象 / 异常原因 / 命令）→ 点击"批准此动作" → 等待"执行后恢复观察"显示已恢复。只点击人会点击的控件，不注入 Cookie 或直接调 API。
+
+```bash
+python3 -m venv .venv-browser && .venv-browser/bin/pip install playwright && .venv-browser/bin/playwright install chromium
+# 缺 libasound.so.2 / libgbm.so.1 时可 apt-get download 对应 .deb 后 dpkg -x 到临时目录并设置 LD_LIBRARY_PATH
+.venv-browser/bin/python tests/live-repair-e2e.browser.py --url http://10.2.0.48:30081 \
+  --chromium ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome --namespace aiops-case-04 \
+  --admin-token-file /path/to/token --screenshot /tmp/live-repair.png
+```
+
+2026-10-16 对 case-04 运行：9/9 步通过，0 页面错误（前端 0.1.62，后端 12.0.38）。

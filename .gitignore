@@ -16,3 +16,4 @@ dist/
 /artifacts/
 /example.txt
 /CLAUDE.md
+.venv-browser/
