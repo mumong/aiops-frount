@@ -27,8 +27,11 @@ export interface RepairJob extends RepairGroup {
   error?: string
   result?: { reason?: string }
   approval?: { approval_id: string; title: string; expires_at: number; decision_status?: string }
+  mode_source?: string
   events?: Array<{ type: string; action_id: string; stage: string; command: string;
-    status: string; result_preview?: string; result_truncated?: boolean }>
+    status: string; result_preview?: string; result_truncated?: boolean;
+    /** "auto" = executed without a human decision; otherwise the approval id that authorised it */
+    approval?: string; mode?: string; error_code?: string; rule?: string; execution_skipped?: boolean }>
 }
 export const repairStatus: Record<string, string> = {
   queued: '等待规划', planning: '正在生成方案', planned: '方案已生成',
@@ -36,6 +39,7 @@ export const repairStatus: Record<string, string> = {
   skipped: '无可执行动作', blocked: '执行受阻', failed: '失败', cancelled: '已停止',
   rejected: '已拒绝', timeout: '审批超时', interrupted: '服务重启 · 已中断',
   superseded: '已被新版本替代', execution_disabled: '执行已关闭',
+  recovered: '已恢复', not_recovered: '超时未恢复',
 }
 export const repairActive = (status: string) => ['queued', 'planning', 'planned', 'awaiting_approval', 'executing'].includes(status)
 

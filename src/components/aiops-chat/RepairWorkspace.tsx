@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import CodeBlock from './CodeBlock'
 import MarkdownReport from './MarkdownReport'
 import RepairPlanContent from './RepairPlanContent'
+import RepairPolicyPanel from './RepairPolicyPanel'
 import { repairActive, repairRequest, repairStatus } from './repairWorkspaceApi'
 import type { RepairBatch, RepairJob } from './repairWorkspaceApi'
 import styles from './RepairWorkspace.module.css'
@@ -103,6 +104,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
 
   return <section className={styles.workspace} aria-label="分组修复方案">
     <header><strong>修复方案</strong></header>
+    <RepairPolicyPanel apiBase={apiBase} />
     {!batchId && <button type="button" disabled={pending} onClick={() => void act(async () => {
       const result = await repairRequest<RepairBatch>(apiBase, '/repair/batches', { diagnosis_run_id: diagnosisId })
       // Backend work continues, but a closed/deleted panel must not recreate history.
@@ -136,7 +138,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
           {shown.plan?.answer && <MarkdownReport content={shown.plan.answer} />}
         </details>
         <h4 className={styles.aiHeading}>{batch.groups.length > 1 ? `${current?.target?.label || shown.group_id} · ` : ''}AI 修复方案 · v{shown.version}</h4>
-        <p>{shown.plan?.planning_error ? '规划未完成' : shown.status === 'planning' && shown.feedback ? '正在根据你的意见更新…' : repairStatus[shown.status] || shown.status}{shown.plan?.actions?.length ? shown.mode === 'auto' ? ' · 自动执行' : shown.mode === 'review' ? ' · 执行前需批准' : '' : ''}</p>
+        <p>{shown.plan?.planning_error ? '规划未完成' : shown.status === 'planning' && shown.feedback ? '正在根据你的意见更新…' : repairStatus[shown.status] || shown.status}{shown.plan?.actions?.length ? shown.mode === 'auto' ? ` · 自动执行（未经人工审批${shown.mode_source === 'runtime' ? '，运行时开关' : '，配置'}）` : shown.mode === 'review' ? ' · 执行前需批准' : '' : ''}</p>
         {repairActive(shown.status) && shown.status_started_at && <small>
           本阶段已等待 {Math.max(0, Math.floor((now + clockOffset) / 1000 - shown.status_started_at))} 秒
           {['queued', 'planning'].includes(shown.status) ? ' · 正在处理，无需重复提交' : ''}
@@ -158,12 +160,16 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
               }
             }, approved ? '正在提交批准，请勿重复点击…' : '正在提交拒绝…')}>{approved ? '批准此动作' : '拒绝此动作'}</button>)}</div>
         </div>}
-        {shown.events?.filter(e => e.type === 'remediation_tool_result').map((e, i) => <details key={i}>
-          <summary>{e.action_id} · {e.stage} · {e.status === 'success' ? '命令成功' : '执行失败'}</summary>
-          <CodeBlock text={e.command} language="bash" label="实际执行命令" />
-          <CodeBlock text={e.result_preview || '命令未返回正文'} label="执行输出" />
-          {e.result_truncated && <p>仅展示部分输出。</p>}
-        </details>)}
+        {shown.events?.filter(e => e.type === 'remediation_tool_result').map((e, i) => {
+          const started = shown.events?.find(s => s.type === 'remediation_tool_start' && s.action_id === e.action_id && s.stage === e.stage)
+          const authority = started?.approval === 'auto' ? '自动执行 · 未经人工审批' : started?.approval ? `审批 ID ${started.approval}` : ''
+          return <details key={i} data-denied={e.error_code === 'repair_command_denied'}>
+            <summary>{e.action_id} · {e.stage} · {e.error_code === 'repair_command_denied' ? `被安全规则拦截（${e.rule || '策略'}），未执行` : e.status === 'success' ? '命令成功' : '执行失败'}{authority ? ` · ${authority}` : ''}</summary>
+            <CodeBlock text={e.command} language="bash" label={e.execution_skipped ? '被拦截的命令（未执行）' : '实际执行命令'} />
+            <CodeBlock text={e.result_preview || '命令未返回正文'} label={e.execution_skipped ? '拦截原因' : '执行输出'} />
+            {e.result_truncated && <p>仅展示部分输出。</p>}
+          </details>
+        })}
         {shown.result?.reason && !!shown.plan?.actions?.length && <p role="status">{shown.result.reason}</p>}
         {!!shown.history?.length && <details className={styles.history}>
           <summary>修改记录 · {shown.history.length} 个历史版本</summary>
