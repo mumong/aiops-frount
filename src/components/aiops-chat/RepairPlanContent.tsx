@@ -1,6 +1,7 @@
 import type { ChatMessage } from './types'
 import CodeBlock from './CodeBlock'
 import styles from './RepairWorkspace.module.css'
+import { groupDisplayName } from './parallelEvidenceModel'
 
 export default function RepairPlanContent({ plan }: { plan: NonNullable<ChatMessage['repairPlan']> }) {
   return <div className={styles.planContent}>
@@ -18,7 +19,7 @@ export default function RepairPlanContent({ plan }: { plan: NonNullable<ChatMess
     {plan.actions?.map((action, index) => {
       const target = plan.targets?.find(item => item.group_id === action.group_id)
       return <article key={action.id} className={styles.action} aria-label={`修复动作 ${index + 1}`}>
-        <div className={styles.target}><span>修复对象</span><strong>{target ? `${target.namespace}/${target.pod}` : action.group_id}</strong></div>
+        <div className={styles.target}><span>修复对象</span><strong>{target ? `${target.namespace}/${target.pod}` : groupDisplayName(action.group_id)}</strong></div>
         <details className={styles.overview}>
           <summary><span>异常与处理</span><span className={styles.brief}>{action.description}</span><small>展开</small></summary>
           <p>{action.description}</p>

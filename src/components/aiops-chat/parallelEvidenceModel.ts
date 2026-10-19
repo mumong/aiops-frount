@@ -377,3 +377,10 @@ export function dimensionCounts(
   }
   return counts
 }
+
+/** "g3" → "异常组 3" for people; the raw id stays the key everywhere else. */
+export function groupDisplayName(groupId: string | undefined | null): string {
+  const id = String(groupId ?? '').trim()
+  const match = /^g(\d+)$/.exec(id)
+  return match ? `异常组 ${match[1]}` : id
+}

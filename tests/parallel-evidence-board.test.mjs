@@ -73,9 +73,9 @@ test('renders every anomaly group collapsed and hides grouped tool details initi
   })
 
   assert.match(html, /3 个异常组/)
-  assert.match(html, /g1/)
-  assert.match(html, /g2/)
-  assert.match(html, /g3/)
+  assert.match(html, /异常组 1/)
+  assert.match(html, /异常组 2/)
+  assert.match(html, /异常组 3/)
   assert.equal((html.match(/aria-expanded="false"/g) || []).length, 3)
   assert.doesNotMatch(html, /execute_pod_promql/)
   assert.doesNotMatch(html, /memory usage increased/)

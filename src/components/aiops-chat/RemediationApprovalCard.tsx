@@ -8,6 +8,7 @@ import {
 import styles from './MessageList.module.css'
 import { ShieldCheck, Check, X, Clock3, LoaderCircle, TriangleAlert } from 'lucide-react'
 import CodeBlock from './CodeBlock'
+import { groupDisplayName } from './parallelEvidenceModel'
 
 interface RemediationApprovalCardProps {
   approval: RemediationApproval
@@ -128,7 +129,7 @@ export default function RemediationApprovalCard({
         {approval.payload && (
           <div className={styles.repairPlan}>
             <div className={styles.repairTarget}>
-              <span className={styles.repairBadge}>{String(payload.group_id || '当前对象')}</span>
+              <span className={styles.repairBadge}>{groupDisplayName(String(payload.group_id || '')) || '当前对象'}</span>
               <strong>{[target.namespace, target.pod].filter(Boolean).map(String).join(' / ') || '修复命令'}</strong>
             </div>
             {(typeof payload.risk === 'string' || typeof payload.risk_level === 'string') && <div className={styles.repairNote}><strong><TriangleAlert size={15} />风险说明{typeof payload.risk_level === 'string' ? ` · ${payload.risk_level}` : ''}</strong>{typeof payload.risk === 'string' && <p>{payload.risk}</p>}</div>}

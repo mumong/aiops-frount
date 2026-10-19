@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ChatMessage } from './types'
 import MarkdownReport from './MarkdownReport'
 import styles from './DiagnosisResults.module.css'
+import { groupDisplayName } from './parallelEvidenceModel'
 
 export default function DiagnosisResults({ message }: { message: ChatMessage }) {
   const [visible, setVisible] = useState(10)
@@ -14,7 +15,7 @@ export default function DiagnosisResults({ message }: { message: ChatMessage }) 
     </>}
     {cases.slice(0, visible).map(item => <details open key={item.group_id} className={styles.caseCard}>
       <summary>
-        <strong>{item.target?.entities?.map(e => `${e.namespace || ''}/${e.name}`).join('、') || item.group_id}</strong>
+        <strong>{item.target?.entities?.map(e => `${e.namespace || ''}/${e.name}`).join('、') || groupDisplayName(item.group_id)}</strong>
         <span>{item.execution_status === 'completed' ? '诊断已交付' : '诊断未完整交付'}</span>
         <p>{item.summary}</p>
       </summary>

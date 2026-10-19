@@ -646,3 +646,11 @@ test('a mirrored fallback tool reopens a board completed before evidence events 
   assert.equal(resumed.status, 'running')
   assert.equal(resumed.pendingTools.length, 1)
 })
+
+test('group ids are shown as 异常组 N, other ids unchanged', async () => {
+  const { groupDisplayName } = await loadModel()
+  assert.equal(groupDisplayName('g4'), '异常组 4')
+  assert.equal(groupDisplayName(' g12 '), '异常组 12')
+  assert.equal(groupDisplayName('custom'), 'custom')
+  assert.equal(groupDisplayName(undefined), '')
+})

@@ -9,7 +9,7 @@ import type {
   ParallelEvidenceResult,
   ParallelEvidenceState,
 } from './types'
-import { dimensionCounts } from './parallelEvidenceModel'
+import { dimensionCounts, groupDisplayName } from './parallelEvidenceModel'
 import styles from './ParallelEvidenceBoard.module.css'
 
 const DIMENSION_LABELS: Record<EvidenceDimension, string> = {
@@ -122,7 +122,7 @@ function GroupCard({
         onClick={onToggle}
       >
         <span className={styles.groupTopline}>
-          <span className={styles.groupId}>{group.groupId}</span>
+          <span className={styles.groupId}>{groupDisplayName(group.groupId)}</span>
           <span className={styles.groupType}>{group.abnormalType}</span>
           <span className={styles.groupToggle} aria-hidden="true">{expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</span>
         </span>
@@ -147,7 +147,7 @@ function GroupCard({
           label={`${stage === 'rca' ? '根因分析' : '取证分析'} · 模型思考过程`} />
       ))}
       {Object.entries(group.analysisStreams || {}).map(([stage, stream]) => stream.text && (
-        <section key={stage} className={styles.groupBody} aria-label={`${group.groupId} 模型分析`}>
+        <section key={stage} className={styles.groupBody} aria-label={`${groupDisplayName(group.groupId)} 模型分析`}>
           <div className={styles.noticeTitle}>{stage === 'rca' ? '根因分析' : '取证分析'} · 模型输出</div>
           <StructuredContent text={stream.text} analysis />
         </section>

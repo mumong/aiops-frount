@@ -7,6 +7,7 @@ import { describeObservation, describeRecoveryOutcome, describeRecoveryProgress 
 import { repairActive, repairRequest, repairStatus } from './repairWorkspaceApi'
 import type { RepairBatch, RepairJob } from './repairWorkspaceApi'
 import styles from './RepairWorkspace.module.css'
+import { groupDisplayName } from './parallelEvidenceModel'
 
 interface Props {
   apiBase: string
@@ -120,7 +121,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
       {batch.groups.length > 1 && <div className={styles.cards} role="group" aria-label="选择修复组">
         {batch.groups.map(group => <button type="button" key={group.group_id}
           aria-pressed={group.job_id === jobId} onClick={() => setSelected(group.group_id)}>
-          <strong>{group.target?.label || group.group_id}</strong>
+          <strong>{group.target?.label || groupDisplayName(group.group_id)}</strong>
           <span>{group.target?.entities?.map(e => `${e.namespace || ''}/${e.name || ''}`).join('、')}</span>
           <span>v{group.version} · {repairStatus[group.status] || group.status}</span>
         </button>)}
@@ -138,7 +139,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
           <p>以下为规划时的记录，不代表命令已经执行。</p>
           {shown.plan?.answer && <MarkdownReport content={shown.plan.answer} />}
         </details>
-        <h4 className={styles.aiHeading}>{batch.groups.length > 1 ? `${current?.target?.label || shown.group_id} · ` : ''}AI 修复方案 · v{shown.version}</h4>
+        <h4 className={styles.aiHeading}>{batch.groups.length > 1 ? `${current?.target?.label || groupDisplayName(shown.group_id)} · ` : ''}AI 修复方案 · v{shown.version}</h4>
         {shown.diagnosis_summary && <p className={styles.cause}><span>异常原因（来自诊断）</span>{shown.diagnosis_summary}</p>}
         <p>{shown.plan?.planning_error ? '规划未完成' : shown.status === 'planning' && shown.feedback ? '正在根据你的意见更新…' : repairStatus[shown.status] || shown.status}{shown.plan?.actions?.length ? shown.mode === 'auto' ? ` · 自动执行（未经人工审批${shown.mode_source === 'runtime' ? '，运行时开关' : '，配置'}）` : shown.mode === 'review' ? ' · 执行前需批准' : '' : ''}</p>
         {repairActive(shown.status) && shown.status_started_at && <small>
@@ -180,7 +181,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
             <table>
               <thead><tr><th>对象</th><th>执行前</th><th>执行后</th><th>耗时</th></tr></thead>
               <tbody>{shown.result.recovery.targets.map(t => <tr key={t.group_id}>
-                <td>{t.group_id}</td><td>{describeObservation(t.before)}</td><td>{describeObservation(t.after)}</td>
+                <td>{groupDisplayName(t.group_id)}</td><td>{describeObservation(t.before)}</td><td>{describeObservation(t.after)}</td>
                 <td>{t.elapsed_seconds} 秒{t.timed_out ? ' · 超时' : ''}</td></tr>)}</tbody>
             </table>
             {shown.result.recovery.targets.map(t => <small key={t.group_id}>{t.reason}</small>)}
