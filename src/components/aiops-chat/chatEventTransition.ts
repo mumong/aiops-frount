@@ -17,6 +17,14 @@ import {
   startParallelTool,
 } from './parallelEvidenceModel'
 
+/** ``final.repair_batch`` (chat repair dispatched to per-group jobs) as message fields. */
+function repairBatchFields(value: unknown): Partial<ChatMessage> {
+  if (!value || typeof value !== 'object') return {}
+  const batch = value as { batch_id?: unknown; diagnosis_run_id?: unknown }
+  if (typeof batch.batch_id !== 'string' || typeof batch.diagnosis_run_id !== 'string') return {}
+  return { repairBatchId: batch.batch_id, repairBatchDiagnosisId: batch.diagnosis_run_id }
+}
+
 export interface ChatEventState {
   nodeBlocks: NodeBlock[]
   parallelGroups: ParallelEvidenceGroup[]
@@ -370,6 +378,7 @@ export function transitionChatEvent(
             ? { ...m, content: answer, status: 'complete' as const,
                 resultStatus: data.status === 'partial' ? 'partial' as const : data.status === 'error' ? 'error' as const : 'success' as const,
                 repairRecord: data.repair_record as ChatMessage['repairRecord'],
+                ...repairBatchFields(data.repair_batch),
                 repairPlan: data.repair_plan as ChatMessage['repairPlan'],
                 diagnosisCases: data.diagnosis_cases as ChatMessage['diagnosisCases'],
                 diagnosisOverview: data.diagnosis_overview as ChatMessage['diagnosisOverview'],

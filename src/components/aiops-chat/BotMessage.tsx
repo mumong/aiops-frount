@@ -15,6 +15,7 @@ import CodeBlock from './CodeBlock'
 import RepairWorkspace from './RepairWorkspace'
 import RepairPlanContent from './RepairPlanContent'
 import DiagnosisResults from './DiagnosisResults'
+import { repairEntry } from './repairEntry'
 
 interface BotMessageProps {
   apiBase?: string
@@ -47,6 +48,7 @@ function BotMessage({
   const isError = message.status === 'error'
   const displayedAnswer = visibleNarrative(finalAnswer)
   const answerRef = useRef<HTMLElement>(null)
+  const repair = repairEntry(message)
 
   return (
     <div className={styles.botRow}>
@@ -153,12 +155,14 @@ function BotMessage({
               </details>
             ))}
             {message.remediationStatus && <RemediationStatusCard status={message.remediationStatus} />}
-            {apiBase && onRepairBatchCreated && message.repairRecord?.kind === 'diagnosis'
+            {apiBase && onRepairBatchCreated && repair.diagnosisId
               && message.status === 'complete' && <RepairWorkspace apiBase={apiBase}
-                diagnosisId={message.repairRecord.run_id} batchId={message.repairBatchId}
+                diagnosisId={repair.diagnosisId} batchId={repair.batchId}
                 onCreated={id => onRepairBatchCreated(message.id, id)} onApprove={onRemediationRespond} />}
+            {repair.nothingToRepair && message.status === 'complete'
+              && <p className={styles.repairNothing}>本次诊断未发现需要修复的异常，无需生成修复方案。</p>}
             {!apiBase && !streamActive && message.status === 'complete' && displayedAnswer
-              && message.repairRecord?.kind === 'diagnosis'
+              && repair.diagnosisId && !repair.batchId
               && !message.remediationApprovals?.length && !message.remediationResults?.length
               && onRequestRepair && (
                 <div className={styles.repairEntry}>

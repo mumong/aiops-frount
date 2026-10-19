@@ -41,7 +41,11 @@ export interface ChatMessage {
   diagnosisOverview?: { text: string; failed: boolean; total: number; completed: number; partial: number }
   diagnosisFooter?: string
   repairBatchId?: string
-  repairRecord?: { run_id: string; kind: 'diagnosis' | 'plan'; source_run_id?: string | null }
+  /** Diagnosis of a chat repair request the backend dispatched to a per-group batch. */
+  repairBatchDiagnosisId?: string
+  repairRecord?: {
+    run_id: string; kind: 'diagnosis' | 'plan'; source_run_id?: string | null; repairable?: boolean
+  }
   repairPlan?: {
     planning_error?: { code: string; message: string }
     answer?: string

@@ -202,3 +202,5 @@ summary.nodeSectionTitle svg { margin-right: 5px; }
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+.repairNothing { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
