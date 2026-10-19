@@ -58,7 +58,7 @@ Interface wording distinguishes stage results from final results, pending analys
 
 ## 真实浏览器端到端（会真实修复目标命名空间）
 
-`tests/live-repair-e2e.browser.py` 用真实 Chromium 操作已部署的前端与后端：在聊天框发起诊断 → 安全面板（执行方式徽标、拦截规则、命令安全检查、管理员切换与恢复）→ 生成修复方案（对象 / 异常原因 / 命令）→ 点击"批准此动作" → 等待"执行后恢复观察"显示已恢复。只点击人会点击的控件，不注入 Cookie 或直接调 API。
+`tests/live-repair-e2e.browser.py` 用真实 Chromium 操作已部署的前端与后端：在聊天框发起诊断 → 安全面板（执行方式徽标、拦截规则）→ 生成修复方案（对象 / 异常原因 / 命令）→ 点击"批准此动作" → 等待"执行后恢复观察"显示已恢复。只点击人会点击的控件，不注入 Cookie 或直接调 API。
 
 ```bash
 python3 -m venv .venv-browser && .venv-browser/bin/pip install playwright && .venv-browser/bin/playwright install chromium

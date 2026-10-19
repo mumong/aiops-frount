@@ -1,16 +1,15 @@
 """Real browser against the deployed UI and backend: diagnose → policy panel → plan → approve → recovery.
 
 This really repairs the target namespace (an anomaly fixture). It drives only what a
-human would click: the chat input, the safety panel's command check and admin switch,
+human would click: the chat input, the safety panel's rule list,
 "生成自动修复方案" and "批准此动作". No cookies or API calls are injected.
 
   python3 tests/live-repair-e2e.browser.py --url http://10.2.0.48:30081 --chromium /path/to/chrome \
-      --namespace aiops-case-04 --admin-token-file /path/to/token --screenshot /tmp/live-repair.png
+      --namespace aiops-case-04 --screenshot /tmp/live-repair.png
 """
 import argparse
 import re
 import time
-from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -18,13 +17,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--url', required=True)
 parser.add_argument('--chromium', required=True)
 parser.add_argument('--namespace', required=True)
-parser.add_argument('--admin-token-file', default='', help='file holding AIOPS_ADMIN_TOKEN; empty skips the switch check')
 parser.add_argument('--screenshot', required=True)
 parser.add_argument('--diagnosis-timeout', type=int, default=900, help='seconds to wait for the diagnosis to finish')
 parser.add_argument('--plan-timeout', type=int, default=600)
 parser.add_argument('--recovery-timeout', type=int, default=420)
 args = parser.parse_args()
-token = Path(args.admin_token_file).read_text().strip() if args.admin_token_file else ''
 steps = []
 
 
@@ -49,7 +46,7 @@ with sync_playwright() as p:
     expect(generate).to_be_visible(timeout=args.diagnosis_timeout * 1000)
     step('诊断完成，报告下出现“生成自动修复方案”入口', detail=f'{int(time.time() - started)}s')
 
-    # 2. Safety panel: posture badge, rule list, dry command check.
+    # 2. Safety panel: posture badge and rule list (command check and mode switch are API-only).
     panel = page.get_by_label('修复安全策略')
     expect(panel).to_contain_text('执行方式', timeout=30000)
     mode_badge = panel.locator('[data-mode]').first
@@ -58,34 +55,7 @@ with sync_playwright() as p:
     panel.get_by_text('查看拦截规则').click()
     expect(panel).to_contain_text('delete')
     step('拦截规则列表可见（含 delete）')
-    panel.get_by_text('命令安全检查（不执行，只判定）').click()
-    panel.locator('textarea').fill('kubectl delete ns demo --force\nkubectl patch pod/x -n demo --type=merge -p \'{"metadata":{"finalizers":null}}\'')
-    panel.get_by_role('button', name='检查').click()
-    verdicts = panel.get_by_label('判定结果').locator('li')
-    expect(verdicts).to_have_count(2, timeout=30000)
-    expect(verdicts.nth(0)).to_contain_text('拦截')
-    expect(verdicts.nth(0)).to_contain_text('高危动词黑名单')
-    expect(verdicts.nth(1)).to_contain_text('允许')
-    step('命令安全检查：高危命令被拦截并显示规则，合规命令放行')
-
-    # 3. Admin switch (optional): auto for 5 minutes, badge flips, then restore.
-    if token:
-        panel.get_by_text('切换执行方式（管理员）').click()
-        panel.get_by_label('管理员令牌').fill(token)
-        panel.get_by_label('切换为').select_option('auto')
-        panel.get_by_label('有效期（分钟）').fill('5')
-        panel.get_by_label('原因').fill('浏览器端到端验收')
-        panel.get_by_role('button', name='应用').click()
-        expect(mode_badge).to_have_text('自动执行', timeout=30000)
-        expect(panel).to_contain_text('运行时覆盖')
-        step('管理员切换为自动执行，徽标与来源更新')
-        panel.get_by_role('button', name='恢复配置值').click()
-        expect(mode_badge).to_have_text('人工审批', timeout=30000)
-        step('恢复配置值后回到人工审批')
-    else:
-        step('管理员切换（跳过：未提供令牌）')
-
-    # 4. Plan: object, cause, command, risk; then approve in the UI and watch recovery.
+    # 3. Plan: object, cause, command, risk; then approve in the UI and watch recovery.
     generate.click()
     workspace = page.get_by_label('分组修复方案')
     approve = workspace.get_by_role('button', name='批准此动作')

@@ -17,3 +17,4 @@ dist/
 /example.txt
 /CLAUDE.md
 .venv-browser/
+__pycache__/
