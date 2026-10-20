@@ -6,7 +6,7 @@ import styles from './MessageList.module.css'
 const labels: Record<string, string> = {
   layer: '定位异常', evidence: '采集证据', rca: '分析根因',
   query_collect: '自主查询', conclusion: '整理回答',
-  remediation: '修复规划与审查',
+  remediation: '修复与执行',
   parallel_evidence: '分组并发取证与根因分析',
 }
 

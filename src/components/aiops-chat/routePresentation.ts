@@ -20,7 +20,7 @@ export function presentRoute(snapshot: unknown): RoutePresentation | undefined {
     ? data.request_error as Record<string, unknown> : {}
   const titles: Record<string, string> = {
     focused: '轻量查询与分析', full_diagnosis: '深度诊断',
-    remediation: 'Pod 修复规划与审查',
+    remediation: '修复与执行',
     clarify: '需要补充信息', stop: '任务识别未完成',
   }
   if (!titles[route]) return undefined
