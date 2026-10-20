@@ -35,6 +35,8 @@ export interface PlanningProgress {
   tools: Array<{ id: string; name: string; args: string; status: 'running' | 'success' | 'error' | 'unfinished'
     preview?: string; duration_seconds?: number | null }>
   reasoning: string
+  /** One short line on what planning is waiting for, e.g. a rejected plan being retried. */
+  note?: string
 }
 export interface RepairJob extends RepairGroup {
   planning_progress?: PlanningProgress

@@ -54,3 +54,11 @@ test('stage strip marks where the job is and collapses the process once planned'
   assert.match(auto, /已恢复/)
   assert.doesNotMatch(auto, /规划过程/)
 })
+
+test('a planning note says in one line why planning is still running', async () => {
+  const note = '结构化结果未通过校验（1/2）：targets 为空，正在重试'
+  const html = await render({ progress: { ...progress, note }, status: 'planning', mode: 'review' })
+  assert.match(html, /role="status"[^>]*>结构化结果未通过校验（1\/2）：targets 为空，正在重试</)
+  const done = await render({ progress: { ...progress, note }, status: 'awaiting_approval', mode: 'review' })
+  assert.doesNotMatch(done, /role="status"/)
+})

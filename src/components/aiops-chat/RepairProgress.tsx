@@ -33,6 +33,7 @@ export default function RepairProgress({ progress, status, mode }: {
         {index === 4 && current === 4 && <small>{repairStatus[status] || status}</small>}
       </li>)}
     </ol>
+    {planning && progress?.note && <p className={styles.progressNote} role="status">{progress.note}</p>}
     {(tools.length > 0 || progress?.reasoning) && <details open={planning} className={styles.progress} aria-label="规划过程">
       <summary>规划过程 · {tools.length} 次工具调用{failed ? ` · ${failed} 失败` : ''}{planning ? ' · 进行中' : ''}</summary>
       {progress?.reasoning && <ReasoningDetails text={progress.reasoning} live={planning} />}

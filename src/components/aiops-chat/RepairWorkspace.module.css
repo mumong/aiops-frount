@@ -73,6 +73,7 @@
 .stages .stageCurrent span { background: #3b82f6; color: #fff; }
 .progress { margin: 8px 0 12px; padding: 8px 12px; border: 1px solid #94a3b844; border-radius: 8px; font-size: 13px; }
 .progress > summary { cursor: pointer; font-weight: 600; }
+.progressNote { margin: 6px 0 0; padding: 6px 10px; border-left: 3px solid #f59e0b; background: #f59e0b14; border-radius: 4px; font-size: 13px; }
 .toolList { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .toolList li { padding: 6px 8px; border-left: 3px solid #22c55e88; background: #94a3b80d; border-radius: 4px; min-width: 0; }
 .toolList .toolError { border-left-color: #ef4444aa; }
