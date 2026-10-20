@@ -31,7 +31,13 @@ export interface RecoverySummary {
   targets: Array<{ group_id: string; status: string; reason: string; before?: PodObservation | null
     after?: PodObservation | null; elapsed_seconds: number; timed_out: boolean }>
 }
+export interface PlanningProgress {
+  tools: Array<{ id: string; name: string; args: string; status: 'running' | 'success' | 'error'
+    preview?: string; duration_seconds?: number | null }>
+  reasoning: string
+}
 export interface RepairJob extends RepairGroup {
+  planning_progress?: PlanningProgress
   diagnosis_summary?: string | null
   created_at?: number
   status_started_at?: number

@@ -63,3 +63,21 @@
 .recovery[data-tone="timeout"] { border-color: #dc262688; background: #dc262608; }
 .recovery table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .recovery th, .recovery td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #94a3b833; overflow-wrap: anywhere; }
+.stages { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; padding: 0; list-style: none; font-size: 12px; }
+.stages li { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border: 1px solid #94a3b844; border-radius: 999px; opacity: .6; }
+.stages li span { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #94a3b833; font-size: 11px; }
+.stages li small { opacity: .8; }
+.stages .stageDone { opacity: .85; }
+.stages .stageDone span { background: #22c55e33; color: #15803d; }
+.stages .stageCurrent { opacity: 1; border-color: #3b82f6; font-weight: 600; }
+.stages .stageCurrent span { background: #3b82f6; color: #fff; }
+.progress { margin: 8px 0 12px; padding: 8px 12px; border: 1px solid #94a3b844; border-radius: 8px; font-size: 13px; }
+.progress > summary { cursor: pointer; font-weight: 600; }
+.toolList { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.toolList li { padding: 6px 8px; border-left: 3px solid #22c55e88; background: #94a3b80d; border-radius: 4px; min-width: 0; }
+.toolList .toolError { border-left-color: #ef4444aa; }
+.toolHead { display: flex; align-items: center; gap: 8px; }
+.toolHead small { margin-left: auto; opacity: .7; }
+.toolRunning { font-size: 11px; color: #2563eb; }
+.toolArgs { display: block; margin-top: 4px; font-size: 11px; opacity: .8; overflow-wrap: anywhere; }
+.toolList pre { margin: 4px 0 0; max-height: 220px; overflow: auto; font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }

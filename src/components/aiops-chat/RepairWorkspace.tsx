@@ -3,6 +3,7 @@ import CodeBlock from './CodeBlock'
 import MarkdownReport from './MarkdownReport'
 import RepairPlanContent from './RepairPlanContent'
 import RepairPolicyPanel from './RepairPolicyPanel'
+import RepairProgress from './RepairProgress'
 import { describeObservation, describeRecoveryOutcome, describeRecoveryProgress } from './repairRecoveryPresentation'
 import { repairActive, repairRequest, repairStatus } from './repairWorkspaceApi'
 import type { RepairBatch, RepairJob } from './repairWorkspaceApi'
@@ -140,6 +141,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
           {shown.plan?.answer && <MarkdownReport content={shown.plan.answer} />}
         </details>
         <h4 className={styles.aiHeading}>{batch.groups.length > 1 ? `${current?.target?.label || groupDisplayName(shown.group_id)} · ` : ''}AI 修复方案 · v{shown.version}</h4>
+        <RepairProgress progress={shown.planning_progress} status={shown.status} mode={shown.mode} />
         {shown.diagnosis_summary && <p className={styles.cause}><span>异常原因（来自诊断）</span>{shown.diagnosis_summary}</p>}
         <p>{shown.plan?.planning_error ? '规划未完成' : shown.status === 'planning' && shown.feedback ? '正在根据你的意见更新…' : repairStatus[shown.status] || shown.status}{shown.plan?.actions?.length ? shown.mode === 'auto' ? ` · 自动执行（未经人工审批${shown.mode_source === 'runtime' ? '，运行时开关' : '，配置'}）` : shown.mode === 'review' ? ' · 执行前需批准' : '' : ''}</p>
         {repairActive(shown.status) && shown.status_started_at && <small>
