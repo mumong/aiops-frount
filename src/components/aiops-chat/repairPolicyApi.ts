@@ -18,6 +18,9 @@ export interface RepairPolicy {
     denied_executables: string[]
     allowed_exec_commands: string[]
     read_only_operations: string[]
+    /** Display view of the same rules: what the panel lists. */
+    kubernetes: { commands: string[]; resources: string[]; batch: string[] }
+    shell: string[]
   }
   runtime_switch: { available: boolean; header: string; note: string }
 }

@@ -50,13 +50,16 @@ export default function RepairPolicyPanel({ apiBase }: { apiBase: string }) {
     <details>
       <summary>查看拦截规则</summary>
       <dl className={styles.rules}>
-        <dt>传输限制</dt><dd>{Object.values(policy.rules.transport).join('；')}</dd>
-        <dt>禁止动词</dt><dd>{policy.rules.denied_operations.join(', ') || '无'}</dd>
-        {policy.rules.allowed_operations.length > 0 && <><dt>仅允许动词</dt><dd>{policy.rules.allowed_operations.join(', ')}</dd></>}
-        <dt>禁止参数</dt><dd>{policy.rules.denied_flags.join(', ') || '无'}{policy.rules.bulk_selector_on_write ? '；写操作禁止 -l/--selector/--field-selector 批量命中' : ''}</dd>
-        <dt>禁止写入的资源</dt><dd>{policy.rules.denied_resource_kinds.join(', ') || '无'}</dd>
-        <dt>容器内禁止命令</dt><dd>{policy.rules.denied_executables.join(', ') || '无'}{policy.rules.allowed_exec_commands.length ? `；仅允许：${policy.rules.allowed_exec_commands.join(', ')}` : ''}</dd>
+        <dt>Kubernetes</dt>
+        <dd>
+          禁止命令：{policy.rules.kubernetes.commands.join(', ') || '无'}<br />
+          禁止修改的集群资源：{policy.rules.kubernetes.resources.join(', ') || '无'}<br />
+          禁止批量操作：{policy.rules.kubernetes.batch.join(', ') || '无'}
+        </dd>
+        <dt>Shell</dt>
+        <dd>禁止命令：{policy.rules.shell.join(', ') || '无'}（Pod 内执行与 bash 工具均适用）</dd>
       </dl>
+      <small>规划方案、执行修复和对话执行使用同一套规则；命中任一条即拦截，不执行。</small>
     </details>
   </div>
 }

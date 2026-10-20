@@ -7,8 +7,9 @@ const code = ts.transpileModule(readFileSync(new URL('../src/components/aiops-ch
   { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText
 const { describeMode, summarizeRules, describeVerdict, splitCommands } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
 
-const rules = { transport: {}, denied_operations: ['delete', 'apply'], allowed_operations: [], denied_flags: ['--force'],
-  bulk_selector_on_write: true, denied_resource_kinds: ['node'], denied_executables: ['rm', 'dd'], allowed_exec_commands: [], read_only_operations: [] }
+const rules = { transport: {}, denied_operations: ['drain', 'edit'], allowed_operations: [], denied_flags: ['--all'],
+  bulk_selector_on_write: true, denied_resource_kinds: ['node'], denied_executables: ['rm', 'dd'], allowed_exec_commands: [], read_only_operations: [],
+  kubernetes: { commands: ['drain', 'edit'], resources: ['node'], batch: ['--all', '-l/--selector/--field-selector（写操作）'] }, shell: ['rm', 'dd'] }
 
 test('config review mode reads as human approval with its timeout', () => {
   const shown = describeMode({ enabled: true, mode: 'review', mode_source: 'config', override: null, approval_timeout_seconds: 600 })
@@ -35,13 +36,8 @@ test('disabled executor is stated, not shown as a mode', () => {
   assert.equal(describeMode({ enabled: false, mode: 'review', mode_source: 'config', override: null, approval_timeout_seconds: 600 }).tone, 'off')
 })
 
-test('rule summary counts every rule family', () => {
-  const text = summarizeRules(rules)
-  assert.match(text, /2 个禁止动词/)
-  assert.match(text, /1 个禁止参数/)
-  assert.match(text, /1 类禁止写入的资源/)
-  assert.match(text, /2 个容器内禁止命令/)
-  assert.match(text, /批量写/)
+test('rule summary reads as two lists: Kubernetes and Shell', () => {
+  assert.equal(summarizeRules(rules), 'Kubernetes：2 个命令、1 类集群资源、批量操作 · Shell：2 个命令')
 })
 
 test('verdicts name the rule and never claim execution', () => {

@@ -24,17 +24,12 @@ export function describeMode(policy: Pick<RepairPolicy, 'enabled' | 'mode' | 'mo
   return { label: auto ? '自动执行' : '人工审批', tone: auto ? 'auto' : 'review', detail: parts.join(' · ') }
 }
 
-/** One line a tester can read: how many rules of each kind are active. */
+/** One line a tester can read: the two blacklists, as the server enforces them. */
 export function summarizeRules(rules: RepairPolicy['rules']): string {
-  const items = [
-    `${rules.denied_operations.length} 个禁止动词`,
-    `${rules.denied_flags.length} 个禁止参数`,
-    `${rules.denied_resource_kinds.length} 类禁止写入的资源`,
-    `${rules.denied_executables.length} 个容器内禁止命令`,
-  ]
-  if (rules.bulk_selector_on_write) items.push('禁止按选择器批量写')
-  if (rules.allowed_operations.length) items.push(`仅允许 ${rules.allowed_operations.length} 个动词`)
-  return items.join(' · ')
+  const k = rules.kubernetes
+  const kube = [`${k.commands.length} 个命令`, `${k.resources.length} 类集群资源`]
+  if (k.batch.length) kube.push('批量操作')
+  return `Kubernetes：${kube.join('、')} · Shell：${rules.shell.length} 个命令`
 }
 
 export const RULE_LABELS: Record<string, string> = {
