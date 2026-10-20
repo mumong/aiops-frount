@@ -58,6 +58,10 @@ export default function RepairPolicyPanel({ apiBase }: { apiBase: string }) {
         </dd>
         <dt>Shell</dt>
         <dd>禁止命令：{policy.rules.shell.join(', ') || '无'}（Pod 内执行与 bash 工具均适用）</dd>
+        {policy.rules.approval_required && (policy.rules.approval_required.kubernetes.length + policy.rules.approval_required.shell.length) > 0 && <>
+          <dt>需人工审批</dt>
+          <dd>{[...policy.rules.approval_required.kubernetes, ...policy.rules.approval_required.shell].join(', ')}（对话中拦截；修复方案中可用，执行前必须人工批准，自动执行模式也一样）</dd>
+        </>}
       </dl>
       <small>规划方案、执行修复和对话执行使用同一套规则；命中任一条即拦截，不执行。</small>
     </details>

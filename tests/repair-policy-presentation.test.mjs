@@ -9,7 +9,8 @@ const { describeMode, summarizeRules, describeVerdict, splitCommands } = await i
 
 const rules = { transport: {}, denied_operations: ['drain', 'edit'], allowed_operations: [], denied_flags: ['--all'],
   bulk_selector_on_write: true, denied_resource_kinds: ['node'], denied_executables: ['rm', 'dd'], allowed_exec_commands: [], read_only_operations: [],
-  kubernetes: { commands: ['drain', 'edit'], resources: ['node'], batch: ['--all', '-l/--selector/--field-selector（写操作）'] }, shell: ['rm', 'dd'] }
+  kubernetes: { commands: ['drain', 'edit'], resources: ['node'], batch: ['--all', '-l/--selector/--field-selector（写操作）'] }, shell: ['rm', 'dd'],
+  approval_required: { kubernetes: ['drain', 'namespace'], shell: ['rm'] } }
 
 test('config review mode reads as human approval with its timeout', () => {
   const shown = describeMode({ enabled: true, mode: 'review', mode_source: 'config', override: null, approval_timeout_seconds: 600 })
@@ -37,7 +38,7 @@ test('disabled executor is stated, not shown as a mode', () => {
 })
 
 test('rule summary reads as two lists: Kubernetes and Shell', () => {
-  assert.equal(summarizeRules(rules), 'Kubernetes：2 个命令、1 类集群资源、批量操作 · Shell：2 个命令')
+  assert.equal(summarizeRules(rules), 'Kubernetes：2 个命令、1 类集群资源、批量操作 · Shell：2 个命令 · 需人工审批：3 个')
 })
 
 test('verdicts name the rule and never claim execution', () => {
@@ -52,4 +53,20 @@ test('verdicts name the rule and never claim execution', () => {
 
 test('pasted text splits into commands, dropping blanks and comments', () => {
   assert.deepEqual(splitCommands('# note\nkubectl get pods\n\n  kubectl delete ns x  \n'), ['kubectl get pods', 'kubectl delete ns x'])
+})
+
+test('approval-required verdict reads as allowed only after a person approves', () => {
+  const v = describeVerdict({ command: 'kubectl drain node2', allowed: true, requires_approval: true, operation: 'drain',
+    rule: 'approval_required', reason: '需人工审批的高危命令（操作 drain 在高危命令黑名单中）' })
+  assert.match(v.label, /需人工审批/)
+  assert.match(v.detail, /自动执行模式下也需审批/)
+})
+
+test('high-risk approval note names the commands and that auto mode does not skip it', async () => {
+  const { describeHighRisk } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
+  assert.equal(describeHighRisk([]), '')
+  const note = describeHighRisk(['kubectl exec pod/x -n d -- rm -f /tmp/a：需人工审批的高危命令（命中 denied_executables：rm）'])
+  assert.match(note, /高危命令，需人工批准后执行/)
+  assert.match(note, /自动执行模式也不会跳过/)
+  assert.match(note, /rm -f \/tmp\/a/)
 })

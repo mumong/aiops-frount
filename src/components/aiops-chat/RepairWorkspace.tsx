@@ -1,3 +1,4 @@
+import { describeHighRisk } from './repairPolicyPresentation'
 import { useEffect, useRef, useState } from 'react'
 import CodeBlock from './CodeBlock'
 import MarkdownReport from './MarkdownReport'
@@ -153,6 +154,7 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
         {shown.approval && shown.status === 'awaiting_approval' && <div className={styles.action}>
           <strong>等待批准</strong>
           <small> · {remaining === 0 ? '审批已到期，正在核对状态' : `剩余 ${remaining} 秒`} · 截止 {new Date(shown.approval.expires_at * 1000).toLocaleTimeString()}</small>
+          {describeHighRisk(shown.approval.high_risk) && <p role="alert" className={styles.highRisk}>{describeHighRisk(shown.approval.high_risk)}</p>}
           {decisionText && <p role="status" aria-live="polite">{decisionText}</p>}
           <div className={styles.buttons}>{[true, false].map(approved => <button key={String(approved)} type="button"
             disabled={pending || !!decisionText || !onApprove || remaining === 0 || serverDecision === 'expired' || serverDecision === 'unavailable'}

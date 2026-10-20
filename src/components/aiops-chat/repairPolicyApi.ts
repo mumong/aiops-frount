@@ -21,6 +21,8 @@ export interface RepairPolicy {
     /** Display view of the same rules: what the panel lists. */
     kubernetes: { commands: string[]; resources: string[]; batch: string[] }
     shell: string[]
+    /** Run only after a person approves the exact command (repair plans only). */
+    approval_required?: { kubernetes: string[]; shell: string[] }
   }
   runtime_switch: { available: boolean; header: string; note: string }
 }
@@ -31,6 +33,7 @@ export interface CommandVerdict {
   operation: string
   rule: string
   reason: string
+  requires_approval?: boolean
 }
 
 export const ADMIN_TOKEN_HEADER = 'X-AIOps-Admin-Token'

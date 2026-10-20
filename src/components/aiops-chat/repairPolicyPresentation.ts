@@ -29,7 +29,15 @@ export function summarizeRules(rules: RepairPolicy['rules']): string {
   const k = rules.kubernetes
   const kube = [`${k.commands.length} 个命令`, `${k.resources.length} 类集群资源`]
   if (k.batch.length) kube.push('批量操作')
-  return `Kubernetes：${kube.join('、')} · Shell：${rules.shell.length} 个命令`
+  const approval = rules.approval_required
+  const gated = approval ? approval.kubernetes.length + approval.shell.length : 0
+  return `Kubernetes：${kube.join('、')} · Shell：${rules.shell.length} 个命令${gated ? ` · 需人工审批：${gated} 个` : ''}`
+}
+
+/** One line for an approval that contains approval_required commands; '' when none. */
+export function describeHighRisk(highRisk: string[] | undefined): string {
+  if (!highRisk?.length) return ''
+  return `高危命令，需人工批准后执行（自动执行模式也不会跳过）：${highRisk.join('；')}`
 }
 
 export const RULE_LABELS: Record<string, string> = {
@@ -46,6 +54,7 @@ export const RULE_LABELS: Record<string, string> = {
 }
 
 export function describeVerdict(verdict: CommandVerdict): { icon: string; label: string; detail: string } {
+  if (verdict.allowed && verdict.requires_approval) return { icon: '⚠️', label: '需人工审批', detail: `${verdict.reason}；仅修复方案可用，执行前必须人工批准，自动执行模式下也需审批；对话中不直接执行` }
   if (verdict.allowed) return { icon: '✅', label: `允许（${verdict.operation || '操作'}）`, detail: '通过全部规则；执行前仍按当前模式审批' }
   const rule = RULE_LABELS[verdict.rule] || verdict.rule || '策略'
   return { icon: '⛔', label: `拦截 · ${rule}`, detail: verdict.reason }

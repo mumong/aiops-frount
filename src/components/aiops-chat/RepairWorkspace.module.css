@@ -82,3 +82,5 @@
 .toolRunning { font-size: 11px; color: #2563eb; }
 .toolArgs { display: block; margin-top: 4px; font-size: 11px; opacity: .8; overflow-wrap: anywhere; }
 .toolList pre { margin: 4px 0 0; max-height: 220px; overflow: auto; font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.highRisk { margin: 6px 0; padding: 6px 10px; border-left: 3px solid #ef4444; background: #ef444414; border-radius: 4px; font-size: 13px; }

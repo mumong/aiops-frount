@@ -50,7 +50,7 @@ export interface RepairJob extends RepairGroup {
   error?: string
   result?: { reason?: string; status?: string; elapsed_seconds?: number; recovery?: RecoverySummary | null }
   recovery?: RecoveryEvent
-  approval?: { approval_id: string; title: string; expires_at: number; decision_status?: string }
+  approval?: { approval_id: string; title: string; expires_at: number; decision_status?: string; high_risk?: string[] }
   mode_source?: string
   events?: Array<{ type: string; action_id: string; stage: string; command: string;
     status: string; result_preview?: string; result_truncated?: boolean;
