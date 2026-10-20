@@ -1,5 +1,7 @@
 # K8s AIOps Copilot — Chat Widget
 
+[English](README.en.md) | **中文**
+
 Kubernetes AIOps 智能对话助手前端组件。提供基于聊天界面的 Kubernetes 集群运维、故障排查、日志分析等 AI Copilot 能力。
 
 ## 功能概览
@@ -11,6 +13,7 @@ Kubernetes AIOps 智能对话助手前端组件。提供基于聊天界面的 Ku
 - **处理路径与阶段状态** — 展示后端选择的路由、诊断阶段、并发组及工具进度
 - **多轮对话** — 保留上下文，支持连续追问
 - **侧边栏会话管理** — 创建、切换、删除会话；支持确认后清空当前浏览器全部历史和草稿，清空会断开运行中会话的前端连接
+- **修复工作区** — 按异常组展示修复方案，可反馈修改方案；审批卡片带倒计时，高危命令单独标红；展示执行与恢复结果，并可查看当前生效的命令规则
 
 ## 技术栈
 
@@ -285,9 +288,12 @@ make deploy
 
 前端容器本身只提供静态页面和 `/api` 反向代理。后端需要暴露以下接口：
 
-- `GET /ask` — 前端统一 SSE/文本入口，由后端任务路由判断查询或诊断
+- `GET /ask` — 前端统一 SSE/文本入口，由后端任务路由判断查询、执行、诊断或修复
 - `GET /query` — 后端保留的查询接口；当前前端不再通过模式按钮或示例卡片选择该接口
-- `POST /remediation/approve` — 修复审批接口
+- `POST /repair/batches`、`GET /repair/batches/{id}` — 按异常组创建与查看修复批次
+- `GET /repair/jobs/{id}`、`POST /repair/jobs/{id}/feedback`、`POST /repair/jobs/{id}/cancel` — 修复工作区的方案、反馈修改与取消
+- `POST /remediation/approve` — 修复动作审批（批准 / 拒绝）
+- `GET /repair/policy`、`POST /repair/policy/check`、`PUT|DELETE /repair/policy/mode` — 执行方式与高危命令规则
 - `GET /health` — 健康检查接口
 
 ## 开发约定
