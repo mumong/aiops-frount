@@ -32,7 +32,7 @@ export interface RecoverySummary {
     after?: PodObservation | null; elapsed_seconds: number; timed_out: boolean }>
 }
 export interface PlanningProgress {
-  tools: Array<{ id: string; name: string; args: string; status: 'running' | 'success' | 'error'
+  tools: Array<{ id: string; name: string; args: string; status: 'running' | 'success' | 'error' | 'unfinished'
     preview?: string; duration_seconds?: number | null }>
   reasoning: string
 }

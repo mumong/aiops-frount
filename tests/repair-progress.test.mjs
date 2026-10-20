@@ -47,6 +47,8 @@ test('stage strip marks where the job is and collapses the process once planned'
   const html = await render({ progress, status: 'awaiting_approval', mode: 'review' })
   assert.match(html, /aria-current="step"[^>]*>[^<]*<span[^>]*>2<\/span>审批/)
   assert.doesNotMatch(html, /<details open=""[^>]*aria-label="规划过程"/)
+  const done = await render({ progress: { reasoning: '', tools: [{ id: 'x', name: 'kubectl_describe', args: '', status: 'unfinished' }] }, status: 'planned' })
+  assert.match(done, /未返回/)
   const auto = await render({ progress: undefined, status: 'recovered', mode: 'auto' })
   assert.match(auto, /自动执行/)
   assert.match(auto, /已恢复/)

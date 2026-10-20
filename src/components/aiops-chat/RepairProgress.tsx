@@ -40,6 +40,7 @@ export default function RepairProgress({ progress, status, mode }: {
         {tools.map(tool => <li key={tool.id} className={tool.status === 'error' ? styles.toolError : ''}>
           <div className={styles.toolHead}>
             {tool.status === 'running' ? <span className={styles.toolRunning}>执行中</span>
+              : tool.status === 'unfinished' ? <span className={styles.toolRunning}>未返回</span>
               : tool.status === 'success' ? <CheckCircle2 size={14} aria-label="成功" /> : <CircleAlert size={14} aria-label="失败" />}
             <code>{tool.name}</code>
             {typeof tool.duration_seconds === 'number' && <small>{tool.duration_seconds.toFixed(1)}s</small>}
