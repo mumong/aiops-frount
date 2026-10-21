@@ -35,6 +35,11 @@ export function summarizeRules(rules: RepairPolicy['rules']): string {
 }
 
 /** One line for an approval that contains approval_required commands; '' when none. */
+/** Multi-cluster deployments: which cluster an approved action will run on. */
+export function describeTargetCluster(cluster: string | undefined): string {
+  return cluster ? `将在集群 ${cluster} 执行` : ''
+}
+
 export function describeHighRisk(highRisk: string[] | undefined): string {
   if (!highRisk?.length) return ''
   return `高危命令，需人工批准后执行（自动执行模式也不会跳过）：${highRisk.join('；')}`

@@ -70,3 +70,10 @@ test('high-risk approval note names the commands and that auto mode does not ski
   assert.match(note, /自动执行模式也不会跳过/)
   assert.match(note, /rm -f \/tmp\/a/)
 })
+
+test('approval card names the target cluster only in multi-cluster deployments', async () => {
+  const { describeTargetCluster } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)
+  assert.equal(describeTargetCluster('edge-88'), '将在集群 edge-88 执行')
+  assert.equal(describeTargetCluster(undefined), '')
+  assert.equal(describeTargetCluster(''), '')
+})

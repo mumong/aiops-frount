@@ -1,4 +1,4 @@
-import { describeHighRisk } from './repairPolicyPresentation'
+import { describeHighRisk, describeTargetCluster } from './repairPolicyPresentation'
 import { useEffect, useRef, useState } from 'react'
 import CodeBlock from './CodeBlock'
 import MarkdownReport from './MarkdownReport'
@@ -150,10 +150,12 @@ export default function RepairWorkspace({ apiBase, diagnosisId, batchId, onCreat
           {['queued', 'planning'].includes(shown.status) ? ' · 正在处理，无需重复提交' : ''}
         </small>}
         {shown.error && shown.error !== shown.plan?.planning_error?.message && <p role="alert">{shown.error}</p>}
+        {repairActive(shown.status) && shown.status_note && <p role="status" className={styles.progressNote}>{shown.status_note}</p>}
         {shown.plan && <RepairPlanContent plan={shown.plan} />}
         {shown.approval && shown.status === 'awaiting_approval' && <div className={styles.action}>
           <strong>等待批准</strong>
           <small> · {remaining === 0 ? '审批已到期，正在核对状态' : `剩余 ${remaining} 秒`} · 截止 {new Date(shown.approval.expires_at * 1000).toLocaleTimeString()}</small>
+          {describeTargetCluster(shown.approval.cluster) && <p>{describeTargetCluster(shown.approval.cluster)}</p>}
           {describeHighRisk(shown.approval.high_risk) && <p role="alert" className={styles.highRisk}>{describeHighRisk(shown.approval.high_risk)}</p>}
           {decisionText && <p role="status" aria-live="polite">{decisionText}</p>}
           <div className={styles.buttons}>{[true, false].map(approved => <button key={String(approved)} type="button"

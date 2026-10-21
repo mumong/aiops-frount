@@ -50,7 +50,11 @@ export interface RepairJob extends RepairGroup {
   error?: string
   result?: { reason?: string; status?: string; elapsed_seconds?: number; recovery?: RecoverySummary | null }
   recovery?: RecoveryEvent
-  approval?: { approval_id: string; title: string; expires_at: number; decision_status?: string; high_risk?: string[] }
+  approval?: { approval_id: string; title: string; expires_at: number; decision_status?: string; high_risk?: string[]
+    /** multi-cluster: display label of the target cluster */
+    cluster?: string }
+  /** short live note, e.g. the target cluster is unreachable and execution waits */
+  status_note?: string
   mode_source?: string
   events?: Array<{ type: string; action_id: string; stage: string; command: string;
     status: string; result_preview?: string; result_truncated?: boolean;
