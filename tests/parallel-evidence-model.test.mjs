@@ -654,3 +654,14 @@ test('group ids are shown as 异常组 N, other ids unchanged', async () => {
   assert.equal(groupDisplayName('custom'), 'custom')
   assert.equal(groupDisplayName(undefined), '')
 })
+
+test('multi-cluster groups keep their cluster label for titles', async () => {
+  const { extractParallelEvidenceGroups, groupTitle } = await loadModel()
+  const groups = extractParallelEvidenceGroups({ autonomous_groups: [
+    { group_id: 'g1', cluster_label: 'edge-88', entities: [{ kind: 'Pod', namespace: 'a', name: 'w1' }] },
+    { group_id: 'g2', cluster_label: 'edge-89', entities: [{ kind: 'Pod', namespace: 'a', name: 'w1' }] },
+  ] })
+  assert.deepEqual(groups.map(g => g.clusterLabel), ['edge-88', 'edge-89'])
+  assert.equal(groupTitle(groups[0]), 'edge-88 · 异常组 1')
+  assert.equal(groupTitle({ groupId: 'g3' }), '异常组 3')
+})

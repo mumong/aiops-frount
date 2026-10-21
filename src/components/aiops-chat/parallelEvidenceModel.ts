@@ -67,8 +67,10 @@ export function extractParallelEvidenceGroups(
       : []
     if (!groupId || entities.length === 0) return []
 
+    const clusterLabel = String(value.cluster_label || '').trim()
     return [{
       groupId,
+      ...(clusterLabel ? { clusterLabel } : {}),
       abnormalType: String(value.pod_abnormal_type || '').trim() || (autonomous ? '自主诊断' : 'Unknown'),
       statusKeywords: normalizeStrings(value.status_keywords),
       entities,
@@ -376,6 +378,12 @@ export function dimensionCounts(
     counts[result.dimension] += 1
   }
   return counts
+}
+
+/** Group title for people; multi-cluster groups are prefixed with their cluster. */
+export function groupTitle(group: { groupId: string; clusterLabel?: string }): string {
+  const name = groupDisplayName(group.groupId)
+  return group.clusterLabel ? `${group.clusterLabel} · ${name}` : name
 }
 
 /** "g3" → "异常组 3" for people; the raw id stays the key everywhere else. */

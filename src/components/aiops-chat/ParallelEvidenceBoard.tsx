@@ -9,7 +9,7 @@ import type {
   ParallelEvidenceResult,
   ParallelEvidenceState,
 } from './types'
-import { dimensionCounts, groupDisplayName } from './parallelEvidenceModel'
+import { dimensionCounts, groupDisplayName, groupTitle } from './parallelEvidenceModel'
 import styles from './ParallelEvidenceBoard.module.css'
 
 const DIMENSION_LABELS: Record<EvidenceDimension, string> = {
@@ -122,7 +122,7 @@ function GroupCard({
         onClick={onToggle}
       >
         <span className={styles.groupTopline}>
-          <span className={styles.groupId}>{groupDisplayName(group.groupId)}</span>
+          <span className={styles.groupId}>{groupTitle(group)}</span>
           <span className={styles.groupType}>{group.abnormalType}</span>
           <span className={styles.groupToggle} aria-hidden="true">{expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</span>
         </span>

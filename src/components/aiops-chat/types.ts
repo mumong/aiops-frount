@@ -139,6 +139,8 @@ export interface ParallelEvidenceResult {
 }
 
 export interface ParallelEvidenceGroup {
+  /** multi-cluster: short label of the group's cluster (e.g. edge-88) */
+  clusterLabel?: string
   analysisStreams?: Record<string, { text: string; streamStart?: number }>
   /** Raw model reasoning per stage; shown collapsed, separate from the analysis. */
   reasoningStreams?: Record<string, string>
