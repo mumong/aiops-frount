@@ -2,6 +2,7 @@ export interface RoutePresentation {
   route: string
   title: string
   scope: string
+  clusters: string[]
   basis: string
   outputs: string[]
   steps: string[]
@@ -29,10 +30,15 @@ export function presentRoute(snapshot: unknown): RoutePresentation | undefined {
     unspecified: contract.task === 'explain' ? '通用说明' : '未指定资源范围',
   }
   const targets = [...strings(contract.namespaces), ...strings(contract.pod_names)]
+  // Multi-cluster deployments: the backend resolves the scope and supplies short labels.
+  const labels = strings(contract.cluster_labels)
+  const clusters = labels.length ? labels : strings(contract.clusters)
   return {
     route, title: route === 'stop' && typeof failure.title === 'string' ? failure.title : titles[route],
     errorMessage: route === 'stop' && typeof failure.message === 'string' ? failure.message : undefined,
-    scope: [scopes[String(contract.scope)] || '', targets.join(' / ')].filter(Boolean).join(' · '),
+    scope: [clusters.length ? `集群 ${clusters.join('、')}` : '', scopes[String(contract.scope)] || '',
+      targets.join(' / ')].filter(Boolean).join(' · '),
+    clusters,
     basis: typeof contract.scope_basis === 'string' ? contract.scope_basis : '',
     outputs: strings(contract.requested_outputs),
     steps: route === 'full_diagnosis' ? ['layer', 'evidence', 'rca', 'conclusion']

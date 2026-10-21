@@ -70,3 +70,17 @@ logs:
 sync-version:
 	@echo "Syncing version to $(DOCKER_TAG)..."
 	sed -i 's|image: $(IMAGE_REPOSITORY)/$(PROJECT)/$(IMAGE_NAME):.*|image: $(DOCKER_NAME):$(DOCKER_TAG)|' deploy/k8s-simple.yaml
+
+# 多集群测试环境（robusta specs/008-multi-cluster）：中心的 30081 已被 xnet 前端占用，改用 30082。
+MC_KUBE_DIR ?= $(HOME)/.kube/aiops-mc
+CENTER_KUBECONFIG ?= $(MC_KUBE_DIR)/center
+MC_NODE_PORT ?= 30082
+MC_LOAD_HOSTS ?=
+.PHONY: deploy-mc
+deploy-mc:
+	@if test -n "$(MC_LOAD_HOSTS)"; then ../robusta/deploy-edge/load_image.sh $(DOCKER_NAME):$(DOCKER_TAG) $(MC_LOAD_HOSTS); fi
+	kubectl --kubeconfig $(CENTER_KUBECONFIG) create namespace aiops --dry-run=client -o yaml | kubectl --kubeconfig $(CENTER_KUBECONFIG) apply -f -
+	sed -e 's|image: $(DOCKER_NAME):.*|image: $(DOCKER_NAME):$(DOCKER_TAG)|' -e 's|nodePort: 30081|nodePort: $(MC_NODE_PORT)|' deploy/k8s-simple.yaml \
+		| kubectl --kubeconfig $(CENTER_KUBECONFIG) apply -f -
+	kubectl --kubeconfig $(CENTER_KUBECONFIG) -n aiops rollout restart deployment/aiops-copilot-frontend
+	kubectl --kubeconfig $(CENTER_KUBECONFIG) -n aiops rollout status deployment/aiops-copilot-frontend --timeout=300s

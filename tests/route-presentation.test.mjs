@@ -41,3 +41,27 @@ test('provider failure is distinct from clarification and retains safe error det
   assert.deepEqual(route.steps, [])
   assert.equal(presentRoute({request_route: 'clarify'}).errorMessage, undefined)
 })
+
+test('multi-cluster scope is shown before the resource scope', () => {
+  const route = presentRoute({request_route: 'full_diagnosis', request_contract: {
+    scope: 'namespace', namespaces: ['aiops-case-08'], clusters: ['vc-942nkkozc8o5fyb9q3bznb1ws'],
+    cluster_labels: ['edge-88'], cluster_mode: 'single',
+  }})
+  assert.equal(route.scope, '集群 edge-88 · 命名空间 · aiops-case-08')
+  assert.deepEqual(route.clusters, ['edge-88'])
+})
+
+test('several clusters, and canonical names when labels are missing', () => {
+  const several = presentRoute({request_route: 'focused', request_contract: {
+    scope: 'cluster', clusters: ['a', 'b'], cluster_labels: ['edge-88', 'edge-89'],
+  }})
+  assert.equal(several.scope, '集群 edge-88、edge-89 · 集群')
+  const raw = presentRoute({request_route: 'focused', request_contract: {scope: 'cluster', clusters: ['vc-x']}})
+  assert.deepEqual(raw.clusters, ['vc-x'])
+})
+
+test('single-cluster deployments show no cluster part', () => {
+  const route = presentRoute({request_route: 'focused', request_contract: {scope: 'namespace', namespaces: ['xnet']}})
+  assert.equal(route.scope, '命名空间 · xnet')
+  assert.deepEqual(route.clusters, [])
+})
