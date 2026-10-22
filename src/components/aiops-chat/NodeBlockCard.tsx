@@ -91,7 +91,7 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
           )}
           {timeline && (
             <div className={styles.nodeSection}>
-              <TraceTimeline steps={block.trace || []} live={isRunning}
+              <TraceTimeline steps={block.trace || []} live={isRunning} reasoning={reasoning}
                 tool={id => block.toolCalls.find(tool => tool.id === id)} />
             </div>
           )}

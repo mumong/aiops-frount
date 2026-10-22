@@ -1,6 +1,6 @@
 import { memo, useState } from 'react'
 import { CheckCircle2, ChevronDown, ChevronRight, CircleX, LoaderCircle } from 'lucide-react'
-import MarkdownReport from './MarkdownReport'
+import ReasoningDetails from './ReasoningDetails'
 import StructuredContent from './StructuredContent'
 import { stepText } from './traceModel'
 import type { TraceStep } from './types'
@@ -14,63 +14,44 @@ export interface TraceTool {
 }
 
 const STAGE_LABELS: Record<string, string> = { evidence: '取证', rca: '根因分析', layer: '定位' }
-// Long thoughts stay compact; the full text is one click away.
-const THOUGHT_PREVIEW = 220
 
 /**
- * The agent's run as one rail: reasoning, visible text and tool calls in the order
- * they happened (agent "chain of thought" pattern), so a reader sees what was
- * concluded from each result and which call followed.
+ * A stage's run: tool calls and the model's delivered text in the order they happened.
+ * Raw reasoning is a draft; like the quick query it sits in one collapsed box above.
  */
-function TraceTimeline({ steps, tool, live = false }: {
+function TraceTimeline({ steps, tool, live = false, reasoning = '' }: {
   steps: TraceStep[]
   tool: (id: string) => TraceTool | undefined
   live?: boolean
+  /** Raw reasoning: shown once, collapsed, apart from tools and delivered text (as in the quick query). */
+  reasoning?: string
 }) {
-  const visible = steps.filter(step => step.kind === 'tool' || stepText(step))
-  if (visible.length === 0) {
-    return <div className={styles.empty}>{live ? '等待模型的第一步…' : '本阶段没有记录到过程。'}</div>
-  }
+  const visible = steps.filter(step => step.kind === 'tool' || (step.kind === 'text' && stepText(step)))
+  const draft = reasoning.trim()
   return (
-    <ol className={styles.rail}>
+    <>
+      {draft && <ReasoningDetails text={draft} live={live} />}
+      {visible.length === 0
+        ? <div className={styles.empty}>{live ? '模型分析中，工具调用和结论会显示在这里…' : '本阶段没有工具调用或分析输出。'}</div>
+        : <ol className={styles.rail}>
       {visible.map((step, index) => {
         const previous = visible[index - 1]
         const stageChanged = step.stage && previous && previous.stage !== step.stage
-        const isLast = index === visible.length - 1
         return (
           <li key={index} className={styles.item} data-kind={step.kind}>
             {stageChanged && <div className={styles.stage}>{STAGE_LABELS[step.stage!] || step.stage}</div>}
             {step.kind === 'tool'
               ? <ToolStep call={tool(step.toolId || '')} />
-              : step.kind === 'thought'
-                ? <Thought text={stepText(step)} live={live && isLast} />
-                : <div className={styles.text}><StructuredContent text={stepText(step)} analysis /></div>}
+              : <div className={styles.text}><StructuredContent text={stepText(step)} analysis /></div>}
           </li>
         )
       })}
-    </ol>
+    </ol>}
+    </>
   )
 }
 
 export default memo(TraceTimeline)
-
-function Thought({ text, live }: { text: string; live: boolean }) {
-  const [open, setOpen] = useState(false)
-  const long = text.length > THOUGHT_PREVIEW
-  // While streaming, show the newest part so the line tracks the model without growing.
-  const shown = open || !long ? text : live ? `…${text.slice(-THOUGHT_PREVIEW)}` : `${text.slice(0, THOUGHT_PREVIEW)}…`
-  return (
-    <div className={styles.thought}>
-      <span className={styles.label}>思考{live ? ' · 进行中' : ''}</span>
-      <div className={styles.thoughtText}><MarkdownReport content={shown} /></div>
-      {long && (
-        <button type="button" className={styles.more} onClick={() => setOpen(!open)}>
-          {open ? '收起' : `展开全部（${text.length} 字）`}
-        </button>
-      )}
-    </div>
-  )
-}
 
 function ToolStep({ call }: { call?: TraceTool }) {
   const [open, setOpen] = useState(false)

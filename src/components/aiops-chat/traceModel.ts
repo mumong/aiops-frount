@@ -48,10 +48,15 @@ export function stepText(step: TraceStep): string {
   return NOISE.test(step.text) ? '' : step.text.trim()
 }
 
-/** One line for a collapsed row: the latest thing that happened. */
+/**
+ * One line for a collapsed row: the latest fact (a tool call or the model's delivered
+ * text). Raw reasoning is a draft and stays in its own collapsed box, as in the quick
+ * query; it is never promoted to the row summary.
+ */
 export function latestActivity(trace: TraceStep[] = [], toolName: (id: string) => string): string {
   for (let i = trace.length - 1; i >= 0; i--) {
     const step = trace[i]!
+    if (step.kind === 'thought') continue
     if (step.kind === 'tool') return `调用 ${toolName(step.toolId || '')}`
     const text = plain(stepText(step))
     if (text) {

@@ -35,7 +35,7 @@ export default function ClusterLaneBoard({ block }: { block: NodeBlock }) {
           <RunRow key={lane.label} badge={lane.label} title="问题定位"
             status={lane.status === 'running' ? (live ? 'running' : 'partial') : lane.status}
             meta={[`工具 ${tools.length}`]} summary={summary}>
-            <TraceTimeline steps={steps} tool={lookup} live={running} />
+            <TraceTimeline steps={steps} tool={lookup} live={running} reasoning={lane.reasoning} />
             {analysis && !steps.some(step => step.kind === 'text') && (
               <section className={styles.conclusion} aria-label={`${lane.label} 定位分析`}>
                 <div className={styles.conclusionLabel}>定位结论</div>

@@ -94,7 +94,8 @@ function GroupRow({ group, state, live }: { group: ParallelEvidenceGroup; state:
         </section>
       )}
       {steps.length > 0
-        ? <TraceTimeline steps={steps} tool={lookup} live={status === 'running'} />
+        ? <TraceTimeline steps={steps} tool={lookup} live={status === 'running'}
+            reasoning={Object.values(group.reasoningStreams || {}).join('\n\n')} />
         : <LegacyGroup group={group} />}
     </RunRow>
   )

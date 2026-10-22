@@ -7,8 +7,8 @@ after(() => server.close())
 const m = await server.ssrLoadModule('/src/components/aiops-chat/traceModel.ts')
 const name = () => 'query_pod_logs'
 
-test('collapsed row shows the newest complete sentence, not a list fragment', () => {
-  const thought = text => [{ kind: 'thought', text }]
+test('collapsed row shows the newest complete sentence of delivered text, not a list fragment', () => {
+  const thought = text => [{ kind: 'text', text }]
   assert.equal(m.latestActivity(thought('用户要求诊断。\n已知：\n- Pod: `w`\n2. 检查 Pod 配置和 OOM'), name), '检查 Pod 配置和 OOM')
   assert.equal(m.latestActivity(thought('查 previous logs 确认 `APP_CONFIG_PATH` 缺失。待验证假设：'), name),
     '查 previous logs 确认 APP_CONFIG_PATH 缺失。')
@@ -41,6 +41,12 @@ test('a streamed acknowledgement is replaced by the stage text that follows', ()
 })
 
 test('meta lines like [Tool Calls Generation] and short asides are not shown as activity', () => {
-  const trace = [{ kind: 'thought', text: '查 Pod 上一次崩溃的日志。\n[Tool Calls Generation]\n语言为中文。' }]
+  const trace = [{ kind: 'text', text: '查 Pod 上一次崩溃的日志。\n[Tool Calls Generation]\n语言为中文。' }]
   assert.equal(m.latestActivity(trace, name), '查 Pod 上一次崩溃的日志。')
+})
+
+test('raw reasoning never becomes the row summary (it is a draft, shown collapsed)', () => {
+  assert.equal(m.latestActivity([{ kind: 'thought', text: '可能是 OOM，先看日志。' }], name), '')
+  assert.equal(m.latestActivity([{ kind: 'tool', text: '', toolId: 't' }, { kind: 'thought', text: '下一步看指标。' }], name),
+    '调用 query_pod_logs')
 })
