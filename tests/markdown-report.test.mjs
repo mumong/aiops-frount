@@ -35,3 +35,11 @@ test('literal stars, inline and fenced code, URLs and raw HTML are not rewritten
   assert.doesNotMatch(literal, /<script>/)
   assert.match(render('2 ** 3 = 8'), /2 \*\* 3 = 8/)
 })
+
+test('<br> inside table cells renders as a line break, other raw HTML stays inert', () => {
+  const html = render('| 集群 | 节点 |\n| --- | --- |\n| center | master1<br>vc-942nk<br/>vc-xnet-management |\n\n文本<br>换行 <b>粗</b> <script>x</script>')
+  assert.match(html, /<td>master1<br\/>\n?vc-942nk<br\/>\n?vc-xnet-management<\/td>/)
+  assert.doesNotMatch(html, /&lt;br/)
+  assert.match(html, /文本<br\/>\n?换行/)
+  assert.doesNotMatch(html, /<b>粗<\/b>|<script>/)
+})
