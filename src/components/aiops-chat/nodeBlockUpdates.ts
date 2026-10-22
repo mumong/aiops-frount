@@ -1,4 +1,5 @@
 import type { NodeBlock, ToolCall } from './types'
+import { traceText, traceThought, traceTool } from './traceModel'
 
 function createNodeBlock(nodeId: string, nodeName: string): NodeBlock {
   return {
@@ -86,7 +87,8 @@ export function applyNodeThinkingEvent(
   if (!content) return blocks
   return updateEventNode(blocks, nodeId, nodeName, block => {
     const next = mergeAnalysisStream({ text: block.thinkingTokens, streamStart: block.thinkingStreamStart }, kind, content)
-    return { ...block, runtimeStatus: undefined, thinkingTokens: next.text, thinkingStreamStart: next.streamStart }
+    return { ...block, runtimeStatus: undefined, thinkingTokens: next.text, thinkingStreamStart: next.streamStart,
+      trace: traceText(block.trace, kind, content) }
   })
 }
 
@@ -96,6 +98,7 @@ export function applyNodeReasoning(
   if (!content) return blocks
   return updateEventNode(blocks, nodeId, nodeName, block => ({
     ...block, runtimeStatus: undefined, reasoningTokens: (block.reasoningTokens || '') + content,
+    trace: traceThought(block.trace, content),
   }))
 }
 
@@ -124,6 +127,7 @@ export function startNodeToolCall(
     ...block,
     runtimeStatus: undefined,
     toolCalls: [...block.toolCalls, toolCall],
+    trace: traceTool(block.trace, toolCall.id),
   }))
 }
 

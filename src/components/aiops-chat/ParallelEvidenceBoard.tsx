@@ -1,244 +1,127 @@
-import { useState, useId } from 'react'
-import ReasoningDetails from './ReasoningDetails'
-import { ChevronDown, ChevronRight, CircleAlert, CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, CircleAlert } from 'lucide-react'
 import CodeBlock from './CodeBlock'
 import StructuredContent from './StructuredContent'
-import type {
-  EvidenceDimension,
-  ParallelEvidenceGroup,
-  ParallelEvidenceResult,
-  ParallelEvidenceState,
-} from './types'
-import { dimensionCounts, groupDisplayName, groupTitle } from './parallelEvidenceModel'
+import RunRow, { type RunStatus } from './RunRow'
+import TraceTimeline, { type TraceTool } from './TraceTimeline'
+import { visibleNarrative } from './handoffPresentation'
+import { latestActivity } from './traceModel'
+import type { ParallelEvidenceGroup, ParallelEvidenceResult, ParallelEvidenceState } from './types'
+import { groupDisplayName } from './parallelEvidenceModel'
 import styles from './ParallelEvidenceBoard.module.css'
 
-const DIMENSION_LABELS: Record<EvidenceDimension, string> = {
-  kubernetes: 'Kubernetes',
-  metrics: 'Metrics',
-  logging: 'Logging',
-  tracing: 'Tracing',
-  topology: 'Topology',
-  other: 'Other',
-}
-
-export default function ParallelEvidenceBoard({
-  state,
-}: {
-  state: ParallelEvidenceState
-}) {
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
-  const groupedResults = state.groups.flatMap(group => group.results)
-  const allResults = [...groupedResults, ...state.unassignedResults]
-  const failedCount = allResults.filter(result => result.status === 'error').length
-
-  function toggleGroup(groupId: string) {
-    setExpandedGroups(previous => {
-      const next = new Set(previous)
-      if (next.has(groupId)) next.delete(groupId)
-      else next.add(groupId)
-      return next
-    })
-  }
+/**
+ * Parallel evidence + RCA: one row per abnormal group, grouped under its cluster.
+ * A row's header carries the conclusion once RCA delivers; the body is the run
+ * timeline (reasoning, tool calls and stage text in arrival order).
+ */
+export default function ParallelEvidenceBoard({ state }: { state: ParallelEvidenceState }) {
+  const results = [...state.groups.flatMap(group => group.results), ...state.unassignedResults]
+  const failed = results.filter(result => result.status === 'error').length
+  const ended = state.groups.filter(group => group.terminalStatus).length
+  const running = state.status === 'running'
+  const clusters = [...new Set(state.groups.map(group => group.clusterLabel || ''))]
 
   return (
     <section className={styles.board} aria-label="并发证据采集总览">
-      <div className={styles.summaryHeader}>
-        <div>
-          <div className={styles.eyebrow}>PARALLEL EVIDENCE</div>
-          <h3 className={styles.title}>{state.groups.length} 个异常组</h3>
-        </div>
-        <span className={`${styles.streamState} ${state.status === 'running' ? styles.running : styles.complete}`}>
-          <span className={styles.stateDot} />
-          {state.status === 'running' ? '持续接收结果' : '本阶段已结束'}
+      <div className={styles.boardHead}>
+        <span className={styles.boardTitle}>{state.groups.length} 个异常组 · 并发取证与根因分析</span>
+        <span className={styles.boardMeta} aria-label="采集统计">
+          {ended}/{state.groups.length} 组已结束 · {results.length} 条证据
+          {failed > 0 && <span className={styles.danger}> · {failed} 条失败</span>}
+          {state.pendingTools.length > 0 && ` · ${state.pendingTools.length} 条${running ? '执行中' : '未返回'}`}
+          {running ? '' : ' · 本阶段已结束'}
         </span>
       </div>
 
-      <div className={styles.totals} aria-label="采集统计">
-        <span><strong>{allResults.length}</strong>已返回</span>
-        <span><strong>{state.pendingTools.length}</strong>{state.status === 'running' ? '执行中' : '未返回'}</span>
-        <span className={failedCount > 0 ? styles.failedTotal : ''}><strong>{failedCount}</strong>失败</span>
-      </div>
-
-      <ClusterProgress groups={state.groups} />
-
-      {state.pendingTools.length > 0 && (
-        <div className={styles.pendingArea}>
-          <div className={styles.noticeTitle}>
-            {state.status === 'running' && <span className={styles.pendingSpinner} aria-hidden="true" />}
-            {state.status === 'running' ? `${state.pendingTools.length} 条工具调用等待结果归组`
-              : `${state.pendingTools.length} 条工具调用未收到结果（阶段已结束，不再等待）`}
+      {clusters.map(cluster => {
+        const own = state.groups.filter(group => (group.clusterLabel || '') === cluster)
+        return (
+          <div key={cluster || 'single'} className={styles.clusterSection}>
+            {cluster && (
+              <div className={styles.clusterHead}>
+                <span className={styles.clusterName}>{cluster}</span>
+                <span className={styles.boardMeta}>{own.filter(group => group.terminalStatus).length}/{own.length} 组已结束</span>
+              </div>
+            )}
+            {own.map(group => <GroupRow key={group.groupId} group={group} state={state} live={running} />)}
           </div>
-          <div className={styles.pendingTools}>
-            {state.pendingTools.map(tool => <code key={tool.id}>{tool.toolName}</code>)}
-          </div>
+        )
+      })}
+
+      {!running && state.pendingTools.length > 0 && (
+        <div className={styles.notice}>
+          {state.pendingTools.length} 条工具调用未收到结果（阶段已结束，不再等待）：
+          {state.pendingTools.map(tool => <code key={tool.id}>{tool.toolName}</code>)}
         </div>
       )}
-
-      <div className={styles.groupGrid}>
-        {state.groups.map(group => {
-          const expanded = expandedGroups.has(group.groupId)
-          return (
-            <GroupCard
-              key={group.groupId}
-              group={group}
-              expanded={expanded}
-              onToggle={() => toggleGroup(group.groupId)}
-            />
-          )
-        })}
-      </div>
-
       {state.unassignedResults.length > 0 && (
-        <section className={styles.unassigned} aria-label="未归属证据">
-          <div className={styles.noticeTitle}><CircleAlert size={15} />{state.unassignedResults.length} 条未归属结果</div>
-          <p>返回内容没有唯一的 namespace/Pod 标识，原始证据已保留，未进行推测归组。</p>
-          <div className={styles.resultList}>
-            {state.unassignedResults.map(result => <ResultItem key={result.id} result={result} />)}
-          </div>
-        </section>
+        <details className={styles.notice} aria-label="未归属证据">
+          <summary><CircleAlert size={13} /> {state.unassignedResults.length} 条未归属结果（没有唯一的 namespace/Pod 标识，原始证据已保留，未推测归组）</summary>
+          {state.unassignedResults.map(result => <ResultItem key={result.id} result={result} />)}
+        </details>
       )}
     </section>
   )
 }
 
-/** Multi-cluster runs: how far each cluster's groups have got. */
-function ClusterProgress({ groups }: { groups: ParallelEvidenceGroup[] }) {
-  const clusters = [...new Set(groups.map(group => group.clusterLabel).filter((label): label is string => Boolean(label)))]
-  if (clusters.length === 0) return null
-  return (
-    <div className={styles.keywords} aria-label="各集群进度">
-      {clusters.map(label => {
-        const own = groups.filter(group => group.clusterLabel === label)
-        const ended = own.filter(group => group.terminalStatus).length
-        const evidence = own.reduce((total, group) => total + group.results.length, 0)
-        return <span key={label}>{label}：{ended}/{own.length} 组已结束 · {evidence} 条证据</span>
-      })}
-    </div>
-  )
+function conclusionLine(text: string): string {
+  const first = visibleNarrative(text).split(/\n+/).find(line => line.trim()) || ''
+  return first.replace(/\*\*/g, '').replace(/^诊断结论[:：]\s*/, '').trim()
 }
 
-function GroupCard({
-  group,
-  expanded,
-  onToggle,
-}: {
-  group: ParallelEvidenceGroup
-  expanded: boolean
-  onToggle: () => void
-}) {
-  const counts = dimensionCounts(group)
-  const failedCount = group.results.filter(result => result.status === 'error').length
-  const contentId = useId()
-
+function GroupRow({ group, state, live }: { group: ParallelEvidenceGroup; state: ParallelEvidenceState; live: boolean }) {
+  const lookup = (id: string): TraceTool | undefined =>
+    group.results.find(result => result.id === id) || state.pendingTools.find(tool => tool.id === id)
+  const rca = group.analysisStreams?.rca?.text || ''
+  // The RCA conclusion heads the row; keep it out of the timeline to avoid showing it twice.
+  const steps = (group.trace || []).filter(step => !(group.terminalStatus && rca.trim()
+    && step.kind === 'text' && step.stage === 'rca'))
+  const failed = group.results.filter(result => result.status === 'error').length
+  const status: RunStatus = group.terminalStatus
+    ? (group.terminalStatus === 'partial' || group.error ? 'partial' : 'complete')
+    : live ? 'running' : 'partial'
+  const summary = status === 'running'
+    ? latestActivity(steps, id => lookup(id)?.toolName || '工具') || group.runtimeStatus || '等待开始'
+    : conclusionLine(rca) || group.error || group.runtimeStatus || ''
+  const pods = group.entities.map(entity => `${entity.namespace}/${entity.name}`).join('、')
   return (
-    <article className={`${styles.groupCard} ${expanded ? styles.groupExpanded : ''}`}>
-      <button
-        type="button"
-        className={styles.groupButton}
-        aria-expanded={expanded}
-        aria-controls={contentId}
-        onClick={onToggle}
-      >
-        <span className={styles.groupTopline}>
-          <span className={styles.groupId}>{groupTitle(group)}</span>
-          <span className={styles.groupType}>{group.abnormalType}</span>
-          <span className={styles.groupToggle} aria-hidden="true">{expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</span>
-        </span>
-        <span className={styles.entities}>
-          {group.entities.map(entity => (
-            <code key={`${entity.namespace}/${entity.name}`}>{entity.namespace}/{entity.name}</code>
-          ))}
-        </span>
-        <span className={styles.cardFooter}>
-          {!group.terminalStatus && group.runtimeStatus && <span role="status">{group.runtimeStatus}</span>}
-          <span>{group.results.length} 条证据</span>
-          {group.terminalStatus && <span className={group.terminalStatus === 'partial' ? styles.failureBadge : ''}>
-            {group.terminalStatus === 'partial' ? '部分完成' : '分支已结束'}
-          </span>}
-          {failedCount > 0 && <span className={styles.failureBadge}>{failedCount} 失败</span>}
-          <DimensionBadges counts={counts} />
-        </span>
-      </button>
-
-      {Object.entries(group.reasoningStreams || {}).map(([stage, text]) => text.trim() && (
-        <ReasoningDetails key={`reasoning-${stage}`} text={text.trim()}
-          label={`${stage === 'rca' ? '根因分析' : '取证分析'} · 模型思考过程`} />
-      ))}
-      {Object.entries(group.analysisStreams || {}).map(([stage, stream]) => stream.text && (
-        <section key={stage} className={styles.groupBody} aria-label={`${groupDisplayName(group.groupId)} 模型分析`}>
-          <div className={styles.noticeTitle}>{stage === 'rca' ? '根因分析' : '取证分析'} · 模型输出</div>
-          <StructuredContent text={stream.text} analysis />
+    <RunRow badge={groupDisplayName(group.groupId)} title={<code>{pods || group.abnormalType}</code>}
+      status={status} summary={summary}
+      meta={[`证据 ${group.results.length}`, ...(failed ? [`${failed} 失败`] : [])]}>
+      {status !== 'running' && rca.trim() && (
+        <section className={styles.conclusion} aria-label={`${groupDisplayName(group.groupId)} 结论`}>
+          <StructuredContent text={visibleNarrative(rca)} analysis />
         </section>
-      ))}
-
-      {expanded && (
-        <div className={styles.groupBody} id={contentId}>
-          {group.error && <div className={styles.failureBadge}>{group.error}</div>}
-          {group.statusKeywords.length > 0 && (
-            <div className={styles.keywords}>
-              {group.statusKeywords.map(keyword => <span key={keyword}>{keyword}</span>)}
-            </div>
-          )}
-          {group.results.length > 0 ? (
-            <div className={styles.resultList}>
-              {group.results.map(result => <ResultItem key={result.id} result={result} />)}
-            </div>
-          ) : (
-            <div className={styles.emptyResult}>{group.terminalStatus ? '该分支没有返回可展示证据。' : '等待该异常组的证据返回…'}</div>
-          )}
-        </div>
       )}
-    </article>
+      {steps.length > 0
+        ? <TraceTimeline steps={steps} tool={lookup} live={status === 'running'} />
+        : <LegacyGroup group={group} />}
+    </RunRow>
   )
 }
 
-function DimensionBadges({
-  counts,
-}: {
-  counts: Record<EvidenceDimension, number>
-}) {
+/** Sessions saved before the run timeline existed: their analysis and results as stored. */
+function LegacyGroup({ group }: { group: ParallelEvidenceGroup }) {
+  const evidence = visibleNarrative(group.analysisStreams?.evidence?.text || '')
   return (
-    <span className={styles.dimensionBadges} aria-label="可观测性维度">
-      {(Object.keys(DIMENSION_LABELS) as EvidenceDimension[])
-        .filter(dimension => counts[dimension] > 0)
-        .map(dimension => (
-          <span key={dimension} className={styles.dimensionBadge} data-dimension={dimension}>
-            {DIMENSION_LABELS[dimension]} {counts[dimension]}
-          </span>
-        ))}
-    </span>
+    <>
+      {evidence && <StructuredContent text={evidence} analysis />}
+      {group.results.length > 0
+        ? group.results.map(result => <ResultItem key={result.id} result={result} />)
+        : <div className={styles.notice}>{group.terminalStatus ? '该分支没有返回可展示证据。' : '等待该异常组的证据返回…'}</div>}
+    </>
   )
 }
 
 function ResultItem({ result }: { result: ParallelEvidenceResult }) {
   return (
-    <article className={`${styles.resultItem} ${result.status === 'error' ? styles.resultError : ''}`}>
-      <div className={styles.resultHeader}>
-        <span className={styles.resultStatus}>{result.status === 'success' ? <CheckCircle2 size={14} aria-label="成功" /> : <CircleAlert size={14} aria-label="失败" />}</span>
-        <code className={styles.toolName}>{result.toolName}</code>
-        <span className={styles.resultDimension}>{DIMENSION_LABELS[result.dimension]}</span>
-        {result.sourceSystem && <span className={styles.sourceSystem}>{result.sourceSystem}</span>}
-      </div>
-      {result.entity && (
-        <code className={styles.resultEntity}>{result.entity.namespace}/{result.entity.name}</code>
-      )}
-      {!result.entity && result.scope === 'group' && (
-        <span className={styles.groupScope}>组级证据（未绑定 Pod）</span>
-      )}
-      <pre className={styles.preview}><code>{result.resultPreview}</code></pre>
-      {result.resultData && (
-        <details className={styles.rawDetails}>
-          <summary>查看完整工具结果摘要</summary>
-          <CodeBlock text={result.resultData} label={result.toolName} />
-        </details>
-      )}
-      {(result.rawRef || result.structuredRef || result.summaryRef) && (
-        <div className={styles.archiveRefs}>
-          {result.rawRef && <code>raw_ref: {result.rawRef}</code>}
-          {result.structuredRef && <code>structured_ref: {result.structuredRef}</code>}
-          {result.summaryRef && <code>summary_ref: {result.summaryRef}</code>}
-        </div>
-      )}
-    </article>
+    <details className={`${styles.result} ${result.status === 'error' ? styles.resultError : ''}`}>
+      <summary>
+        {result.status === 'success' ? <CheckCircle2 size={13} aria-label="成功" /> : <CircleAlert size={13} aria-label="失败" />}
+        <code>{result.toolName}</code>
+        <span className={styles.resultPreview}>{result.resultPreview}</span>
+      </summary>
+      {result.resultData && <CodeBlock text={result.resultData} label={result.toolName} />}
+    </details>
   )
 }

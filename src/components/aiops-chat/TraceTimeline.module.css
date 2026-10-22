@@ -1,0 +1,30 @@
+/* Agent run timeline: one vertical rail, each step a dot + content. */
+.rail { list-style: none; margin: 0; padding: 0 0 0 18px; position: relative; }
+.rail::before { content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 1px; background: var(--border); }
+.item { position: relative; padding: 6px 0; min-width: 0; }
+.item::before { content: ''; position: absolute; left: -16px; top: 13px; width: 7px; height: 7px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--faint); }
+.item[data-kind='tool']::before { border-color: var(--accent); }
+.item[data-kind='text']::before { background: var(--accent); border-color: var(--accent); }
+.stage { margin: 6px 0 8px -18px; padding-left: 18px; font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .04em; }
+.label { display: block; font-size: 10.5px; color: var(--faint); margin-bottom: 2px; }
+.thought { min-width: 0; }
+.thoughtText { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.thoughtText :global(p), .thoughtText :global(ul), .thoughtText :global(ol) { margin: 2px 0; }
+.thoughtText :global(li) { margin: 1px 0; }
+.thoughtText > div { line-height: 1.7; }
+.more { margin-top: 2px; padding: 0; border: 0; background: none; color: var(--accent); font-size: 11.5px; cursor: pointer; }
+.text { min-width: 0; font-size: 13.5px; }
+.tool { min-width: 0; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-subtle); }
+.toolError { border-color: var(--danger); }
+.toolHead { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 6px 10px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.toolHead:disabled { cursor: default; }
+.toolIcon { display: flex; flex: none; color: var(--success); }
+.toolError .toolIcon { color: var(--danger); }
+.toolName { flex: none; font: 12px var(--font-mono); color: var(--text); }
+.toolPreview { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: 12px; }
+.chevron { flex: none; color: var(--muted); display: flex; }
+.toolBody { padding: 8px 10px 10px; border-top: 1px solid var(--border); max-height: 360px; overflow: auto; font-size: 12px; }
+.empty { color: var(--muted); font-size: 12.5px; padding: 4px 0; }
+.spin { animation: spin 1s linear infinite; color: var(--accent); }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }

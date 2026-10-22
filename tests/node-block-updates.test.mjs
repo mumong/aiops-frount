@@ -1,7 +1,8 @@
-import { readFileSync } from 'node:fs'
-import { test } from 'node:test'
+import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
-import ts from 'typescript'
+import { createServer } from 'vite'
+
+after(() => server?.close())
 
 test('parallel same-name results use call IDs even when completed out of order', async () => {
   const m = await loadNodeBlockModule()
@@ -54,20 +55,11 @@ test('full message repairs a partial stream and nonstreaming answers still displ
   assert.ok(blocks[0].thinkingTokens.endsWith('different\n\nnot the same message'))
 })
 
+let server
 async function loadNodeBlockModule() {
-  const source = readFileSync(
-    new URL('../src/components/aiops-chat/nodeBlockUpdates.ts', import.meta.url),
-    'utf8',
-  )
-  const compiled = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.ES2022,
-      target: ts.ScriptTarget.ES2020,
-      strict: true,
-    },
-  }).outputText
-  const encoded = Buffer.from(compiled).toString('base64')
-  return import(`data:text/javascript;base64,${encoded}`)
+  // Through Vite: nodeBlockUpdates imports the shared trace model.
+  server ??= await createServer({ configFile: false, appType: 'custom', logLevel: 'silent', server: { middlewareMode: true } })
+  return server.ssrLoadModule('/src/components/aiops-chat/nodeBlockUpdates.ts')
 }
 
 test('thinking tokens are appended to the event node instead of the last node', async () => {

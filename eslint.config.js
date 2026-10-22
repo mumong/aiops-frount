@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'skills/**', 'agents/**', 'commands/**', 'hooks/**', 'artifacts/**'],
+    ignores: ['dist/**', 'node_modules/**', '.venv*/**', 'skills/**', 'agents/**', 'commands/**', 'hooks/**', 'artifacts/**'],
   },
   {
     ...eslint.configs.recommended,

@@ -86,9 +86,10 @@ summary.nodeSectionTitle svg { margin-right: 5px; }
 .toolCallError { color: var(--danger); }
 .toolDetailToggle { margin-left: auto; color: var(--muted); }
 .toolDetailBody { margin: 6px 0 12px; }
-.runProgress { padding: 14px 16px; margin: 12px 0 18px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-size: 12px; line-height: 1.8; }
+.runProgress { padding: 8px 14px; margin: 10px 0 14px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-size: 12px; line-height: 1.8; }
+.progressLine { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .progressDot { display: inline-block; width: 6px; height: 6px; margin-right: 8px; background: var(--accent); border-radius: 50%; }
-.progressMeta { margin-top: 5px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.progressMeta { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .progressWarning { margin-top: 8px; color: var(--warning); }
 .jumpLatest { position: sticky; bottom: 0; display: block; margin: 12px auto 0; padding: 9px 16px; border: 1px solid var(--border); border-radius: 30px; box-shadow: var(--shadow); background: var(--surface); color: var(--text); font-size: 12px; z-index: 2; }
 .spinner { animation: spin 1.2s linear infinite; }

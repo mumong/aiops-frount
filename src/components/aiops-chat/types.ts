@@ -141,7 +141,20 @@ export interface ParallelEvidenceResult {
   summaryRef?: string
 }
 
+/** One step of an agent's run, in arrival order: model reasoning, visible text or a tool call. */
+export interface TraceStep {
+  kind: 'thought' | 'text' | 'tool'
+  /** thought / text content; empty for tool steps */
+  text: string
+  /** tool steps: the frontend ToolCall / result id */
+  toolId?: string
+  /** lane stage of a parallel group (evidence / rca) */
+  stage?: string
+}
+
 export interface ParallelEvidenceGroup {
+  /** Reasoning, text and tool calls interleaved as they arrived. */
+  trace?: TraceStep[]
   /** multi-cluster: short label of the group's cluster (e.g. edge-88) */
   clusterLabel?: string
   analysisStreams?: Record<string, { text: string; streamStart?: number }>
@@ -197,6 +210,8 @@ export interface NodeBlock {
   parallelEvidence?: ParallelEvidenceState
   /** Multi-cluster location: one lane per cluster, in arrival order. */
   clusterLanes?: ClusterLane[]
+  /** Reasoning, text and tool calls interleaved as they arrived. */
+  trace?: TraceStep[]
 }
 
 export interface ClusterLane {
@@ -205,6 +220,8 @@ export interface ClusterLane {
   note: string
   reasoning: string
   analysis: { text: string; streamStart?: number }
+  /** Reasoning, text and tool calls interleaved as they arrived. */
+  trace?: TraceStep[]
 }
 
 /** Per-node label mapping */

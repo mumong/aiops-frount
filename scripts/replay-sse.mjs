@@ -31,11 +31,13 @@ try {
       note: lane.note,
       reasoning: lane.reasoning.length,
       analysis: lane.analysis?.text?.trim().length || 0,
+      steps: (lane.trace || []).map(step => ({ thought: '.', tool: 'T', text: 'x' })[step.kind]).join(''),
       tools: block.toolCalls.filter(tool => tool.clusterLabel === lane.label).length,
     })),
     groups: (block.parallelEvidence?.groups || []).map(group => ({
       id: group.groupId, cluster: group.clusterLabel || '', ended: group.terminalStatus || '', results: group.results.length,
       analysis: Object.fromEntries(Object.entries(group.analysisStreams || {}).map(([stage, stream]) => [stage, stream?.text?.trim().length || 0])),
+      steps: (group.trace || []).map(step => ({ thought: '.', tool: 'T', text: 'x' })[step.kind]).join(''),
     })),
   }))
   console.log(JSON.stringify({ nodes }))

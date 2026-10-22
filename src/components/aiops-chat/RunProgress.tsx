@@ -8,8 +8,11 @@ export default function RunProgress({ blocks }: { blocks: NodeBlock[] }) {
   const started = useRef(0)
   const updated = useRef(0)
   // Heartbeats are not model progress. Only visible content/stage changes reset idle time.
+  // Cluster lanes and evidence groups count too: their timelines move while the node text does not.
   const signature = blocks.map(block => [block.nodeId, block.status, block.thinkingTokens, block.reasoningTokens?.length,
-    block.runtimeStatus?.text, block.handoffSummary,
+    block.runtimeStatus?.text, block.handoffSummary, block.trace?.length,
+    ...(block.clusterLanes || []).map(lane => `${lane.label}:${lane.status}:${lane.trace?.length}:${lane.reasoning.length}`),
+    ...(block.parallelEvidence?.groups || []).map(group => `${group.groupId}:${group.trace?.length}:${group.results.length}`),
     ...block.toolCalls.map(tool => `${tool.id}:${tool.status}`)].join('|')).join('\n')
   useEffect(() => { updated.current = Date.now() }, [signature])
   useEffect(() => {
@@ -31,11 +34,13 @@ export default function RunProgress({ blocks }: { blocks: NodeBlock[] }) {
     : active.some(block => block.nodeId === 'request_router') ? '正在判断问题类型'
       : active.length ? '等待分析结果' : '已提交，等待响应')
   return <div className={styles.runProgress} aria-label="运行状态">
-    <div role="status" aria-live="polite"><span className={styles.progressDot} />{phase}</div>
-    <div className={styles.progressMeta}>已用 {elapsed} 秒 · 距上次更新 {idle} 秒</div>
+    <div className={styles.progressLine}>
+      <span role="status" aria-live="polite"><span className={styles.progressDot} />{phase}</span>
+      <span className={styles.progressMeta}>已用 {elapsed} 秒 · 距上次更新 {idle} 秒</span>
+    </div>
     {idle >= 30 && <div className={styles.progressWarning} role="status">
       暂未收到新内容。可点击“停止”结束接收；后台任务可能继续，已提交的操作需核实执行结果。
     </div>}
-    {!blocks.some(block => block.thinkingTokens) && <div className={styles.progressMeta}>收到分析内容后将自动显示。</div>}
+    {blocks.length === 0 && <div className={styles.progressMeta}>收到分析内容后将自动显示。</div>}
   </div>
 }

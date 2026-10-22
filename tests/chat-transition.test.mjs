@@ -276,3 +276,42 @@ test('multi-cluster location keeps one lane per cluster on the location node (ru
   assert.equal(block.toolCalls[0].clusterLabel, 'edge-88')
   assert.equal(block.toolCalls[0].status, 'success')
 })
+
+test('run timeline keeps reasoning, tool calls and stage text in arrival order per cluster lane', () => {
+  const replay = makeReplay()
+  replay.event('node_start', {node: 'layer'})
+  const lane = {node: 'layer', cluster_lane: 'edge-89'}
+  replay.event('thinking', {...lane, thinking_type: 'ai_reasoning', content: '先看 Pod 清单，'})
+  replay.event('thinking', {...lane, thinking_type: 'ai_reasoning', content: '找出未就绪的。'})
+  replay.event('thinking', {...lane, thinking_type: 'tool_start', tool_name: 'query_pod_lifecycle', tool_call_id: 'c1'})
+  replay.event('thinking', {...lane, thinking_type: 'ai_token', content: '\n\n'})
+  replay.event('thinking', {...lane, thinking_type: 'ai_message', content: '结构化结果已生成。', full_content: '结构化结果已生成。'})
+  replay.event('thinking', {...lane, thinking_type: 'ai_reasoning', content: 'c09 未就绪，看事件。'})
+  const out = replay.event('thinking', {...lane, thinking_type: 'ai_message', content: '发现 4 个异常 Pod', full_content: '发现 4 个异常 Pod'})
+  const trace = out.blocks[0].clusterLanes[0].trace
+  assert.deepEqual(trace.map(step => step.kind), ['thought', 'tool', 'thought', 'text'])
+  assert.equal(trace[0].text, '先看 Pod 清单，找出未就绪的。')
+  assert.equal(trace[1].toolId, out.blocks[0].toolCalls[0].id)
+  assert.equal(trace[3].text, '发现 4 个异常 Pod')
+  assert.ok(!out.blocks[0].trace?.some(step => step.kind === 'text'))  // lane text stays in the lane
+})
+
+test('parallel group timeline is per group and tagged with its lane stage', () => {
+  const replay = makeReplay()
+  replay.event('node_start', {node: 'layer'})
+  replay.event('node_complete', {node: 'layer', state_snapshot: {autonomous_groups: [
+    {group_id: 'g1', entities: [{kind: 'Pod', namespace: 'a', name: 'p1'}]},
+    {group_id: 'g2', entities: [{kind: 'Pod', namespace: 'b', name: 'p2'}]},
+  ]}})
+  replay.event('node_start', {node: 'parallel_evidence'})
+  const g = id => ({node: 'parallel_evidence', parallel_group_id: id})
+  replay.event('thinking', {...g('g1'), lane_stage: 'evidence', thinking_type: 'ai_reasoning', content: '查日志'})
+  replay.event('thinking', {...g('g2'), lane_stage: 'evidence', thinking_type: 'ai_reasoning', content: '查指标'})
+  replay.event('thinking', {...g('g1'), lane_stage: 'evidence', thinking_type: 'tool_start', tool_name: 'query_pod_logs',
+    evidence_context: {group_id: 'g1'}})
+  const out = replay.event('thinking', {...g('g1'), lane_stage: 'rca', thinking_type: 'ai_message',
+    content: '**诊断结论**：x', full_content: '**诊断结论**：x'})
+  const groups = out.blocks.find(block => block.parallelEvidence).parallelEvidence.groups
+  assert.deepEqual(groups[0].trace.map(step => [step.kind, step.stage]), [['thought', 'evidence'], ['tool', 'evidence'], ['text', 'rca']])
+  assert.deepEqual(groups[1].trace.map(step => step.text), ['查指标'])
+})

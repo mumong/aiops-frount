@@ -3,7 +3,8 @@ import { chunkAddsRemediationMarker, hasRemediationApprovalMarker, parseRemediat
 import { shouldProcessRemediation } from './chatRequestPolicy'
 import { applyNodeReasoning, applyNodeThinkingEvent, mergeAnalysisStream, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
 import { presentToolEvent } from './toolPresentation'
-import { appendClusterLaneAnalysis, appendClusterLaneReasoning, setClusterLaneStatus } from './clusterLanes'
+import { appendClusterLaneAnalysis, appendClusterLaneReasoning, setClusterLaneStatus, traceClusterLaneTool } from './clusterLanes'
+import { traceText, traceThought, traceTool } from './traceModel'
 import { presentRoute } from './routePresentation'
 import { NODE_ID, SSE_EVENT, THINKING_TYPE, TRANSPORT_EVENT, isModelErrorCode, textField, trimmedField, type SSEPayload } from './sseEvents'
 import {
@@ -238,6 +239,7 @@ export function transitionChatEvent(
             groups: board.groups.map(group => group.groupId !== groupId ? group : { ...group,
               analysisStreams: { ...group.analysisStreams,
                 [stage]: mergeAnalysisStream(group.analysisStreams?.[stage], thinkType, content) },
+              trace: traceText(group.trace, thinkType, content, stage),
             }),
           })))
         } else {
@@ -252,6 +254,7 @@ export function transitionChatEvent(
             groups: board.groups.map(group => group.groupId !== groupId ? group : { ...group,
               reasoningStreams: { ...group.reasoningStreams,
                 [stage]: (group.reasoningStreams?.[stage] || '') + content },
+              trace: traceThought(group.trace, content, stage),
             }),
           })))
         } else {
@@ -269,11 +272,17 @@ export function transitionChatEvent(
           toolName,
           status: 'running' as const,
         }
+        const toolGroup = textField(data, 'parallel_group_id') || evidenceContext?.groupId || ''
+        const toolStage = textField(data, 'lane_stage', 'evidence')
         updateNodeBlocks(prev => {
           const isGroupedEvidence = parallelGroups.length >= 2
             && (nodeId === NODE_ID.PARALLEL_EVIDENCE || nodeId === NODE_ID.EVIDENCE)
           const mirrored = isGroupedEvidence
-            ? mirrorParallelEvidence(prev, state => startParallelTool(state, tool))
+            ? mirrorParallelEvidence(prev, state => {
+              const started = startParallelTool(state, tool)
+              return toolGroup ? { ...started, groups: started.groups.map(group => group.groupId !== toolGroup ? group
+                : { ...group, trace: traceTool(group.trace, tool.id, toolStage) }) } : started
+            })
             : prev
           if (shouldRouteOnlyToParallelBoard(
             nodeId,
@@ -282,7 +291,8 @@ export function transitionChatEvent(
           )) {
             return mirrored
           }
-          return startNodeToolCall(mirrored, nodeId, nodeName, tool)
+          const started = startNodeToolCall(mirrored, nodeId, nodeName, tool)
+          return clusterLane ? traceClusterLaneTool(started, nodeId, clusterLane, tool.id) : started
         })
       } else if (thinkType === THINKING_TYPE.TOOL_RESULT) {
         const toolName = textField(data, 'tool_name')
