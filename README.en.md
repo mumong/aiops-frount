@@ -14,6 +14,7 @@ The analysis panel is expanded by default and grows with its content instead of 
 - **Multi-turn conversations** — keeps context for follow-up questions
 - **Session sidebar** — create, switch and delete sessions; after confirmation you can clear all history and drafts in this browser, which also disconnects running sessions in the frontend
 - **Repair workspace** — per-group repair plans, feedback to revise a plan, approval cards with countdown (high-risk commands are highlighted), execution and recovery results, and a view of the active command rules
+- **Multi-cluster** — the route card shows the cluster scope. During location, the "multi-cluster location" board shows one card per cluster with its progress, tool calls, reasoning and analysis. Parallel evidence shows progress per cluster, and approval cards name the target cluster (backend design: robusta `docs/multi-cluster-design.md` §12). `scripts/replay-sse.mjs` replays an event stream through the same event reducer, for backend acceptance.
 
 ## Tech stack
 
