@@ -2,6 +2,7 @@ import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkChineseStrong from './remarkChineseStrong'
 import remarkLineBreaks from './remarkLineBreaks'
+import remarkReportSections from './remarkReportSections'
 import { isValidElement, memo } from 'react'
 import CodeBlock from './CodeBlock'
 import styles from './MessageList.module.css'
@@ -11,7 +12,7 @@ interface MarkdownReportProps {
 }
 
 // Module-level so memoized renders never hand react-markdown new plugin/component identities.
-const REMARK_PLUGINS = [remarkGfm, remarkChineseStrong, remarkLineBreaks]
+const REMARK_PLUGINS = [remarkGfm, remarkChineseStrong, remarkLineBreaks, remarkReportSections]
 const COMPONENTS: Components = {
   table: ({ children }) => (
     <div className={styles.tableWrapper}>

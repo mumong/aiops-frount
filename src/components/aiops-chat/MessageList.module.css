@@ -158,9 +158,27 @@ summary.nodeSectionTitle svg { margin-right: 5px; }
 .markdownReport th { background: var(--surface-subtle); color: var(--muted); font-weight: 500; }
 .markdownReport tr:last-child td { border-bottom: 0; }
 .markdownReport tr:hover td { background: var(--surface-subtle); }
-.mdH2 { margin: 24px 0 12px; font-size: 19px; line-height: 1.5; font-weight: 600; letter-spacing: -.3px; }
-.mdH3 { margin: 20px 0 10px; font-size: 16px; line-height: 1.6; font-weight: 600; }
-.mdH4 { margin: 16px 0 8px; font-size: 14px; line-height: 1.6; font-weight: 600; }
+.mdH2 { margin: 28px 0 14px; font-size: 21px; line-height: 1.45; font-weight: 650; letter-spacing: -.3px; }
+.mdH3 { margin: 24px 0 12px; padding-left: 10px; border-left: 4px solid var(--accent); font-size: 18px; line-height: 1.5; font-weight: 650; }
+.mdH4 { margin: 20px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-size: 15.5px; line-height: 1.6; font-weight: 600; }
+/* Report sections (remarkReportSections): conclusion and cause are highlighted cards. */
+.markdownReport :global(.reportSection) { min-width: 0; }
+.markdownReport :global(.reportSection) > :first-child { margin-top: 0; }
+.markdownReport :global(.reportLevel2) + :global(.reportLevel2) { margin-top: 28px; }
+.markdownReport :global(.reportTone_conclusion),
+.markdownReport :global(.reportTone_cause),
+.markdownReport :global(.reportTone_overview) { margin: 16px 0; padding: 16px 18px; border: 1px solid var(--accent-border); border-left: 5px solid var(--accent); border-radius: 10px; background: var(--accent-soft); }
+.markdownReport :global(.reportTone_cause) { border-color: var(--warning-border); border-left-color: var(--warning); background: var(--warning-soft); }
+.markdownReport :global(.reportTone_overview) { border-left-width: 1px; background: var(--surface-subtle); border-color: var(--border); }
+.markdownReport :global(.reportTone_conclusion) > h4,
+.markdownReport :global(.reportTone_cause) > h4 { margin: 0 0 10px; padding: 0; border: 0; font-size: 17.5px; font-weight: 700; }
+.markdownReport :global(.reportTone_conclusion) > h4 { color: var(--accent); }
+.markdownReport :global(.reportTone_cause) > h4 { color: var(--warning); }
+.markdownReport :global(.reportTone_conclusion) > :global(p),
+.markdownReport :global(.reportTone_cause) > :global(p),
+.markdownReport :global(.reportTone_cause) li { font-size: 15px; }
+.markdownReport :global(.reportTone_overview) > h3 { margin-top: 0; border-left: 0; padding-left: 0; }
+.markdownReport :global(.reportTone_conclusion) strong { color: var(--text); font-weight: 700; }
 .mdBlockquote { margin: 16px 0; padding: 8px 16px; border-left: 3px solid var(--accent-border); background: var(--surface-subtle); color: var(--muted); }
 @media (max-width: 900px) { .list { padding: 24px; } .suggestions { gap: 10px; } .suggestion { padding: 16px 12px; } }
 @media (max-width: 640px) {

@@ -43,3 +43,12 @@ test('<br> inside table cells renders as a line break, other raw HTML stays iner
   assert.match(html, /文本<br\/>\n?换行/)
   assert.doesNotMatch(html, /<b>粗<\/b>|<script>/)
 })
+
+test('report headings become nested sections; conclusion and cause are highlighted cards', () => {
+  const html = render('## 整体诊断 · ns/pod\n\n### 诊断结论\n**根因**：变量名拼错。\n\n### 关键证据\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n### 原因分析\n1. 现象\n\n```text\n### 不是标题\n```\n\n## 另一组\n正文')
+  assert.match(html, /<section class="reportSection reportLevel2"><h3[^>]*>整体诊断 · ns\/pod<\/h3>/)
+  assert.match(html, /<section class="reportSection reportLevel3 reportTone_conclusion" data-tone="conclusion"><h4[^>]*>诊断结论<\/h4>/)
+  assert.match(html, /<section class="reportSection reportLevel3"><h4[^>]*>关键证据<\/h4>/)
+  assert.match(html, /data-tone="cause"><h4[^>]*>原因分析<\/h4>[\s\S]*### 不是标题[\s\S]*<\/section><\/section>\n?<section class="reportSection reportLevel2"><h3[^>]*>另一组/)
+  assert.equal((html.match(/data-tone=/g) || []).length, 2)
+})
