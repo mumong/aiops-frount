@@ -125,6 +125,9 @@ frountind/
 
 ## K8s 环境部署
 
+**多集群**（`008-multi-cluster` 分支）：在中心执行 `make deploy-mc`，用法与 `make deploy` 相同，默认 NodePort 为 30082（`MC_NODE_PORT=…`），默认使用当前 kubectl 上下文。前端本身不区分单集群和多集群。完整步骤见 Agent 仓库 README「多集群部署」。
+
+
 当前仓库提供一个临时 Kubernetes Pod 部署方案，便于单独运行前端。未来如果把组件融入其他前端页面，可以只复用 `src/components/aiops-chat/`，不需要这些部署文件。
 
 ### 部署前确认

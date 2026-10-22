@@ -123,6 +123,8 @@ frountind/
 
 ## Kubernetes deployment
 
+**Multi-cluster** (branch `008-multi-cluster`): run `make deploy-mc` on the center. It is used like `make deploy`, with default NodePort 30082 (`MC_NODE_PORT=…`) and the current kubectl context. The frontend itself does not distinguish single from multi-cluster. Full steps: "Multi-cluster deployment" in the Agent README.
+
 This repository ships a simple Kubernetes Pod deployment so the frontend can run on its own. If the component is later embedded in another frontend, reuse only `src/components/aiops-chat/`; the deployment files are not needed.
 
 ### Before deploying
