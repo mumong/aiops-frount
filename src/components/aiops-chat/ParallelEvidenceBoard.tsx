@@ -59,6 +59,8 @@ export default function ParallelEvidenceBoard({
         <span className={failedCount > 0 ? styles.failedTotal : ''}><strong>{failedCount}</strong>失败</span>
       </div>
 
+      <ClusterProgress groups={state.groups} />
+
       {state.pendingTools.length > 0 && (
         <div className={styles.pendingArea}>
           <div className={styles.noticeTitle}>
@@ -96,6 +98,22 @@ export default function ParallelEvidenceBoard({
         </section>
       )}
     </section>
+  )
+}
+
+/** Multi-cluster runs: how far each cluster's groups have got. */
+function ClusterProgress({ groups }: { groups: ParallelEvidenceGroup[] }) {
+  const clusters = [...new Set(groups.map(group => group.clusterLabel).filter((label): label is string => Boolean(label)))]
+  if (clusters.length === 0) return null
+  return (
+    <div className={styles.keywords} aria-label="各集群进度">
+      {clusters.map(label => {
+        const own = groups.filter(group => group.clusterLabel === label)
+        const ended = own.filter(group => group.terminalStatus).length
+        const evidence = own.reduce((total, group) => total + group.results.length, 0)
+        return <span key={label}>{label}：{ended}/{own.length} 组已结束 · {evidence} 条证据</span>
+      })}
+    </div>
   )
 }
 

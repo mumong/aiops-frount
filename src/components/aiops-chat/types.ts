@@ -86,6 +86,8 @@ export interface ToolCall {
   toolName: string
   status: 'running' | 'success' | 'error'
   evidenceContext?: ParallelEvidenceStreamContext
+  /** Multi-cluster location: the cluster whose card this call belongs to. */
+  clusterLabel?: string
   resultPreview?: string
   /** Full processed tool summary (shown when user clicks to expand) */
   resultData?: string
@@ -192,6 +194,16 @@ export interface NodeBlock {
   routeDecision?: import('./routePresentation').RoutePresentation
   /** Grouped presentation state for the Backend's parallel_evidence node */
   parallelEvidence?: ParallelEvidenceState
+  /** Multi-cluster location: one lane per cluster, in arrival order. */
+  clusterLanes?: ClusterLane[]
+}
+
+export interface ClusterLane {
+  label: string
+  status: 'running' | 'complete' | 'failed'
+  note: string
+  reasoning: string
+  analysis: { text: string; streamStart?: number }
 }
 
 /** Per-node label mapping */

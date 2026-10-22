@@ -3,6 +3,7 @@ import { NODE_LABELS, type NodeBlock } from './types'
 import { NODE_ID } from './sseEvents'
 import StructuredContent from './StructuredContent'
 import ParallelEvidenceBoard from './ParallelEvidenceBoard'
+import ClusterLaneBoard from './ClusterLaneBoard'
 import HandoffDisplay from './HandoffDisplay'
 import ReasoningDetails from './ReasoningDetails'
 import { emptyNodeMessage, visibleNarrative, queryNarrative } from './handoffPresentation'
@@ -22,7 +23,10 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
     ? queryNarrative(block.thinkingTokens || '') : visibleNarrative(block.thinkingTokens || '')
   const handoff = visibleNarrative(block.handoffSummary || '')
   const reasoning = (block.reasoningTokens || '').trim()
-  const hasContent = !!(block.parallelEvidence || thinking || reasoning || handoff || block.toolCalls.length > 0)
+  const hasLanes = (block.clusterLanes?.length ?? 0) > 0
+  // A cluster's calls are listed in its own card.
+  const ownTools = hasLanes ? block.toolCalls.filter(tool => !tool.clusterLabel) : block.toolCalls
+  const hasContent = !!(block.parallelEvidence || hasLanes || thinking || reasoning || handoff || block.toolCalls.length > 0)
   const pending = block.toolCalls.filter(tool => tool.status === 'running').length
   const phase = block.runtimeStatus?.text || (pending
     ? `正在等待 ${pending} 个工具返回` : '等待模型返回分析或下一步工具调用')
@@ -71,6 +75,11 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
               <div className={styles.nodeSectionTitle}>{emptyNodeMessage(isRunning)}</div>
             </div>
           )}
+          {hasLanes && (
+            <div className={styles.nodeSection}>
+              <ClusterLaneBoard block={block} />
+            </div>
+          )}
           {block.parallelEvidence && (
             <div className={styles.nodeSection}>
               <ParallelEvidenceBoard state={block.parallelEvidence} />
@@ -87,11 +96,11 @@ function NodeBlockCard({ block, isLast }: { block: NodeBlock; isLast: boolean })
           )}
 
           {/* Tool calls */}
-          {block.toolCalls.length > 0 && (
+          {ownTools.length > 0 && (
             <details className={styles.nodeSection}>
-              <summary className={styles.nodeSectionTitle}><Wrench size={13} />工具调用 ({block.toolCalls.length}) · {pending ? `${pending} 个执行中` : '展开查看'}</summary>
+              <summary className={styles.nodeSectionTitle}><Wrench size={13} />工具调用 ({ownTools.length}) · {ownTools.some(tool => tool.status === 'running') ? `${ownTools.filter(tool => tool.status === 'running').length} 个执行中` : '展开查看'}</summary>
               <div className={styles.toolCalls}>
-                {block.toolCalls.map(tc => (
+                {ownTools.map(tc => (
                   <ToolCallItem key={tc.id} tc={tc} />
                 ))}
               </div>

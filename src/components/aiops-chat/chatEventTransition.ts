@@ -3,6 +3,7 @@ import { chunkAddsRemediationMarker, hasRemediationApprovalMarker, parseRemediat
 import { shouldProcessRemediation } from './chatRequestPolicy'
 import { applyNodeReasoning, applyNodeThinkingEvent, mergeAnalysisStream, finishNodeToolCall, startNodeBlock, startNodeToolCall, setNodeRuntimeStatus, settleNodeBlocks } from './nodeBlockUpdates'
 import { presentToolEvent } from './toolPresentation'
+import { appendClusterLaneAnalysis, appendClusterLaneReasoning, setClusterLaneStatus } from './clusterLanes'
 import { presentRoute } from './routePresentation'
 import { NODE_ID, SSE_EVENT, THINKING_TYPE, TRANSPORT_EVENT, isModelErrorCode, textField, trimmedField, type SSEPayload } from './sseEvents'
 import {
@@ -205,8 +206,17 @@ export function transitionChatEvent(
       const thinkType = textField(data, 'thinking_type')
       const nodeId = textField(data, 'node')
       const nodeName = textField(data, ['node_name', 'node'])
+      const clusterLane = textField(data, 'cluster_lane')
 
-      if (thinkType === THINKING_TYPE.RUNTIME_STATUS) {
+      if (clusterLane && thinkType === THINKING_TYPE.RUNTIME_STATUS) {
+        updateNodeBlocks(prev => setClusterLaneStatus(prev, nodeId, clusterLane,
+          textField(data, 'status', 'running'), textField(data, 'content')))
+      } else if (clusterLane && (thinkType === THINKING_TYPE.AI_TOKEN || thinkType === THINKING_TYPE.AI_MESSAGE)) {
+        const content = textField(data, thinkType === THINKING_TYPE.AI_MESSAGE ? ['full_content', 'content'] : 'content')
+        updateNodeBlocks(prev => appendClusterLaneAnalysis(prev, nodeId, clusterLane, thinkType, content))
+      } else if (clusterLane && thinkType === THINKING_TYPE.AI_REASONING) {
+        updateNodeBlocks(prev => appendClusterLaneReasoning(prev, nodeId, clusterLane, textField(data, 'content')))
+      } else if (thinkType === THINKING_TYPE.RUNTIME_STATUS) {
         const groupId = textField(data, 'parallel_group_id')
         if (groupId) {
           updateNodeBlocks(prev => prev.map(block => !block.parallelEvidence ? block : {
@@ -255,6 +265,7 @@ export function transitionChatEvent(
           id: `tool-${++toolIdCounter}`,
           ...(backendCallId ? { backendCallId } : {}),
           ...(evidenceContext ? { evidenceContext } : {}),
+          ...(clusterLane ? { clusterLabel: clusterLane } : {}),
           toolName,
           status: 'running' as const,
         }
