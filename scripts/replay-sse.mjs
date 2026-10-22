@@ -24,15 +24,18 @@ try {
     duration: block.durationSeconds ?? null,
     handoff: (block.handoffSummary || '').slice(0, 120),
     tools: block.toolCalls.length,
+    analysis: (block.thinkingTokens || '').trim().length,
     lanes: (block.clusterLanes || []).map(lane => ({
       label: lane.label,
       status: lane.status,
       note: lane.note,
       reasoning: lane.reasoning.length,
+      analysis: lane.analysis?.text?.trim().length || 0,
       tools: block.toolCalls.filter(tool => tool.clusterLabel === lane.label).length,
     })),
     groups: (block.parallelEvidence?.groups || []).map(group => ({
       id: group.groupId, cluster: group.clusterLabel || '', ended: group.terminalStatus || '', results: group.results.length,
+      analysis: Object.fromEntries(Object.entries(group.analysisStreams || {}).map(([stage, stream]) => [stage, stream?.text?.trim().length || 0])),
     })),
   }))
   console.log(JSON.stringify({ nodes }))
