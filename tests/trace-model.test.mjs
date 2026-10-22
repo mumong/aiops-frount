@@ -39,3 +39,8 @@ test('a streamed acknowledgement is replaced by the stage text that follows', ()
   trace = m.traceText(trace, 'ai_message', '发现 2 个异常 Pod')
   assert.deepEqual(trace.map(step => step.text), ['发现 2 个异常 Pod'])
 })
+
+test('meta lines like [Tool Calls Generation] and short asides are not shown as activity', () => {
+  const trace = [{ kind: 'thought', text: '查 Pod 上一次崩溃的日志。\n[Tool Calls Generation]\n语言为中文。' }]
+  assert.equal(m.latestActivity(trace, name), '查 Pod 上一次崩溃的日志。')
+})

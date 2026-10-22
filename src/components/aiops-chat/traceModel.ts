@@ -56,7 +56,7 @@ export function latestActivity(trace: TraceStep[] = [], toolName: (id: string) =
     const text = plain(stepText(step))
     if (text) {
       // The newest complete sentence; list numbers and short fragments ("3. 分析") say little.
-      const sentences = text.split(/(?<=[。！？!?；;])|\n+/).map(part => part.trim()).filter(part => part.length >= 6 && !/[：:]$/.test(part))
+      const sentences = text.split(/(?<=[。！？!?；;])|\n+/).map(part => part.trim()).filter(part => part.length >= 8 && !/[：:]$/.test(part) && !/^\[.*\]$/.test(part))
       return sentences[sentences.length - 1] || text.slice(-80)
     }
   }
