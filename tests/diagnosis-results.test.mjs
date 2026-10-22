@@ -55,3 +55,11 @@ test('final transport stores case results for session reload without modifying f
   assert.equal(restored.diagnosisFooter, 'footer')
   assert.equal(restored.repairRecord.run_id, 'source-run')
 })
+
+test('multi-cluster cases name their cluster in the card title', () => {
+  const html = renderToStaticMarkup(React.createElement(DiagnosisResults, { message: {
+    diagnosisCases: [{...cases[0], target: { ...cases[0].target, cluster_label: 'edge-89' }}, cases[1]],
+  } }))
+  assert.match(html, /<em class="[^"]*">edge-89<\/em><strong>demo\/pod-0<\/strong>/)
+  assert.equal((html.match(/edge-89/g) || []).length, 1)  // single-cluster case gets no badge
+})

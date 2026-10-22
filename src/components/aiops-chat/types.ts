@@ -36,7 +36,8 @@ export interface ChatMessage {
     outcome?: string
     summary: string
     report: string
-    target?: { entities?: Array<{ namespace?: string; name: string; uid?: string }> }
+    /** cluster_label: multi-cluster only, the cluster the group was diagnosed on. */
+    target?: { entities?: Array<{ namespace?: string; name: string; uid?: string }>; cluster_label?: string }
   }>
   diagnosisOverview?: { text: string; failed: boolean; total: number; completed: number; partial: number }
   diagnosisFooter?: string

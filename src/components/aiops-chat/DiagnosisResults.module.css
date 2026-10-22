@@ -9,3 +9,4 @@
 .caseCard summary p { margin: 8px 0 0; }
 .caseCard[open] summary p { display: none; }
 .caseCard[open] summary { padding-bottom: 10px; border-bottom: 1px solid var(--border-color, #d9dee7); }
+.caseCard summary .cluster { margin-right: 8px; padding: 1px 8px; border: 1px solid var(--accent-border); border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-style: normal; font-weight: 600; }
