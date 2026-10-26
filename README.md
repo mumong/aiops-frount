@@ -38,6 +38,7 @@ K8s AIOps Copilot 的聊天前端：用对话方式查询集群、看诊断过�
 make deploy                                   # 单集群：同步镜像版本并应用，等待就绪，失败自动回滚
 make deploy-mc                                # 多集群中心
 echo <新版本号> > VERSION && make release     # 改了代码：构建 → 推送 → 部署
+make delete                                   # 卸载前端
 ```
 访问 `http://<任意节点IP>:30082/`（单集群和多集群相同）。
 

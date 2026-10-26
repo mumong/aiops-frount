@@ -38,6 +38,7 @@ The chat frontend of K8s AIOps Copilot: query clusters in conversation, follow t
 make deploy                                     # single cluster: sync the image tag, apply, wait; a failed rollout is rolled back
 make deploy-mc                                  # multi-cluster center
 echo <new version> > VERSION && make release    # after a code change: build -> push -> deploy
+make delete                                     # uninstall the frontend
 ```
 Open `http://<any node IP>:30082/` (same for single and multi-cluster).
 
