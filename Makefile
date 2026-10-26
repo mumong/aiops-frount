@@ -53,7 +53,11 @@ deploy:
 	@kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
 	kubectl apply -f deploy/k8s-simple.yaml
 	@echo "Waiting for rollout to complete..."
-	kubectl rollout status deployment/$(DEPLOYMENT) -n $(NAMESPACE) --timeout=300s
+	@kubectl rollout status deployment/$(DEPLOYMENT) -n $(NAMESPACE) --timeout=300s || { \
+		echo "Rollout failed; rolling back to the previous ReplicaSet..."; \
+		kubectl rollout undo deployment/$(DEPLOYMENT) -n $(NAMESPACE); \
+		kubectl rollout status deployment/$(DEPLOYMENT) -n $(NAMESPACE) --timeout=300s; \
+		exit 1; }
 
 delete:
 	@echo "Deleting frontend resources only..."
