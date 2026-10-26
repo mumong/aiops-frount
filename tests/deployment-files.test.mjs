@@ -67,20 +67,16 @@ test('Makefile supports one-command release plus operations targets', () => {
   assert.match(makefile, /kubectl rollout status deployment\/\$\(DEPLOYMENT\) -n \$\(NAMESPACE\)/)
 })
 
-test('README documents local running, packaging, K8s one-command deployment, raw commands, and access URL', () => {
+test('README documents local running and the copy-paste K8s deployment', () => {
   const readme = read('README.md')
 
   assert.match(readme, /## 本地运行/)
   assert.match(readme, /npm run dev/)
   assert.match(readme, /## K8s 环境部署/)
-  assert.match(readme, /### 快速部署已有镜像到 K8s/)
-  assert.match(readme, /make deploy/)
-  assert.match(readme, /### 访问前端/)
-  assert.match(readme, /http:\/\/<任意K8s节点IP>:30081\//)
-  assert.match(readme, /### 镜像还没构建时：一键打包、推送、部署/)
+  assert.match(readme, /make deploy {2,}/)
+  assert.match(readme, /失败自动回滚/)
   assert.match(readme, /make release/)
-  assert.match(readme, /### 手动打包前端镜像/)
-  assert.match(readme, /docker build -t xnet\.registry\.io:8443\/xnet-cloud\/aiops-copilot-frontend:\$\(cat VERSION\) \./)
-  assert.match(readme, /### 不使用 Makefile 的等价命令/)
-  assert.match(readme, /kubectl apply -f deploy\/k8s-simple\.yaml/)
+  assert.match(readme, /make deploy-mc/)
+  assert.match(readme, /xnet\.registry\.io:8443\/xnet-cloud\/aiops-copilot-frontend:<VERSION>/)
+  assert.match(readme, /http:\/\/<任意节点IP>:30081\//)
 })

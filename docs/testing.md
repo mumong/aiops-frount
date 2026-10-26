@@ -1,6 +1,5 @@
 # Frontend testing
 
-The previously bundled skill/plugin testing guide is preserved in [skills-testing.md](skills-testing.md); it is not the application test workflow.
 
 ## Required local checks
 
