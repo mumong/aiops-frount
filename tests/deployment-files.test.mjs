@@ -70,13 +70,16 @@ test('Makefile supports one-command release plus operations targets', () => {
 test('README documents local running and the copy-paste K8s deployment', () => {
   const readme = read('README.md')
 
-  assert.match(readme, /## 本地运行/)
+  assert.match(readme, /### 本地运行/)
   assert.match(readme, /npm run dev/)
-  assert.match(readme, /## K8s 环境部署/)
+  assert.match(readme, /### K8s 环境部署/)
   assert.match(readme, /make deploy {2,}/)
   assert.match(readme, /失败自动回滚/)
   assert.match(readme, /make release/)
   assert.match(readme, /make deploy-mc/)
   assert.match(readme, /xnet\.registry\.io:8443\/xnet-cloud\/aiops-copilot-frontend:<VERSION>/)
   assert.match(readme, /http:\/\/<任意节点IP>:30082\//)
+  // Details live in the guide, which the README links to.
+  assert.match(readme, /\]\(docs\/GUIDE\.md\)/)
+  assert.match(read('docs/GUIDE.md'), /GET \/ask/)
 })
