@@ -13,7 +13,7 @@ Kubernetes AIOps 智能对话助手前端组件。提供基于聊天界面的 Ku
 - **处理路径与阶段状态** — 展示后端选择的路由、诊断阶段、并发组及工具进度
 - **多轮对话** — 保留上下文，支持连续追问
 - **侧边栏会话管理** — 创建、切换、删除会话；支持确认后清空当前浏览器全部历史和草稿，清空会断开运行中会话的前端连接
-- **多集群** — 路由卡片显示集群范围。问题定位时，"多集群并发定位"为每个集群显示一行；并发取证按集群分区，每个异常组一行，完成后行首显示诊断结论。每行折叠时只显示一行最新动态（高度固定，不跳动），展开后是运行时间线：思考、工具调用及结果、阶段结论按发生顺序排列，审批卡片显示目标集群（后端设计见 robusta 仓库 `docs/multi-cluster-design.md` §12）。`scripts/replay-sse.mjs` 可以把一段事件流交给同一份事件处理逻辑回放，供后端验收使用
+- **多集群** — 路由卡片显示集群范围。问题定位时，"多集群并发定位"为每个集群显示一行；并发取证按集群分区，每个异常组一行，完成后行首显示诊断结论。每行折叠时只显示一行最新动态（高度固定，不跳动），展开后是运行时间线：工具调用及结果、阶段结论按发生顺序排列；模型思考放在一个默认折叠的"思考过程"框里，与快速查询一致。审批卡片显示目标集群（后端设计见 robusta 仓库 `docs/multi-cluster-design.md` §12）。`scripts/replay-sse.mjs` 可以把一段事件流交给同一份事件处理逻辑回放，供后端验收使用
 - **修复工作区** — 按异常组展示修复方案，可反馈修改方案；审批卡片带倒计时，高危命令单独标红；展示执行与恢复结果，并可查看当前生效的命令规则
 
 ## 技术栈
@@ -88,204 +88,46 @@ npm run preview
 ## 项目结构
 
 ```
-frountind/
-├── index.html                 # HTML 入口
-├── vite.config.ts             # Vite 配置（含 API 代理）
-├── package.json
-├── tsconfig.json
+aiops-frount/
+├── index.html、vite.config.ts（含 API 代理）、package.json、tsconfig*.json
 ├── src/
-│   ├── main.tsx               # React 入口
-│   ├── App.tsx                # 应用根组件
-│   ├── App.module.css
-│   ├── hooks/                 # 自定义 Hooks
-│   └── components/
-│       └── aiops-chat/        # 聊天组件
-│           ├── ChatWidget.tsx     # 主组件
-│           ├── ChatSessionPanel.tsx # 每个会话独立的运行状态与 SSE 连接
-│           ├── chatEventTransition.ts # 纯事件状态转移，不处理网络/持久化
-│           ├── ChatHeader.tsx     # 对话头部
-│           ├── ChatHeader.module.css
-│           ├── MessageList.tsx    # 消息列表
-│           ├── MessageList.module.css
-│           ├── MessageInput.tsx   # 输入框
-│           ├── MessageInput.module.css
-│           ├── UserMessage.tsx    # 用户消息渲染
-│           ├── BotMessage.tsx     # AI 响应与工作流阶段卡渲染
-│           ├── NodeBlockCard.tsx  # 阶段与工具详情展示
-│           ├── RunProgress.tsx    # 运行进度与等待计时
-│           ├── HandoffDisplay.tsx # 阶段交接展示
-│           ├── handoffParsing.ts # 旧版交接字段解析
-│           ├── MarkdownReport.tsx # Markdown 报告渲染
-│           ├── Sidebar.tsx        # 侧边栏会话管理
-│           ├── Sidebar.module.css
-│           ├── ChatWidget.module.css
-│           └── types.ts           # 类型定义
-└── docs/                      # 文档
+│   ├── main.tsx、App.tsx         # 入口与根组件
+│   ├── hooks/                    # 会话历史、SSE 连接
+│   └── components/aiops-chat/    # 聊天组件（可单独复用）
+│       ├── ChatWidget / ChatSessionPanel / MessageList / MessageInput / Sidebar   # 会话与消息
+│       ├── BotMessage / RouteCard / NodeBlockCard / RunProgress / MarkdownReport  # 路由、阶段、报告
+│       ├── ClusterLaneBoard / ParallelEvidenceBoard / RunRow / TraceTimeline / ReasoningDetails  # 多集群与并发组的运行行和时间线
+│       ├── RepairWorkspace / RepairPlanContent / RemediationApprovalCard / RepairProgress / RepairPolicyPanel  # 修复工作区
+│       └── chatEventTransition.ts、traceModel.ts、clusterLanes.ts 等  # 纯逻辑：事件状态转移与展示模型
+├── scripts/replay-sse.mjs        # 把一段 SSE 事件流交给同一份事件处理逻辑回放（后端验收用）
+├── tests/                        # Node 内置测试运行器的单元测试
+├── deploy/k8s-simple.yaml、nginx.conf、Dockerfile   # K8s 部署
+└── docs/                         # 测试指南等
 ```
 
 ## K8s 环境部署
 
-**多集群**：在中心执行 `make deploy-mc`，用法与 `make deploy` 相同，默认 NodePort 为 30082（`MC_NODE_PORT=…`），默认使用当前 kubectl 上下文。前端本身不区分单集群和多集群。三个服务一起部署的复制命令见 Agent 仓库 README「部署（复制即用）」。
-
-
-当前仓库提供一个临时 Kubernetes Pod 部署方案，便于单独运行前端。未来如果把组件融入其他前端页面，可以只复用 `src/components/aiops-chat/`，不需要这些部署文件。
-
-### 部署前确认
-
-需要具备：
-
-- 本机可执行 `docker`
-- 本机 `kubectl` 已指向目标 K8s 集群
-- 能推送到镜像仓库 `10.2.0.86:8443`
-- 后端 Service 已存在：`aiops-copilot.aiops.svc.cluster.local:8000`
-
-镜像默认推送到：
-
-```text
-xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>
-```
-
-版本来自仓库根目录的 `VERSION` 文件：
-
-`VERSION` 是部署镜像版本；`package.json` 中的 `0.1.0` 是私有应用包元数据，不是部署版本。
-纯代码重构不会自动更改二者；发布时单独更新镜像版本并验证部署。
+三个服务一起部署（单集群、多集群）的复制命令见 Agent 仓库 README「部署（复制即用）」。单独部署前端：
 
 ```bash
-cat VERSION
+make deploy                        # 已有镜像：同步清单里的镜像版本并应用，等待就绪，失败自动回滚
+echo <新版本号> > VERSION && make release   # 改了代码：构建 → 推送 → 部署
+make deploy-mc                     # 多集群中心：NodePort 默认 30082（30081 被 xnet 占用，可用 MC_NODE_PORT 修改）
 ```
 
-### 快速部署已有镜像到 K8s
+- 镜像：`xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>`。`VERSION` 是部署版本；`package.json` 里的版本号只是应用包元数据。
+- 访问：`http://<任意节点IP>:30081/`（多集群中心为 30082）。容器内是 Nginx：静态页面加 `/api/*` 反向代理到 `http://aiops-copilot.aiops.svc.cluster.local:8000/`，所以后端 Service 要先存在。
+- 前端本身不区分单集群和多集群。
+- 只想把聊天组件嵌进别的页面时，复用 `src/components/aiops-chat/` 即可，不需要这些部署文件。
 
-如果镜像已经构建并推送过，只需要更新 K8s：
+常用命令：
 
 ```bash
-make deploy
-```
-
-`make deploy` 会把 `deploy/k8s-simple.yaml` 里的镜像 tag 同步为 `VERSION`，然后执行：
-
-```bash
-kubectl create namespace aiops --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f deploy/k8s-simple.yaml
-kubectl rollout status deployment/aiops-copilot-frontend -n aiops --timeout=300s
-```
-
-### 访问前端
-
-前端通过 NodePort 暴露：
-
-```text
-http://<任意K8s节点IP>:30081/
-```
-
-当前集群示例：
-
-```text
-http://10.2.0.48:30081/
-```
-
-容器内使用 Nginx 承载 Vite 构建产物，浏览器请求 `/api/*` 会被反向代理到集群内后端：
-
-```text
-http://aiops-copilot.aiops.svc.cluster.local:8000/
-```
-
-### 镜像还没构建时：一键打包、推送、部署
-
-如果你要从当前代码直接完成“打包镜像 -> 推送镜像 -> 部署到 K8s”，执行：
-
-```bash
-make release
-```
-
-`make release` 等价于：
-
-```bash
-make build && make push && make deploy
-```
-
-注意：`make deploy` 只负责把 `deploy/k8s-simple.yaml` 应用到 K8s，并等待 rollout；它不会自动重新打包镜像，也不会自动 push 镜像。完整一键流程请用 `make release`。
-
-### 手动打包前端镜像
-
-使用 Docker 直接打包：
-
-```bash
-docker build -t xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION) .
-```
-
-或者使用 Makefile：
-
-```bash
-make build
-```
-
-### 手动推送镜像
-
-```bash
-docker push xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
-```
-
-或者：
-
-```bash
-make push
-```
-
-### 不使用 Makefile 的等价命令
-
-如果当前环境没有 `make`，可以直接执行下面这些命令：
-
-```bash
-IMAGE=xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
-
-docker build -t "$IMAGE" .
-docker push "$IMAGE"
-
-sed -i "s|image: xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:.*|image: $IMAGE|" deploy/k8s-simple.yaml
-kubectl create namespace aiops --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f deploy/k8s-simple.yaml
-kubectl rollout status deployment/aiops-copilot-frontend -n aiops --timeout=300s
-```
-
-部署完成后访问：
-
-```text
-http://<任意K8s节点IP>:30081/
-```
-
-### 常用运维命令
-
-```bash
-make restart      # 重启前端 Pod
-make logs         # 查看前端 Nginx 日志
-make delete       # 删除前端 Deployment 和 Service
-make sync-version # 将 deploy/k8s-simple.yaml 里的镜像 tag 同步为 VERSION
-```
-
-查看当前部署状态：
-
-```bash
+make restart                                 # 重启前端 Pod
+make logs                                    # 查看 Nginx 日志
+make delete                                  # 删除前端 Deployment 和 Service
 kubectl get deployment,svc,pod -n aiops -l app=aiops-copilot-frontend -o wide
-```
-
-验证前端和 API 反代：
-
-```bash
-curl -I http://<任意K8s节点IP>:30081/
-curl http://<任意K8s节点IP>:30081/api/health
-```
-
-### 更新版本
-
-修改 `VERSION` 后重新构建部署：
-
-```bash
-echo 0.1.1 > VERSION
-make sync-version
-make build
-make push
-make deploy
+curl -I http://<节点IP>:30081/ && curl http://<节点IP>:30081/api/health   # 验证页面和 API 反代
 ```
 
 ## 环境要求

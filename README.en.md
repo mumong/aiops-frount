@@ -14,7 +14,7 @@ The analysis panel is expanded by default and grows with its content instead of 
 - **Multi-turn conversations** — keeps context for follow-up questions
 - **Session sidebar** — create, switch and delete sessions; after confirmation you can clear all history and drafts in this browser, which also disconnects running sessions in the frontend
 - **Repair workspace** — per-group repair plans, feedback to revise a plan, approval cards with countdown (high-risk commands are highlighted), execution and recovery results, and a view of the active command rules
-- **Multi-cluster** — the route card shows the cluster scope. During location, the "multi-cluster location" board shows one row per cluster. Parallel evidence is sectioned by cluster, with one row per abnormal group that shows the diagnosis conclusion once finished. A collapsed row shows one fixed-height line with the latest activity; expanded, it is the run timeline: reasoning, tool calls with results and stage conclusions in arrival order, and approval cards name the target cluster (backend design: robusta `docs/multi-cluster-design.md` §12). `scripts/replay-sse.mjs` replays an event stream through the same event reducer, for backend acceptance.
+- **Multi-cluster** — the route card shows the cluster scope. During location, the "multi-cluster location" board shows one row per cluster. Parallel evidence is sectioned by cluster, with one row per abnormal group that shows the diagnosis conclusion once finished. A collapsed row shows one fixed-height line with the latest activity; expanded, it is the run timeline: tool calls with results and stage conclusions in arrival order, with the model's reasoning in one collapsed "reasoning" box as in quick queries. Approval cards name the target cluster (backend design: robusta `docs/multi-cluster-design.md` §12). `scripts/replay-sse.mjs` replays an event stream through the same event reducer, for backend acceptance.
 
 ## Tech stack
 
@@ -86,202 +86,46 @@ npm run preview
 ## Project layout
 
 ```
-frountind/
-├── index.html                 # HTML entry
-├── vite.config.ts             # Vite configuration (including the API proxy)
-├── package.json
-├── tsconfig.json
+aiops-frount/
+├── index.html, vite.config.ts (API proxy), package.json, tsconfig*.json
 ├── src/
-│   ├── main.tsx               # React entry
-│   ├── App.tsx                # root component
-│   ├── App.module.css
-│   ├── hooks/                 # custom hooks
-│   └── components/
-│       └── aiops-chat/        # chat components
-│           ├── ChatWidget.tsx     # main component
-│           ├── ChatSessionPanel.tsx # per-session run state and SSE connection
-│           ├── chatEventTransition.ts # pure event state transitions, no network/persistence
-│           ├── ChatHeader.tsx     # chat header
-│           ├── ChatHeader.module.css
-│           ├── MessageList.tsx    # message list
-│           ├── MessageList.module.css
-│           ├── MessageInput.tsx   # input box
-│           ├── MessageInput.module.css
-│           ├── UserMessage.tsx    # user message rendering
-│           ├── BotMessage.tsx     # AI response and workflow stage cards
-│           ├── NodeBlockCard.tsx  # stage and tool details
-│           ├── RunProgress.tsx    # run progress and wait timer
-│           ├── HandoffDisplay.tsx # stage hand-off display
-│           ├── handoffParsing.ts # legacy hand-off field parsing
-│           ├── MarkdownReport.tsx # Markdown report rendering
-│           ├── Sidebar.tsx        # session sidebar
-│           ├── Sidebar.module.css
-│           ├── ChatWidget.module.css
-│           └── types.ts           # type definitions
-└── docs/                      # documentation
+│   ├── main.tsx, App.tsx         # entry and root component
+│   ├── hooks/                    # chat history, SSE connection
+│   └── components/aiops-chat/    # the chat component (reusable on its own)
+│       ├── ChatWidget / ChatSessionPanel / MessageList / MessageInput / Sidebar   # sessions and messages
+│       ├── BotMessage / RouteCard / NodeBlockCard / RunProgress / MarkdownReport  # route, stages, report
+│       ├── ClusterLaneBoard / ParallelEvidenceBoard / RunRow / TraceTimeline / ReasoningDetails  # per-cluster and per-group run rows and timelines
+│       ├── RepairWorkspace / RepairPlanContent / RemediationApprovalCard / RepairProgress / RepairPolicyPanel  # repair workspace
+│       └── chatEventTransition.ts, traceModel.ts, clusterLanes.ts, ...  # pure logic: event reducer and view models
+├── scripts/replay-sse.mjs        # replays an SSE event stream through the same reducer (backend acceptance)
+├── tests/                        # unit tests on Node's built-in test runner
+├── deploy/k8s-simple.yaml, nginx.conf, Dockerfile   # Kubernetes deployment
+└── docs/                         # testing guide and more
 ```
 
 ## Kubernetes deployment
 
-**Multi-cluster**: run `make deploy-mc` on the center. It is used like `make deploy`, with default NodePort 30082 (`MC_NODE_PORT=…`) and the current kubectl context. The frontend itself does not distinguish single from multi-cluster. Copy-paste commands for all three services: "Deployment (copy and paste)" in the Agent README.
-
-This repository ships a simple Kubernetes Pod deployment so the frontend can run on its own. If the component is later embedded in another frontend, reuse only `src/components/aiops-chat/`; the deployment files are not needed.
-
-### Before deploying
-
-You need:
-
-- `docker` available locally
-- local `kubectl` pointing at the target cluster
-- push access to the registry `10.2.0.86:8443`
-- the backend Service: `aiops-copilot.aiops.svc.cluster.local:8000`
-
-Images are pushed to:
-
-```text
-xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>
-```
-
-The version comes from the `VERSION` file at the repository root.
-
-`VERSION` is the deployed image version; `0.1.0` in `package.json` is private package metadata, not the deployment version. Pure refactoring changes neither; bump the image version and verify the deployment when you release.
+Copy-paste commands for all three services (single cluster, multi-cluster) are in the Agent README, "Deployment (copy and paste)". To deploy only the frontend:
 
 ```bash
-cat VERSION
+make deploy                        # existing image: sync the manifest's image tag, apply, wait; a failed rollout is rolled back
+echo <new version> > VERSION && make release   # after a code change: build -> push -> deploy
+make deploy-mc                     # multi-cluster center: NodePort 30082 by default (xnet uses 30081; MC_NODE_PORT changes it)
 ```
 
-### Deploying an existing image
+- Image: `xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>`. `VERSION` is the deployment version; the version in `package.json` is package metadata only.
+- Access: `http://<any node IP>:30081/` (30082 on a multi-cluster center). The container runs Nginx: static pages plus a reverse proxy from `/api/*` to `http://aiops-copilot.aiops.svc.cluster.local:8000/`, so the backend Service must exist.
+- The frontend itself does not distinguish single from multi-cluster.
+- To embed the chat in another page, reuse `src/components/aiops-chat/`; the deployment files are not needed.
 
-If the image is already built and pushed, only update Kubernetes:
+Common commands:
 
 ```bash
-make deploy
-```
-
-`make deploy` syncs the image tag in `deploy/k8s-simple.yaml` to `VERSION` and runs:
-
-```bash
-kubectl create namespace aiops --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f deploy/k8s-simple.yaml
-kubectl rollout status deployment/aiops-copilot-frontend -n aiops --timeout=300s
-```
-
-### Accessing the frontend
-
-The frontend is exposed via NodePort:
-
-```text
-http://<any-k8s-node-ip>:30081/
-```
-
-In the reference cluster:
-
-```text
-http://10.2.0.48:30081/
-```
-
-Inside the container Nginx serves the Vite build, and browser requests to `/api/*` are reverse-proxied to the backend in the cluster:
-
-```text
-http://aiops-copilot.aiops.svc.cluster.local:8000/
-```
-
-### Build, push and deploy in one step
-
-To go from the current code to "build image → push image → deploy to Kubernetes":
-
-```bash
-make release
-```
-
-`make release` is equivalent to:
-
-```bash
-make build && make push && make deploy
-```
-
-Note: `make deploy` only applies `deploy/k8s-simple.yaml` and waits for the rollout; it does not rebuild or push the image. Use `make release` for the full flow.
-
-### Building the image manually
-
-With Docker directly:
-
-```bash
-docker build -t xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION) .
-```
-
-Or with the Makefile:
-
-```bash
-make build
-```
-
-### Pushing the image manually
-
-```bash
-docker push xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
-```
-
-Or:
-
-```bash
-make push
-```
-
-### Equivalent commands without make
-
-If `make` is not available:
-
-```bash
-IMAGE=xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:$(cat VERSION)
-
-docker build -t "$IMAGE" .
-docker push "$IMAGE"
-
-sed -i "s|image: xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:.*|image: $IMAGE|" deploy/k8s-simple.yaml
-kubectl create namespace aiops --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f deploy/k8s-simple.yaml
-kubectl rollout status deployment/aiops-copilot-frontend -n aiops --timeout=300s
-```
-
-Then open:
-
-```text
-http://<any-k8s-node-ip>:30081/
-```
-
-### Common operations
-
-```bash
-make restart      # restart the frontend Pod
-make logs         # show the frontend Nginx logs
-make delete       # delete the frontend Deployment and Service
-make sync-version # sync the image tag in deploy/k8s-simple.yaml to VERSION
-```
-
-Check the deployment:
-
-```bash
+make restart                                 # restart the frontend Pod
+make logs                                    # Nginx logs
+make delete                                  # delete the frontend Deployment and Service
 kubectl get deployment,svc,pod -n aiops -l app=aiops-copilot-frontend -o wide
-```
-
-Verify the frontend and the API proxy:
-
-```bash
-curl -I http://<any-k8s-node-ip>:30081/
-curl http://<any-k8s-node-ip>:30081/api/health
-```
-
-### Releasing a new version
-
-After changing `VERSION`, rebuild and deploy:
-
-```bash
-echo 0.1.1 > VERSION
-make sync-version
-make build
-make push
-make deploy
+curl -I http://<node IP>:30081/ && curl http://<node IP>:30081/api/health   # page and API proxy
 ```
 
 ## Backend requirements
