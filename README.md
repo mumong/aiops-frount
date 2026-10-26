@@ -112,11 +112,11 @@ aiops-frount/
 ```bash
 make deploy                        # 已有镜像：同步清单里的镜像版本并应用，等待就绪，失败自动回滚
 echo <新版本号> > VERSION && make release   # 改了代码：构建 → 推送 → 部署
-make deploy-mc                     # 多集群中心：NodePort 默认 30082（30081 被 xnet 占用，可用 MC_NODE_PORT 修改）
+make deploy-mc                     # 多集群中心（kubectl 指向中心，或用 ~/.kube/aiops-mc/center）
 ```
 
 - 镜像：`xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>`。`VERSION` 是部署版本；`package.json` 里的版本号只是应用包元数据。
-- 访问：`http://<任意节点IP>:30081/`（多集群中心为 30082）。容器内是 Nginx：静态页面加 `/api/*` 反向代理到 `http://aiops-copilot.aiops.svc.cluster.local:8000/`，所以后端 Service 要先存在。
+- 访问：`http://<任意节点IP>:30082/`（单集群和多集群相同）。容器内是 Nginx：静态页面加 `/api/*` 反向代理到 `http://aiops-copilot.aiops.svc.cluster.local:8000/`，所以后端 Service 要先存在。
 - 前端本身不区分单集群和多集群。
 - 只想把聊天组件嵌进别的页面时，复用 `src/components/aiops-chat/` 即可，不需要这些部署文件。
 
@@ -127,7 +127,7 @@ make restart                                 # 重启前端 Pod
 make logs                                    # 查看 Nginx 日志
 make delete                                  # 删除前端 Deployment 和 Service
 kubectl get deployment,svc,pod -n aiops -l app=aiops-copilot-frontend -o wide
-curl -I http://<节点IP>:30081/ && curl http://<节点IP>:30081/api/health   # 验证页面和 API 反代
+curl -I http://<节点IP>:30082/ && curl http://<节点IP>:30082/api/health   # 验证页面和 API 反代
 ```
 
 ## 环境要求

@@ -62,7 +62,7 @@ Interface wording distinguishes stage results from final results, pending analys
 ```bash
 python3 -m venv .venv-browser && .venv-browser/bin/pip install playwright && .venv-browser/bin/playwright install chromium
 # 缺 libasound.so.2 / libgbm.so.1 时可 apt-get download 对应 .deb 后 dpkg -x 到临时目录并设置 LD_LIBRARY_PATH
-.venv-browser/bin/python tests/live-repair-e2e.browser.py --url http://10.2.0.48:30081 \
+.venv-browser/bin/python tests/live-repair-e2e.browser.py --url http://10.2.0.48:30082 \
   --chromium ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome --namespace aiops-case-04 \
   --admin-token-file /path/to/token --screenshot /tmp/live-repair.png
 ```

@@ -48,7 +48,7 @@ test('Kubernetes manifest deploys a temporary NodePort frontend pod', () => {
   )
   assert.match(manifest, /kind: Service/)
   assert.match(manifest, /type: NodePort/)
-  assert.match(manifest, /nodePort: 30081/)
+  assert.match(manifest, /nodePort: 30082/)
 })
 
 test('Makefile supports one-command release plus operations targets', () => {
@@ -78,5 +78,5 @@ test('README documents local running and the copy-paste K8s deployment', () => {
   assert.match(readme, /make release/)
   assert.match(readme, /make deploy-mc/)
   assert.match(readme, /xnet\.registry\.io:8443\/xnet-cloud\/aiops-copilot-frontend:<VERSION>/)
-  assert.match(readme, /http:\/\/<任意节点IP>:30081\//)
+  assert.match(readme, /http:\/\/<任意节点IP>:30082\//)
 })

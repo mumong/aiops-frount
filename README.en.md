@@ -110,11 +110,11 @@ Copy-paste commands for all three services (single cluster, multi-cluster) are i
 ```bash
 make deploy                        # existing image: sync the manifest's image tag, apply, wait; a failed rollout is rolled back
 echo <new version> > VERSION && make release   # after a code change: build -> push -> deploy
-make deploy-mc                     # multi-cluster center: NodePort 30082 by default (xnet uses 30081; MC_NODE_PORT changes it)
+make deploy-mc                     # multi-cluster center (kubectl pointing at the center, or ~/.kube/aiops-mc/center)
 ```
 
 - Image: `xnet.registry.io:8443/xnet-cloud/aiops-copilot-frontend:<VERSION>`. `VERSION` is the deployment version; the version in `package.json` is package metadata only.
-- Access: `http://<any node IP>:30081/` (30082 on a multi-cluster center). The container runs Nginx: static pages plus a reverse proxy from `/api/*` to `http://aiops-copilot.aiops.svc.cluster.local:8000/`, so the backend Service must exist.
+- Access: `http://<any node IP>:30082/` (same for single and multi-cluster). The container runs Nginx: static pages plus a reverse proxy from `/api/*` to `http://aiops-copilot.aiops.svc.cluster.local:8000/`, so the backend Service must exist.
 - The frontend itself does not distinguish single from multi-cluster.
 - To embed the chat in another page, reuse `src/components/aiops-chat/`; the deployment files are not needed.
 
@@ -125,7 +125,7 @@ make restart                                 # restart the frontend Pod
 make logs                                    # Nginx logs
 make delete                                  # delete the frontend Deployment and Service
 kubectl get deployment,svc,pod -n aiops -l app=aiops-copilot-frontend -o wide
-curl -I http://<node IP>:30081/ && curl http://<node IP>:30081/api/health   # page and API proxy
+curl -I http://<node IP>:30082/ && curl http://<node IP>:30082/api/health   # page and API proxy
 ```
 
 ## Backend requirements

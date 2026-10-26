@@ -4,7 +4,7 @@ This really repairs the target namespace (an anomaly fixture). It drives only wh
 human would click: the chat input, the safety panel's rule list,
 "生成自动修复方案" and "批准此动作". No cookies or API calls are injected.
 
-  python3 tests/live-repair-e2e.browser.py --url http://10.2.0.48:30081 --chromium /path/to/chrome \
+  python3 tests/live-repair-e2e.browser.py --url http://10.2.0.48:30082 --chromium /path/to/chrome \
       --namespace aiops-case-04 --screenshot /tmp/live-repair.png
 """
 import argparse
